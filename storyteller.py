@@ -80,7 +80,7 @@ def parse(msg) -> tuple[str, str, float]:
     t0 = timeit.default_timer()
     new_message = {"role": "user", "content": prompt2 + msg}
     messages = conversation_history + [new_message]
-    messages = [new_message]
+    # messages = [new_message]
     outputs = pipe(messages, max_new_tokens=256)
     t1 = timeit.default_timer()
     msg = outputs[0]["generated_text"][-1]["content"].strip()
@@ -104,9 +104,11 @@ while True:
 
     if is_first_message:
         is_first_message = False
-        full_message = prompt + "\n" + parsed_msg
+        full_msg = prompt + "\n" + parsed_msg
 
-    conversation_history.append(parsed_msg)
+    # conversation_history.append(parsed_msg)
+    # conversation_history.append({"role": "user", "content": parsed_msg})
+    conversation_history.append({"role": "user", "content": full_msg})
     # Prepare the messages including the conversation history
     messages = conversation_history.copy()
     t0 = timeit.default_timer()
