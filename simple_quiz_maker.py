@@ -2,16 +2,9 @@
 # This is the proof of concept for the simple quiz maker. It uses an LLM to generate a quiz based on a user's input.
 
 import torch
-from transformers import pipeline
 import timeit
 from termcolor import colored
-
-pipe = pipeline(
-    "text-generation",
-    model="google/gemma-2-2b-it",
-    model_kwargs={"torch_dtype": torch.bfloat16},
-    device="cuda",  # replace with "mps" to run on a Mac device
-)
+from virgil.backend import Gemma
 
 import sys
 
@@ -62,7 +55,7 @@ def prompt_llm(msg, is_first_message: bool = False):
 
     messages = conversation_history.copy()
     t0 = timeit.default_timer()
-    outputs = pipe(messages, max_new_tokens=256)
+    outputs = backend(messages, max_new_tokens=256)
     t1 = timeit.default_timer()
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 

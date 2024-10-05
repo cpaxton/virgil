@@ -1,20 +1,12 @@
 # (c) 2024 by Chris Paxton
 # Quiz Maker, advanced version
 
-import torch
-from transformers import pipeline
 import timeit
 from termcolor import colored
 import datetime
 
-pipe = pipeline(
-    "text-generation",
-    model="google/gemma-2-2b-it",
-    model_kwargs={"torch_dtype": torch.bfloat16},
-    device="cuda",  # replace with "mps" to run on a Mac device
-)
-
-import sys
+from virgil.backend import Gemma
+backend = Gemma()
 
 userprompt = """
 Enter something to make a quiz about.
@@ -81,7 +73,7 @@ def prompt_llm(full_msg):
 
     messages = conversation_history.copy()
     t0 = timeit.default_timer()
-    outputs = pipe(messages, max_new_tokens=256)
+    outputs = backend(messages, max_new_tokens=256)
     t1 = timeit.default_timer()
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
