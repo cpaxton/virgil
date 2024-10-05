@@ -1,1 +1,4 @@
-*swp
+# Vim files
+*.swp
+*.swo
+*.swn
