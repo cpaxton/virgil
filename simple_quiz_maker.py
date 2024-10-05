@@ -1,3 +1,6 @@
+# (c) 2024 by Chris Paxton
+# This is the proof of concept for the simple quiz maker. It uses an LLM to generate a quiz based on a user's input.
+
 import torch
 from transformers import pipeline
 import timeit
