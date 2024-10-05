@@ -63,12 +63,16 @@ output: sit:bus stop:at the
 Input: "take a seat"
 output: sit:bus stop:at the
 
+input: "look around"
+output: look:bus stop:at the
+
 Input: "wait, what about the lights?"
 output: ask:lights:about the
 
 Input: "talk to Silas"
 output: talk:Silas:to
 
+You will always provide all three terms; infer the joiner if necessary.
 Give only the output, no other information, for the next input.
 
 Input: 

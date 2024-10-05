@@ -37,7 +37,8 @@ system_prompt = """You are a helpful AI assistant who will answer questions conc
 
 Question: """
 
-question = "Who was the president of the united states of america during the american civil war?"
+# question = "Who was the president of the united states of america during the american civil war?"
+question = "Name all the prime numbers below 20; for each, name the capital of an African country."
 question_shuffled = question.split(" ")
 import random
 random.shuffle(question_shuffled)
@@ -50,3 +51,11 @@ print()
 print("=====")
 print("Shuffled question:")
 query(system_prompt + question_shuffled)
+
+question_reversed = " ".join(question.split(" ")[::-1])
+
+print()
+print("=====")
+print("Reversed question:")
+query(system_prompt + question_reversed)
+
