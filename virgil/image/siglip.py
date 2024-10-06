@@ -52,9 +52,11 @@ class SigLIPAligner:
         best_score = -1
         best_image = None
 
-        for _ in range(num_tries):
+        for i in range(num_tries):
+            print("Generating image attempt", i + 1)
             image = image_generator.generate(prompt)
             score = self.check_alignment(image, prompt)
+            print("Alignment score:", score)
             if score > best_score:
                 best_score = score
                 best_image = image
