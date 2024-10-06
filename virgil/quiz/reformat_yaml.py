@@ -87,13 +87,12 @@ def create_combined_yaml_for_folder(folder_path: str) -> None:
         yaml.dump(parsed_data, combined_stream, default_flow_style=False)
 
 
-# Example usage
-@click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
-def main(folder_path: str = ""):
-    if len(folder_path) == 0:
-        # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
-        folder_path = "What houseplant are you?/2024-10-05-23-22-27/"
+def create_quiz_html(folder_path: str):
+    """Create a quiz HTML file for the given folder containing results.yaml and questions.yaml.
+
+    Args:
+        folder_path (str): Path to the folder containing results.yaml and questions.yaml.
+    """
     create_combined_yaml_for_folder(folder_path)
 
     # Load the combined.yaml file
@@ -101,7 +100,27 @@ def main(folder_path: str = ""):
     with open(combined_file_path, 'r') as combined_stream:
         combined_data = yaml.safe_load(combined_stream)
 
-    # Create the html file based on the template
+    # Load the HTML template
+    template = load_quiz_html()
+
+    # Replace the placeholders in the template with the data from the combined.yaml file
+    template.replace("$RAW_DATA", yaml.dump(combined_data, default_flow_style=False))
+    print(template)
+
+    # Write to file in the same folder
+    output_file_path = os.path.join(folder_path, 'quiz.html')
+    with open(output_file_path, 'w') as output_stream:
+        output_stream.write(template)
+
+
+# Example usage
+@click.command()
+@click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
+def main(folder_path: str = ""):
+    if len(folder_path) == 0:
+        # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
+        folder_path = "What houseplant are you?/2024-10-05-23-22-27/"
+    create_quiz_html(folder_path)
 
 if __name__ == "__main__":
     main()
