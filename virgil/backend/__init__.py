@@ -1,7 +1,10 @@
+# # (c) 2024 by Chris Paxton
+
 from .gemma import Gemma
+from .base import Backend
 
 
-def get_backend(name: str):
+def get_backend(name: str) -> Backend:
     """Get a backend by name.
 
     Args:

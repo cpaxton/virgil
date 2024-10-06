@@ -1,7 +1,6 @@
 # Storytelling with Gemma
 
-this is a short experiment in making an interactive game. 
-
+this is a short experiment in making an interactive game.
 
 ## License
 

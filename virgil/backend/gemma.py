@@ -1,7 +1,12 @@
+# # (c) 2024 by Chris Paxton
+
 import torch
 from transformers import pipeline
 
-class Gemma:
+from .base import Backend
+
+
+class Gemma(Backend):
     def __init__(self):
         self.pipe = pipeline(
             "text-generation",
@@ -10,5 +15,5 @@ class Gemma:
             device="cuda",  # replace with "mps" to run on a Mac device
         )
 
-    def __call__(self, messages, max_new_tokens: int = 256):
+    def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs):
         return self.pipe(messages, max_new_tokens=max_new_tokens)
