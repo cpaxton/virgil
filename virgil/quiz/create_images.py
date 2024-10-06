@@ -112,10 +112,16 @@ def main(folder_path: str = ""):
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
         folder_path = "2024-10-06"
 
-    all_folders = glob.glob(f"{folder_path}/*")
-    for folder in all_folders:
+    topics = ["What kind of virus are you?", "What kind of protist are you?", "What kind of plant are you?", "What kind of tree are you?", "What kind of flower are you?", "What kind of fruit are you?", "What kind of vegetable are you?", "What kind of herb are you?", "What kind of spice are you?", "What kind of condiment are you?", "What kind of sauce are you?", "What kind of soup are you?", "What kind of salad are you?", "What kind of appetizer are you?", "What kind of entree are you?", "What kind of dessert are you?", "What kind of drink are you?", "What kind of cocktail are you?", "What kind of beer are you?", "What kind of wine are you?", "What kind of spirit are you?", "What kind of non-alcoholic beverage are you?", "What kind of juice are you?", "What kind of soda are you?"]
+    for topic in topics:
+        folder = os.path.join(folder_path, topic)
         print("Try to create images for folder:", folder)
         create_images_for_folder(folder)
+
+    # all_folders = glob.glob(f"{folder_path}/*")
+    # for folder in all_folders:
+    #    print("Try to create images for folder:", folder)
+    #    create_images_for_folder(folder)
 
 if __name__ == "__main__":
     main()

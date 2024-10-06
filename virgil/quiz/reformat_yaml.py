@@ -2,6 +2,7 @@ import yaml
 import os
 import click
 import re
+import numpy as np
 
 
 import pkg_resources
@@ -17,9 +18,8 @@ def load_quiz_html():
     
     return content
 
-# Usage
+# Load the quiz.html template
 quiz_html = load_quiz_html()
-print(quiz_html)
 
 
 def read_and_parse_yaml_files(results_file, questions_file):
@@ -45,6 +45,10 @@ def read_and_parse_yaml_files(results_file, questions_file):
                     "text": value,
                     "type": key
                 })
+
+            # Shuffle the list of possible answers
+            np.random.shuffle(parsed_question["options"])
+
             parsed_questions.append(parsed_question)
 
         parsed_results = {}
@@ -52,12 +56,16 @@ def read_and_parse_yaml_files(results_file, questions_file):
             if isinstance(value, dict):
                 parsed_results[key] = {
                     "description": value["description"],
-                    "image": f"results/{key}.png"
+                    "image": f"results/{key}.png",
+                    "image_description": value["image"],
+                    "title": value["result"]
                 }
+                topic = value["topic"]
 
         return {
             "questions": parsed_questions,
-            "results": parsed_results
+            "results": parsed_results,
+            "topic": topic,
         }
 
     except FileNotFoundError as e:
@@ -118,10 +126,16 @@ def create_quiz_html(folder_path: str):
 @click.command()
 @click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
 def main(folder_path: str = ""):
+    import glob
+
     if len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
-        folder_path = "What houseplant are you?/2024-10-05-23-22-27/"
-    create_quiz_html(folder_path)
+        folder_path = "2024-10-06"
+
+    all_folders = glob.glob(f"{folder_path}/*")
+    for folder in all_folders:
+        print("Try to create docs for folder:", folder)
+        create_quiz_html(folder)
 
 if __name__ == "__main__":
     main()
