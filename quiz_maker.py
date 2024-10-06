@@ -31,6 +31,7 @@ Topic: (the title of the quiz)
 Mostly (letter)'s:
 Result: (the result)
 Description: (the description)
+Image: (a detailed prompt for an image generator)
 
 Topic: {topic}
 Mostly A's:
@@ -39,16 +40,17 @@ Mostly A's:
 prompt_questions = """
 You are generating a dumb, weird, BuzzFeed-style personality quiz titled, "{topic}".
 
-There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
+There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be at least tangentially related to the "{topic}", but will get increasingly weird as the quiz goes on.
 
-You will also give a prompt for an image generator associated with each question.
+For example, Question 1 will be weirdness level 1, but Question 3 will be weirdness level 9, and may be something very absurd or personal. It will refer back to the answers of the previous question.
+
+You will also give a detailed prompt for an image generator associated with each question. You will not hallucinate.
 
 For example:
 
-Topic: What kind of sandwich are you?
 Question 1:
 Question: (text of the question)
-Image: (an appropriate image prompt)
+Image: (a detailed prompt for an image generator)
 A. (text of option A)
 B. (text of option B)
 C. (text of option C)
@@ -64,7 +66,6 @@ When prompted, with "Question N", you will generate only the text for that quest
 
 Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
 
-Topic: {topic}
 Question 1:
 """
 
@@ -75,22 +76,22 @@ def main():
 
     print(userprompt)
     # topic = input("Enter the title of your dumb personality quiz: ")
-    # topic = "Which Lord of the Rings character are you?"
-    topic = "Which faction from Iain Banks' Culture series are you?"
+    topic = "Which Lord of the Rings character are you?"
+    # topic = "Which faction from Iain Banks' Culture series are you?"
 
     msg = prompt_answers.format(topic=topic)
     chat.prompt(msg)
-    chat.prompt(f"Topic: {topic}\nMostly B's:")
-    chat.prompt(f"Topic: {topic}\nMostly C's:")
-    chat.prompt(f"Topic: {topic}\nMostly D's:")
-    chat.prompt(f"Topic: {topic}\nMostly E's:")
+    chat.prompt("Mostly B's:")
+    chat.prompt("Mostly C's:")
+    chat.prompt("Mostly D's:")
+    chat.prompt("Mostly E's:")
 
     msg = prompt_questions.format(num_questions=10, topic=topic)
     chat.prompt(msg)
-    chat.prompt(f"Topic: {topic}\nQuestion 2:")
-    chat.prompt(f"Topic: {topic}\nQuestion 3:")
-    chat.prompt(f"Topic: {topic}\nQuestion 4:")
-    chat.prompt(f"Topic: {topic}\nQuestion 5:")
+    chat.prompt("Question 2:")
+    chat.prompt("Question 3:")
+    chat.prompt("Question 4:")
+    chat.prompt("Question 5:")
 
 
 if __name__ == "__main__":
