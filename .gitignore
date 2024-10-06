@@ -2,3 +2,7 @@
 *.swp
 *.swo
 *.swn
+
+# Python files
+*.pyc
+__pycache__/
