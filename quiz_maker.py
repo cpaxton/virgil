@@ -107,28 +107,28 @@ Topic: {topic}
 Question 1:
 """
 
-
-def main():
+def generate_quiz(topic: str):
     backend = Gemma()
     chat = ChatWrapper(backend)
     result_parser = ResultParser()
     question_parser = QuestionParser()
 
-    print(userprompt)
+    # print(userprompt)
     # topic = input("Enter the title of your dumb personality quiz: ")
-    topic = "Which Lord of the Rings character are you?"
+    # topic = "Which Lord of the Rings character are you?"
     # topic = "Which faction from Iain Banks' Culture series are you?"
-    topic = "Which kitchen utensil are you?"
-    topic = "What sea creature are you?"
-    topic = "What houseplant are you?"
+    # topic = "Which kitchen utensil are you?"
+    # topic = "What sea creature are you?"
+    # topic = "What houseplant are you?"
+    # topic = "What kind of sandwich are you?"
 
     # Create a directory for the quiz
     os.makedirs(topic, exist_ok=True)
 
     # Add subfolder with datetime for current date and time
     now = datetime.now()
-    date = now.strftime("%Y-%m-%d-%H-%M-%S")
-    os.makedirs(os.path.join(topic, date), exist_ok=True)
+    date = now.strftime("%Y-%m-%d")
+    os.makedirs(os.path.join(date, topic), exist_ok=True)
 
     msg = prompt_answers.format(topic=topic)
     res_a = result_parser.parse(chat.prompt(msg))
@@ -138,7 +138,7 @@ def main():
     res_e = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly E's:"))
 
     # Save all the results out as a YAML file
-    with open(os.path.join(topic, date, "results.yaml"), "w") as f:
+    with open(os.path.join(date, topic, "results.yaml"), "w") as f:
         yaml.dump({"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e}, f)
 
     chat.clear()
@@ -155,9 +155,15 @@ def main():
         questions.append(q)
 
     # Save all the questions out as a YAML file
-    with open(os.path.join(topic, date, "questions.yaml"), "w") as f:
+    with open(os.path.join(date, topic, "questions.yaml"), "w") as f:
         yaml.dump(questions, f)
 
+    chat.clear()
+
+def main():
+    topics = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?"]
+    for topic in topics:
+        generate_quiz(topic)
 
 if __name__ == "__main__":
     main()
