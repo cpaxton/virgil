@@ -38,7 +38,7 @@ class DiffuserImageGenerator(ImageGenerator):
         Returns:
             Image.Image: The generated image.
         """
-        result = self.pipeline(prompt=prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, return_images=True)
+        result = self.pipeline(prompt=prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, guidance_scale=self.guidance_scale, negative_prompt="blurry, bad quality, duplicated", return_images=True)
         return result.images[0]
 
 
