@@ -34,9 +34,7 @@ class SigLIPAligner:
             image = Image.open(image)
 
         # Prepare inputs
-        print("Text:", text)
-        print("Image:", image)
-        inputs = self.processor(text=[text], images=[image], return_tensors="pt", padding=True, max_length=self.max_length).to(self.device)
+        inputs = self.processor(text=[text], images=[image], return_tensors="pt", padding=True, max_length=self.max_length, truncation=True).to(self.device)
 
         # Generate embeddings
         with torch.no_grad():
