@@ -20,6 +20,10 @@ class ChatWrapper:
         """
         self.conversation_history.append({"role": role, "content": content})
 
+    def clear(self):
+        """Clear the conversation history."""
+        self.conversation_history = []
+
     def prompt(self, msg: str) -> str:
         """Prompt the LLM with a message.
 

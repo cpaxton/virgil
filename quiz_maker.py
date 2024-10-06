@@ -19,9 +19,8 @@ For example:
 Topic: What kind of sandwich are you?
 Mostly A's:
 Result: You are a *Ham and cheese* sandwich.
-Description: You are a classic sandwich, reliable and comforting. You are a ham and cheese sandwich.
-Long Description: You are the go-to, the classic, the reliable. When people think of a sandwich, they think of you. You are a ham and cheese sandwich, the classic combination of salty ham and creamy cheese. You are comforting and familiar, and people know they can count on you to be there when they need you.
-Image: a sandwich with ham and cheese.
+Description: You are a classic sandwich, reliable and comforting. You are a ham and cheese sandwich. You are the go-to, the classic, the reliable. When people think of a sandwich, they think of you: the classic combination of salty ham and creamy cheese. You are comforting and familiar, and people know they can count on you to be there when they need you.
+Image: A picture of a sandwich with ham and cheese.
 END RESULT
 
 After Result C, options will get steadily more unhinged and nonsensical. When prompted, with "Result X", you will generate only the text for that result and no more. End each question with "END RESULT". Provide no other output.
@@ -32,7 +31,6 @@ Topic: (the title of the quiz)
 Mostly (letter)'s:
 Result: (the result)
 Description: (the description)
-Long Description: (the long description, 1-2 paragraphs)
 
 Topic: {topic}
 Mostly A's:
@@ -49,16 +47,20 @@ For example:
 
 Topic: What kind of sandwich are you?
 Question 1:
-Question: What is your favorite color?
-Image: a sandwich with a red tomato, a green lettuce leaf, and a yellow cheese slice.
-A. Red
-B. Blue
-C. Green
-D. Yellow
-E. Black
+Question: (text of the question)
+Image: (an appropriate image prompt)
+A. (text of option A)
+B. (text of option B)
+C. (text of option C)
+D. (text of option D)
+E. (text of option E)
 END QUESTION
 
-After question 3, questions will get steadily more unhinged and nonsensical. When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output.
+Questions should be somewhat related to the topic, but not too much. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?".
+
+After question 3, questions will get steadily more unhinged and nonsensical, as well as increasinly personal. For example, if the topic was "What kind of sandwich are you?", a good question might be "When was the last time you cried while eating a sandwich?".
+
+When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output.
 
 Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
 
@@ -72,10 +74,9 @@ def main():
     chat = ChatWrapper(backend)
 
     print(userprompt)
-    print()
-
     # topic = input("Enter the title of your dumb personality quiz: ")
-    topic = "Which Lord of the Rings character are you?"
+    # topic = "Which Lord of the Rings character are you?"
+    topic = "Which faction from Iain Banks' Culture series are you?"
 
     msg = prompt_answers.format(topic=topic)
     chat.prompt(msg)
