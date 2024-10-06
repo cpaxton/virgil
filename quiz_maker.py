@@ -108,8 +108,7 @@ Topic: {topic}
 Question 1:
 """
 
-def generate_quiz(topic: str):
-    backend = Gemma()
+def generate_quiz(topic: str, backend: Gemma = Gemma()) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
     question_parser = QuestionParser(chat)
@@ -161,12 +160,13 @@ def generate_quiz(topic: str):
 
     chat.clear()
 
-    create_images_for_folder(os.path.join(date, topic)) 
+    # create_images_for_folder(os.path.join(date, topic)) 
 
 def main():
     topics = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?"]
+    backend = Gemma()
     for topic in topics:
-        generate_quiz(topic)
+        generate_quiz(topic, backend)
 
 if __name__ == "__main__":
     main()
