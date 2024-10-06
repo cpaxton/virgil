@@ -54,7 +54,7 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
     Args:
         folder_path (str): Path to the folder containing results.yaml and questions.yaml.
     """
-    generator = DiffuserImageGenerator()
+    generator = DiffuserImageGenerator(num_inference_steps=50, guidance_scale=7.5)
     aligner = SigLIPAligner()
 
     # Create subfolders for the images for questions and for the results
@@ -65,6 +65,22 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
 
     try:
         results, question_images = parse_yaml_files(folder_path)
+        
+        print("Question Images:")
+        for i, image in enumerate(question_images, 1):
+            print("-" * 20)
+            print(f"Image {i}: {image}")
+
+            # Create the image using the DiffuserImageGenerator and search
+            score, image = aligner.search(generator, image, num_tries=num_tries)
+            print(f"Final score: {score}")
+
+            # Save the image
+            image.save(os.path.join(questions_folder, f"{i}.png"))
+            print(f"Image saved to {os.path.join(questions_folder, f'{i}.png')}")
+            
+            # Print a newline
+            print()
         
         print()
         print("Results:")
@@ -82,22 +98,6 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
             print(f"Image saved to {os.path.join(results_folder, f'{letter}.png')}")
             print()
 
-        
-        print("Question Images:")
-        for i, image in enumerate(question_images, 1):
-            print("-" * 20)
-            print(f"Image {i}: {image}")
-
-            # Create the image using the DiffuserImageGenerator and search
-            score, image = aligner.search(generator, image, num_tries-num_tries)
-            print(f"Final score: {score}")
-
-            # Save the image
-            image.save(os.path.join(questions_folder, f"{i}.png"))
-            print(f"Image saved to {os.path.join(questions_folder, f'{i}.png')}")
-            
-            # Print a newline
-            print()
     except FileNotFoundError as e:
         print(f"Error: {e}")
 
@@ -107,7 +107,8 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
 @click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
 def main(folder_path: str = ""):
     if len(folder_path) == 0:
-        folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
+        # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
+        folder_path = "What houseplant are you?/2024-10-05-23-22-27/"
     create_images_for_folder(folder_path)
 
 if __name__ == "__main__":

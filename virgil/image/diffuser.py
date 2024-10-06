@@ -1,4 +1,4 @@
-# # (c) 2024 by Chris Paxton
+# (c) 2024 by Chris Paxton
 
 from PIL import Image
 import torch
@@ -12,7 +12,7 @@ class DiffuserImageGenerator(ImageGenerator):
     A class for generating images from text prompts using the Diffusers library.
     """
 
-    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 20):
+    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 50, guidance_scale: float = 7.5) -> None:
         """
         Initialize the DiffuserImageGenerator with a pre-trained model and image generation parameters.
 
@@ -24,6 +24,7 @@ class DiffuserImageGenerator(ImageGenerator):
         self.height = height
         self.width = width
         self.num_inference_steps = num_inference_steps
+        self.guidance_scale = guidance_scale
 
         self.pipeline = AutoPipelineForText2Image.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16").to("cuda")
 
@@ -37,7 +38,7 @@ class DiffuserImageGenerator(ImageGenerator):
         Returns:
             Image.Image: The generated image.
         """
-        result = self.pipeline(prompt=prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps)
+        result = self.pipeline(prompt=prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, guidance_scale=self.guidance_scale, return_images=True)
         return result.images[0]
 
 
