@@ -36,7 +36,6 @@ class ResultParser(Parser):
         result = {}
         # Iterate over the lines
         for line in lines:
-            print(line)
             # Split the line into key and value
             if len(line.strip()) == 0:
                 break
@@ -72,6 +71,8 @@ class ResultParser(Parser):
         res["letter"] = letter
         res["topic"] = topic
 
+        print()
+        print(colored("-" * 10 + str(letter) + "-" * 10, green))
         for key, value in res.items():
             print(colored(f"{key}:", "green"), value)
 
@@ -156,6 +157,8 @@ class QuestionParser(Parser):
             res = self.chat.prompt(f"Topic: {topic}\nQuestion {question}:")
         res = self.parse(res)
 
+        print()
+        print(colored("-" * 10 + str(question) + "-" * 10, blue))
         for key, value in res.items():
             print(colored(f"{key}:", "blue"), value)
 
