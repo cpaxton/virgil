@@ -106,10 +106,15 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
 @click.command()
 @click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
 def main(folder_path: str = ""):
+    import glob
+
     if len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
-        folder_path = "What houseplant are you?/2024-10-05-23-22-27/"
-    create_images_for_folder(folder_path)
+        folder_path = "2024-10-06"
+
+    all_folders = glob.glob(f"{folder_path}/*")
+    for folder in all_folders:
+        create_images_for_folder(folder)
 
 if __name__ == "__main__":
     main()
