@@ -3,6 +3,7 @@
 
 from virgil.backend import Gemma
 from virgil.chat import ChatWrapper
+from virgil.quiz.parser import ResultParser
 
 userprompt = """
 Enter something to make a quiz about.
@@ -76,6 +77,7 @@ Question 1:
 def main():
     backend = Gemma()
     chat = ChatWrapper(backend)
+    result_parser = ResultParser()
 
     print(userprompt)
     # topic = input("Enter the title of your dumb personality quiz: ")
@@ -83,11 +85,17 @@ def main():
     # topic = "Which faction from Iain Banks' Culture series are you?"
 
     msg = prompt_answers.format(topic=topic)
-    res_a = chat.prompt(msg)
-    res_b = chat.prompt(f"Topic: {topic}\nMostly B's:")
-    res_c = chat.prompt(f"Topic: {topic}\nMostly C's:")
-    res_d = chat.prompt(f"Topic: {topic}\nMostly D's:")
-    res_e = chat.prompt(f"Topic: {topic}\nMostly E's:")
+    res_a = result_parser.parse(chat.prompt(msg))
+    res_b = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly B's:"))
+    res_c = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly C's:"))
+    res_d = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly D's:"))
+    res_e = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly E's:"))
+
+    print(res_a)
+    print(res_b)
+    print(res_c)
+    print(res_d)
+    print(res_e)
 
     chat.clear()
 

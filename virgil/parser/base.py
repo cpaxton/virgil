@@ -3,14 +3,15 @@
 # Description: Base class for all parsers
 
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
 
 class Parser(ABC):
     """Base class for all parsers. Contains methods for parsing text as well as utility functions common to many parsers, like pruning text to a certain length or key."""
 
     @abstractmethod
-    def parse(self, text: str):
-        return text
+    def parse(self, text: str) -> Optional[Dict[str, Any]]:
+        pass
 
     def prune_to(self, text: str, max_tokens: int):
         """Prune the text to a maximum number of tokens.
