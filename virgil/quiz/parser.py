@@ -53,6 +53,8 @@ class ResultParser(Parser):
         if all(key in result for key in required_keys):
             return result
         else:
+            print("!!! Missing key in result")
+            breakpoint()
             return None
 
 
