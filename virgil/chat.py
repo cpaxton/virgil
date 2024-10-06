@@ -1,15 +1,13 @@
 # # (c) 2024 by Chris Paxton
 
 import timeit
-from typing import Optional
 from termcolor import colored
 
 from virgil.backend import Backend
-from virgil.parser import Parser
 
 
 class ChatWrapper:
-    def __init__(self, backend: Backend, parser: Optional[Parser] = None) -> None:
+    def __init__(self, backend: Backend) -> None:
         self.backend = backend
         self.conversation_history = []
 
