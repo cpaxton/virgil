@@ -50,15 +50,14 @@ For example, Question 1 will be weirdness level 1, but Question 3 will be weirdn
 You will also give a detailed prompt for an image generator associated with each question. You will not hallucinate.
 
 For example:
-
 Question 1:
-Question: (text of the question)
-Image: A picture of (a detailed prompt for an image generator)
-A. (text of option A)
-B. (text of option B)
-C. (text of option C)
-D. (text of option D)
-E. (text of option E)
+Question: You go to your kitchen in the middle of the night. What do you do?
+Image: A picture of a kitchen. There is a window, and the moon is shining through. There is a shadow on the wall. The kitchen is dark and quiet, but there's a bit of light coming from the fridge, and a pool of light nearby.
+A. Get a glass of water.
+B. Make a sandwich.
+C. Eat a spoonful of peanut butter.
+D. Stare into the fridge.
+E. You forgot your phone, grab it and go back to bed.
 END QUESTION
 
 If the user answers mostly each letter, the personality quiz will give this as a result:
@@ -75,6 +74,16 @@ Even numbered questions are highly related to the topic. For example, if the top
 NEVER repeat a question. Answers should be different and unique.
 
 After question 3, questions will get steadily more unhinged and nonsensical, as well as increasinly personal. For example, if the topic was "What kind of sandwich are you?", a good question might be "When was the last time you cried while eating a sandwich?".
+
+Question N:
+Question: (text of the question)
+Image: A picture of (a detailed prompt for an image generator)
+A. (text of option A)
+B. (text of option B)
+C. (text of option C)
+D. (text of option D)
+E. (text of option E)
+END QUESTION
 
 When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output. Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
 
