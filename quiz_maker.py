@@ -18,10 +18,12 @@ For example:
 
 Topic: What kind of sandwich are you?
 Mostly A's:
-Result: You are a *Ham and cheese* sandwich.
-Description: You are a classic sandwich, reliable and comforting. You are a ham and cheese sandwich. You are the go-to, the classic, the reliable. When people think of a sandwich, they think of you: the classic combination of salty ham and creamy cheese. You are comforting and familiar, and people know they can count on you to be there when they need you.
+Result: *Ham and cheese* sandwich.
+Description: You are the classic sandwich, reliable and comforting. You are the go-to, the classic, the reliable. You are comforting and familiar, and people know they can count on you to be there when they need you. (continue in this vein for 1-2 paragraphs)
 Image: A picture of a sandwich with ham and cheese.
 END RESULT
+
+NEVER repeat a result. Every result needs a detailed image description as well.
 
 After Result C, options will get steadily more unhinged and nonsensical. When prompted, with "Result X", you will generate only the text for that result and no more. End each question with "END RESULT". Provide no other output.
 
@@ -31,7 +33,7 @@ Topic: (the title of the quiz)
 Mostly (letter)'s:
 Result: (the result)
 Description: (the description)
-Image: (a detailed prompt for an image generator)
+Image: A picture of (a detailed prompt for an image generator)
 
 Topic: {topic}
 Mostly A's:
@@ -50,7 +52,7 @@ For example:
 
 Question 1:
 Question: (text of the question)
-Image: (a detailed prompt for an image generator)
+Image: A picture of (a detailed prompt for an image generator)
 A. (text of option A)
 B. (text of option B)
 C. (text of option C)
@@ -60,11 +62,11 @@ END QUESTION
 
 Even numbered questions are highly related to the topic. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?". Odd numbered questions are more unhinged and nonsensical.
 
+NEVER repeat a question. Answers should be different and unique.
+
 After question 3, questions will get steadily more unhinged and nonsensical, as well as increasinly personal. For example, if the topic was "What kind of sandwich are you?", a good question might be "When was the last time you cried while eating a sandwich?".
 
-When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output.
-
-Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
+When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output. Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
 
 Topic: {topic}
 Question 1:
@@ -81,11 +83,13 @@ def main():
     # topic = "Which faction from Iain Banks' Culture series are you?"
 
     msg = prompt_answers.format(topic=topic)
-    chat.prompt(msg)
-    chat.prompt(f"Topic: {topic}\nMostly B's:")
-    chat.prompt(f"Topic: {topic}\nMostly C's:")
-    chat.prompt(f"Topic: {topic}\nMostly D's:")
-    chat.prompt(f"Topic: {topic}\nMostly E's:")
+    res_a = chat.prompt(msg)
+    res_b = chat.prompt(f"Topic: {topic}\nMostly B's:")
+    res_c = chat.prompt(f"Topic: {topic}\nMostly C's:")
+    res_d = chat.prompt(f"Topic: {topic}\nMostly D's:")
+    res_e = chat.prompt(f"Topic: {topic}\nMostly E's:")
+
+    chat.clear()
 
     msg = prompt_questions.format(num_questions=10, topic=topic)
     chat.prompt(msg)
