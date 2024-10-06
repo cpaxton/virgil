@@ -47,20 +47,19 @@ if __name__ == "__main__":
     image = generator.generate(prompt)
     image.save("blobfish.png")
 
-    prompt = "A sea turtle wearing a scuba diving suit, working as a marine biologist."
-    image = generator.generate(prompt)
-    image.save("sea_turtle.png")
+    # prompt = "A sea turtle wearing a scuba diving suit, working as a marine biologist."
+    # image = generator.generate(prompt)
+    # image.save("sea_turtle.png")
 
-    prompt = "Picture of A sea turtle wearing a scuba diving suit, working as a marine biologist."
-    image = generator.generate(prompt)
-    image.save("sea_turtle2.png")
+    # prompt = "Picture of A sea turtle wearing a scuba diving suit, working as a marine biologist."
+    # image = generator.generate(prompt)
+    # image.save("sea_turtle2.png")
 
     aligner = SigLIPAligner()
-    aligner.check_alignment("blobfish.png", prompt)
-    aligner.check_alignment("sea_turtle.png", prompt)
-    aligner.check_alignment("sea_turtle2.png", prompt)
 
+    # Blobfish tests
     prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
+    aligner.check_alignment("blobfish.png", prompt)
     score, image = aligner.search(generator, prompt, num_tries=10)
     print(score)
     image.save("blobfish_search.png")
