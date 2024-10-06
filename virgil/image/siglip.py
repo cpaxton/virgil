@@ -1,6 +1,7 @@
 # # (c) 2024 by Chris Paxton
 
 import torch
+from typing import Optional
 from PIL import Image
 from transformers import AutoProcessor, AutoModel
 
