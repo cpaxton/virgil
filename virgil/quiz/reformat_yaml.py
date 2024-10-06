@@ -104,7 +104,8 @@ def create_quiz_html(folder_path: str):
     template = load_quiz_html()
 
     # Replace the placeholders in the template with the data from the combined.yaml file
-    template.replace("$RAW_DATA", yaml.dump(combined_data, default_flow_style=False))
+    template = template.replace("{{ raw_data }}", yaml.dump(combined_data, default_flow_style=False))
+
     print(template)
 
     # Write to file in the same folder
