@@ -114,6 +114,7 @@ def main(folder_path: str = ""):
 
     all_folders = glob.glob(f"{folder_path}/*")
     for folder in all_folders:
+        print("Try to create images for folder:", folder)
         create_images_for_folder(folder)
 
 if __name__ == "__main__":

@@ -122,9 +122,6 @@ def generate_quiz(topic: str, backend: Gemma) -> None:
     # topic = "What houseplant are you?"
     # topic = "What kind of sandwich are you?"
 
-    # Create a directory for the quiz
-    os.makedirs(topic, exist_ok=True)
-
     # Add subfolder with datetime for current date and time
     now = datetime.now()
     date = now.strftime("%Y-%m-%d")
