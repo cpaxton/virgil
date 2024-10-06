@@ -147,3 +147,16 @@ class QuestionParser(Parser):
         else:
             breakpoint()
             return None
+
+    def prompt(self, topic: str, question: int, msg: Optional[str] = None) -> str:
+        """Prompt the LLM and return the parsed response."""
+        if msg is not None:
+            res = self.chat.prompt(msg)
+        else:
+            res = self.chat.prompt(f"Topic: {topic}\nQuestion {question}:")
+        res = self.parse(res)
+
+        for key, value in res.items():
+            print(colored(f"{key}:", "blue"), value)
+
+        return res

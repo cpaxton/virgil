@@ -145,14 +145,14 @@ def generate_quiz(topic: str):
     chat.clear()
 
     msg = prompt_questions.format(num_questions=10, topic=topic, result_a=res_a["result"], result_b=res_b["result"], result_c=res_c["result"], result_d=res_d["result"], result_e=res_e["result"])
-    q1 = question_parser.parse(chat.prompt(msg))
+    q1 = question_parser.prompt(msg)
     questions = [q1]
     for i in range(2, 11):
         if i % 2 == 0:
             msg = f"Topic: {topic}\nQuestion {i}:"
         else:
             msg = f"Topic: {topic}\nQuestion {i}:"
-        q = question_parser.parse(chat.prompt(msg))
+        q = question_parser.prompt(msg)
         questions.append(q)
 
     # Save all the questions out as a YAML file
