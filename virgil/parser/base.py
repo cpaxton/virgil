@@ -6,8 +6,7 @@ from abc import ABC, abstractmethod
 
 
 class Parser(ABC):
-    def __init__(self):
-        pass
+    """Base class for all parsers. Contains methods for parsing text as well as utility functions common to many parsers, like pruning text to a certain length or key."""
 
     @abstractmethod
     def parse(self, text: str):
