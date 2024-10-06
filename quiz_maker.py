@@ -120,6 +120,7 @@ def main():
     # topic = "Which faction from Iain Banks' Culture series are you?"
     topic = "Which kitchen utensil are you?"
     topic = "What sea creature are you?"
+    topic = "What houseplant are you?"
 
     # Create a directory for the quiz
     os.makedirs(topic, exist_ok=True)

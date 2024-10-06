@@ -54,6 +54,7 @@ class SigLIPAligner:
 
         for i in range(num_tries):
             print("Generating image attempt", i + 1)
+            print("Prompt:", prompt)
             image = image_generator.generate(prompt)
             score = self.check_alignment(image, prompt)
             print("Alignment score:", score)

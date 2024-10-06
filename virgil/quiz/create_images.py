@@ -47,16 +47,15 @@ def parse_yaml_files(folder_path: str) -> tuple[Dict[str, str], List[str]]:
 
     return results, question_images
 
-# Example usage
-@click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
-def main(folder_path: str = ""):
 
+def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
+    """Create images for the given folder containing results.yaml and questions.yaml.
+
+    Args:
+        folder_path (str): Path to the folder containing results.yaml and questions.yaml.
+    """
     generator = DiffuserImageGenerator()
     aligner = SigLIPAligner()
-
-    if len(folder_path) == 0:
-        folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
 
     # Create subfolders for the images for questions and for the results
     results_folder = os.path.join(folder_path, "results")
@@ -75,7 +74,7 @@ def main(folder_path: str = ""):
             print(f"Image: {image}")
 
             # Create the image using the DiffuserImageGenerator and search
-            score, image = aligner.search(generator, image, num_tries=25)
+            score, image = aligner.search(generator, image, num_tries=num_tries)
             print(f"Final score: {score}")
 
             # Save the image
@@ -90,7 +89,7 @@ def main(folder_path: str = ""):
             print(f"Image {i}: {image}")
 
             # Create the image using the DiffuserImageGenerator and search
-            score, image = aligner.search(generator, image, num_tries=25)
+            score, image = aligner.search(generator, image, num_tries-num_tries)
             print(f"Final score: {score}")
 
             # Save the image
@@ -101,6 +100,15 @@ def main(folder_path: str = ""):
             print()
     except FileNotFoundError as e:
         print(f"Error: {e}")
+
+
+# Example usage
+@click.command()
+@click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
+def main(folder_path: str = ""):
+    if len(folder_path) == 0:
+        folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
+    create_images_for_folder(folder_path)
 
 if __name__ == "__main__":
     main()
