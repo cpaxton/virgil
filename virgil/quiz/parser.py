@@ -3,6 +3,7 @@
 from virgil.parser import Parser
 from typing import Dict, Any, Optional
 
+from termcolor import colored
 
 class ResultParser(Parser):
     def parse(self, text: str) -> Optional[Dict[str, Any]]:
@@ -67,8 +68,13 @@ class ResultParser(Parser):
             res = self.chat.prompt(msg)
         else:
             res = self.chat.prompt(f"Topic: {topic}\nMostly {letter}'s:")
+        res = self.parse(res)
         res["letter"] = letter
         res["topic"] = topic
+
+        for key, value in res.items():
+            print(colored(f"{key}:", "green"), value)
+
         return res
 
 

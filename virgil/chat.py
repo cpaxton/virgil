@@ -24,14 +24,15 @@ class ChatWrapper:
         """Clear the conversation history."""
         self.conversation_history = []
 
-    def prompt(self, msg: str) -> str:
+    def prompt(self, msg: str, verbose: bool = False) -> str:
         """Prompt the LLM with a message.
 
         Args:
             msg (str): The message to prompt the LLM with.
         """
 
-        print()
+        if verbose:
+            print()
 
         self.add_conversation_history("user", msg)
 
@@ -44,13 +45,14 @@ class ChatWrapper:
         # Add the assistant's response to the conversation history
         self.add_conversation_history("assistant", assistant_response)
 
-        # Print the assistant's response
-        print()
-        print(colored("User prompt:\n", "green") + msg)
-        print()
-        print(colored("Response:\n", "blue") + assistant_response)
-        print("----------------")
-        print(f"Generator time taken: {t1-t0:.2f} seconds")
-        print("----------------")
+        if verbose:
+            # Print the assistant's response
+            print()
+            print(colored("User prompt:\n", "green") + msg)
+            print()
+            print(colored("Response:\n", "blue") + assistant_response)
+            print("----------------")
+            print(f"Generator time taken: {t1-t0:.2f} seconds")
+            print("----------------")
 
         return assistant_response
