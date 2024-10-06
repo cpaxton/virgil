@@ -16,6 +16,7 @@ setup(
     install_requires=[
         "torch",
         "transformers",
+        "diffusers",
     ],
     extras_require={
         "dev": [
