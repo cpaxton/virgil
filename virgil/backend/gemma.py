@@ -15,5 +15,14 @@ class Gemma(Backend):
             device="cuda",  # replace with "mps" to run on a Mac device
         )
 
-    def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs):
+    def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs) -> list:
+        """Generate a response to a list of messages.
+
+        Args:
+            messages (List[str]): A list of messages.
+            max_new_tokens (int): The maximum number of tokens to generate.
+
+        Returns:
+            List[str]: A list of generated responses.
+        """
         return self.pipe(messages, max_new_tokens=max_new_tokens)
