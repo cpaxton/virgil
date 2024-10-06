@@ -66,25 +66,31 @@ Topic: {topic}
 Question 1:
 """
 
-backend = Gemma()
-chat = ChatWrapper(backend)
 
-print(userprompt)
-print()
+def main():
+    backend = Gemma()
+    chat = ChatWrapper(backend)
 
-# topic = input("Enter the title of your dumb personality quiz: ")
-topic = "Which Lord of the Rings character are you?"
+    print(userprompt)
+    print()
 
-msg = prompt_answers.format(topic=topic)
-chat.prompt(msg)
-chat.prompt(f"Topic: {topic}\nMostly B's:")
-chat.prompt(f"Topic: {topic}\nMostly C's:")
-chat.prompt(f"Topic: {topic}\nMostly D's:")
-chat.prompt(f"Topic: {topic}\nMostly E's:")
+    # topic = input("Enter the title of your dumb personality quiz: ")
+    topic = "Which Lord of the Rings character are you?"
 
-msg = prompt_questions.format(num_questions=10, topic=topic)
-chat.prompt(msg)
-chat.prompt(f"Topic: {topic}\nQuestion 2:")
-chat.prompt(f"Topic: {topic}\nQuestion 3:")
-chat.prompt(f"Topic: {topic}\nQuestion 4:")
-chat.prompt(f"Topic: {topic}\nQuestion 5:")
+    msg = prompt_answers.format(topic=topic)
+    chat.prompt(msg)
+    chat.prompt(f"Topic: {topic}\nMostly B's:")
+    chat.prompt(f"Topic: {topic}\nMostly C's:")
+    chat.prompt(f"Topic: {topic}\nMostly D's:")
+    chat.prompt(f"Topic: {topic}\nMostly E's:")
+
+    msg = prompt_questions.format(num_questions=10, topic=topic)
+    chat.prompt(msg)
+    chat.prompt(f"Topic: {topic}\nQuestion 2:")
+    chat.prompt(f"Topic: {topic}\nQuestion 3:")
+    chat.prompt(f"Topic: {topic}\nQuestion 4:")
+    chat.prompt(f"Topic: {topic}\nQuestion 5:")
+
+
+if __name__ == "__main__":
+    main()
