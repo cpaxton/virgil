@@ -30,7 +30,13 @@ END RESULT
 
 After Result C, options will get steadily more unhinged and nonsensical. When prompted, with "Result X", you will generate only the text for that result and no more. End each question with "END RESULT". Provide no other output.
 
-Content will be formatted exactly as, with no extra fields, and in valid YAML only. You will not return or say anything else.
+Content will be formatted exactly as, with no extra fields. You will not return or say anything else. You will return:
+
+Topic: (the title of the quiz)
+Mostly (letter)'s:
+Result: (the result)
+Description: (the description)
+Long Description: (the long description, 1-2 paragraphs)
 
 Topic: {topic}
 Mostly A's:
@@ -58,7 +64,7 @@ END QUESTION
 
 After question 3, questions will get steadily more unhinged and nonsensical. When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output.
 
-Content will be formatted exactly as above, with no extra fields, and in valid YAML only. You will not return or say anything else.
+Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
 
 Topic: {topic}
 Question 1:
