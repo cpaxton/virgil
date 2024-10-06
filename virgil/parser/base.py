@@ -9,9 +9,16 @@ from typing import Any, Dict, Optional
 class Parser(ABC):
     """Base class for all parsers. Contains methods for parsing text as well as utility functions common to many parsers, like pruning text to a certain length or key."""
 
+    def __init__(self, chat):
+        self.chat = chat
+
     @abstractmethod
     def parse(self, text: str) -> Optional[Dict[str, Any]]:
         pass
+
+    def prompt(self, msg: Optional[str] = None, *args, **kwargs) -> str:
+        """Prompt the LLM and return the parsed response."""
+        raise NotImplementedError
 
     def prune_to(self, text: str, max_tokens: int):
         """Prune the text to a maximum number of tokens.

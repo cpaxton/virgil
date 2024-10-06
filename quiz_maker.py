@@ -111,8 +111,8 @@ Question 1:
 def generate_quiz(topic: str):
     backend = Gemma()
     chat = ChatWrapper(backend)
-    result_parser = ResultParser()
-    question_parser = QuestionParser()
+    result_parser = ResultParser(chat)
+    question_parser = QuestionParser(chat)
 
     # print(userprompt)
     # topic = input("Enter the title of your dumb personality quiz: ")
@@ -132,11 +132,11 @@ def generate_quiz(topic: str):
     os.makedirs(os.path.join(date, topic), exist_ok=True)
 
     msg = prompt_answers.format(topic=topic)
-    res_a = result_parser.parse(chat.prompt(msg))
-    res_b = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly B's:"))
-    res_c = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly C's:"))
-    res_d = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly D's:"))
-    res_e = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly E's:"))
+    res_a = result_parser.prompt(msg=msg, topic=topic, letter="A")
+    res_b = result_parser.prompt(topic=topic, letter="B")
+    res_c = result_parser.prompt(topic=topic, letter="C")
+    res_d = result_parser.prompt(topic=topic, letter="D")
+    res_e = result_parser.prompt(topic=topic, letter="E")
 
     # Save all the results out as a YAML file
     with open(os.path.join(date, topic, "results.yaml"), "w") as f:
@@ -161,7 +161,7 @@ def generate_quiz(topic: str):
 
     chat.clear()
 
-    create_images_for_folder(os.path.join(date, topic))
+    create_images_for_folder(os.path.join(date, topic)) 
 
 def main():
     topics = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?"]

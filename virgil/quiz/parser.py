@@ -35,6 +35,7 @@ class ResultParser(Parser):
         result = {}
         # Iterate over the lines
         for line in lines:
+            print(line)
             # Split the line into key and value
             if len(line.strip()) == 0:
                 break
@@ -47,15 +48,28 @@ class ResultParser(Parser):
 
             # Add the key and value to the result dictionary
             result[key.lower()] = value
-
+    
         # Verify that all the required keys are present
-        required_keys = ["topic", "letter", "result", "description", "image"]
+        required_keys = ["result", "description", "image"]
         if all(key in result for key in required_keys):
             return result
         else:
-            print("!!! Missing key in result")
+            print("!!! Missing key in result !!!")
+            for key in required_keys:
+                if key not in result:
+                    print("Missing:", key)
             breakpoint()
             return None
+
+    def prompt(self, topic: str, letter: str, msg: Optional[str] = None) -> str:
+        """Prompt the LLM and return the parsed response."""
+        if msg is not None:
+            res = self.chat.prompt(msg)
+        else:
+            res = self.chat.prompt(f"Topic: {topic}\nMostly {letter}'s:")
+        res["letter"] = letter
+        res["topic"] = topic
+        return res
 
 
 class QuestionParser(Parser):
