@@ -19,16 +19,18 @@ For example:
 
 Topic: What kind of sandwich are you?
 Mostly A's:
-Result: *Ham and cheese* sandwich.
+Result: Ham and Cheese Sandwich.
 Description: You are the classic sandwich, reliable and comforting. You are the go-to, the classic, the reliable. You are comforting and familiar, and people know they can count on you to be there when they need you. Your weakness is that you might be a bit TOO familiar, and people might take you for granted. But you are always there, and you are always delicious.
-Image: A picture of a sandwich with ham and cheese.
+Image: A picture of a sandwich with ham and cheese. The bread is golden brown, and the cheese is melted. There is a bit of lettuce peeking out from the side, and a slice of tomato. The sandwich is cut in half, and you can see the layers of ham and cheese inside.
 END RESULT
 
-NEVER repeat a result. Every result needs a detailed image description as well.
+NEVER repeat a result. Each result will be unique, and they will be the most popular or obvious things related to "{topic}" Every result needs a detailed image description as well.
 
 After Result C, options will get steadily more unhinged and nonsensical. When prompted, with "Result X", you will generate only the text for that result and no more. End each question with "END RESULT". Provide no other output.
 
-Content will be formatted exactly as, with no extra fields. You will not return or say anything else. You will return:
+Content will be formatted exactly as, with no extra fields. You will not return or say anything else. Do not use markdown or any other formatting, other than what is above.
+
+You will return:
 
 Topic: (the title of the quiz)
 Mostly (letter)'s:
@@ -67,7 +69,7 @@ C: {result_c}
 D: {result_d}
 E: {result_e}
 
-So make sure answers are roughly on-theme.
+So make sure answers are on-theme. For example, answer A should be something relevant to {result_a}; answer B should be something relevant to {result_b}, etc.
 
 Even numbered questions are highly related to the topic. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?". Odd numbered questions are more unhinged and nonsensical.
 
@@ -99,8 +101,8 @@ def main():
 
     print(userprompt)
     # topic = input("Enter the title of your dumb personality quiz: ")
-    topic = "Which Lord of the Rings character are you?"
-    # topic = "Which faction from Iain Banks' Culture series are you?"
+    # topic = "Which Lord of the Rings character are you?"
+    topic = "Which faction from Iain Banks' Culture series are you?"
 
     msg = prompt_answers.format(topic=topic)
     res_a = result_parser.parse(chat.prompt(msg))
@@ -108,12 +110,6 @@ def main():
     res_c = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly C's:"))
     res_d = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly D's:"))
     res_e = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly E's:"))
-
-    print(res_a)
-    print(res_b)
-    print(res_c)
-    print(res_d)
-    print(res_e)
 
     chat.clear()
 
