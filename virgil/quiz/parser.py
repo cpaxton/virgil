@@ -101,19 +101,19 @@ class QuestionParser(Parser):
                 break
             elif line.startswith("Question"):
                 key, value = line.split(": ", 1)
+                key = "question"
             elif line.startswith("Image"):
                 key, value = line.split(": ", 1)
             elif line.startswith("A."):
-                key = "options"
-                value = {"A": line[3:]}
+                options["A"] = line[3:]
             elif line.startswith("B."):
-                value["B"] = line[3:]
+                options["B"] = line[3:]
             elif line.startswith("C."):
-                value["C"] = line[3:]
+                options["C"] = line[3:]
             elif line.startswith("D."):
-                value["D"] = line[3:]
+                options["D"] = line[3:]
             elif line.startswith("E."):
-                value["E"] = line[3:]
+                options["E"] = line[3:]
 
             # Add the key and value to the result dictionary
             result[key.lower()] = value
@@ -123,4 +123,5 @@ class QuestionParser(Parser):
         if all(key in result for key in required_keys):
             return result
         else:
+            breakpoint()
             return None

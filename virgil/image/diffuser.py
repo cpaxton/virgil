@@ -3,7 +3,7 @@
 from PIL import Image
 import torch
 from diffusers import AutoPipelineForText2Image
-from .base import ImageGenerator
+from virgil.image.base import ImageGenerator
 
 
 class DiffuserImageGenerator(ImageGenerator):
@@ -38,3 +38,17 @@ class DiffuserImageGenerator(ImageGenerator):
         """
         result = self.pipeline(prompt=prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps)
         return result.images[0]
+
+
+if __name__ == "__main__":
+    prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
+    generator = DiffuserImageGenerator()
+    image = generator.generate(prompt)
+
+    import matplotlib.pyplot as plt
+
+    plt.imshow(image)
+    plt.axis("off")
+    plt.show()
+
+    image.save("blobfish.png")

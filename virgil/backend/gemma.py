@@ -25,4 +25,5 @@ class Gemma(Backend):
         Returns:
             List[str]: A list of generated responses.
         """
-        return self.pipe(messages, max_new_tokens=max_new_tokens)
+        with torch.no_grad():
+            return self.pipe(messages, max_new_tokens=max_new_tokens)
