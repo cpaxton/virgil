@@ -8,6 +8,7 @@ import yaml
 from virgil.backend import Gemma
 from virgil.chat import ChatWrapper
 from virgil.quiz.parser import ResultParser, QuestionParser
+from virgil.quiz.create_images import create_images_for_folder
 
 userprompt = """
 Enter something to make a quiz about. For example:
@@ -159,6 +160,8 @@ def generate_quiz(topic: str):
         yaml.dump(questions, f)
 
     chat.clear()
+
+    create_images_for_folder(os.path.join(date, topic))
 
 def main():
     topics = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?"]
