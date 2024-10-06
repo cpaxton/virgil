@@ -64,7 +64,7 @@ There will be 5 multiple-choice options per question: A, B, C, D, and E. At the 
 
 For example, Question 1 will be weirdness level 1, but Question 3 will be weirdness level 9, and may be something very absurd or personal. It will refer back to the answers of the previous question.
 
-You will also give a detailed prompt for an image generator associated with each question. You will not hallucinate.
+You will also give a detailed prompt for an image generator associated with each question. You will be very clear about the image, and willl include sufficient detail. You will not hallucinate.
 
 For example:
 Question 1:
