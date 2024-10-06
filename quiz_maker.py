@@ -1,12 +1,24 @@
 # (c) 2024 by Chris Paxton
 # Quiz Maker, advanced version
 
+import os
+from datetime import datetime
+import yaml
+
 from virgil.backend import Gemma
 from virgil.chat import ChatWrapper
-from virgil.quiz.parser import ResultParser
+from virgil.quiz.parser import ResultParser, QuestionParser
 
 userprompt = """
-Enter something to make a quiz about.
+Enter something to make a quiz about. For example:
+- What kind of sandwich are you?
+- Which Lord of the Rings character are you?
+- Which faction from Iain Banks' Culture series are you?
+- Which kitchen utensil are you?
+
+It should be a question.
+
+Go ahead:
 """
 
 prompt_answers = """You are generating a weird personality quiz titled, "{topic}".
@@ -24,7 +36,9 @@ Description: You are the classic sandwich, reliable and comforting. You are the 
 Image: A picture of a sandwich with ham and cheese. The bread is golden brown, and the cheese is melted. There is a bit of lettuce peeking out from the side, and a slice of tomato. The sandwich is cut in half, and you can see the layers of ham and cheese inside.
 END RESULT
 
-NEVER repeat a result. Each result will be unique, and they will be the most popular or obvious things related to "{topic}" Every result needs a detailed image description as well.
+NEVER repeat a result. Each result will be unique, and they will be the most popular or obvious things related to the question: {topic}
+
+Every result needs a detailed image description as well.
 
 After Result C, options will get steadily more unhinged and nonsensical. When prompted, with "Result X", you will generate only the text for that result and no more. End each question with "END RESULT". Provide no other output.
 
@@ -98,11 +112,22 @@ def main():
     backend = Gemma()
     chat = ChatWrapper(backend)
     result_parser = ResultParser()
+    question_parser = QuestionParser()
 
     print(userprompt)
     # topic = input("Enter the title of your dumb personality quiz: ")
-    # topic = "Which Lord of the Rings character are you?"
-    topic = "Which faction from Iain Banks' Culture series are you?"
+    topic = "Which Lord of the Rings character are you?"
+    # topic = "Which faction from Iain Banks' Culture series are you?"
+    topic = "Which kitchen utensil are you?"
+    topic = "What sea creature are you?"
+
+    # Create a directory for the quiz
+    os.makedirs(topic, exist_ok=True)
+
+    # Add subfolder with datetime for current date and time
+    now = datetime.now()
+    date = now.strftime("%Y-%m-%d-%H-%M-%S")
+    os.makedirs(os.path.join(topic, date), exist_ok=True)
 
     msg = prompt_answers.format(topic=topic)
     res_a = result_parser.parse(chat.prompt(msg))
@@ -111,14 +136,26 @@ def main():
     res_d = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly D's:"))
     res_e = result_parser.parse(chat.prompt(f"Topic: {topic}\nMostly E's:"))
 
+    # Save all the results out as a YAML file
+    with open(os.path.join(topic, date, "results.yaml"), "w") as f:
+        yaml.dump({"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e}, f)
+
     chat.clear()
 
     msg = prompt_questions.format(num_questions=10, topic=topic, result_a=res_a["result"], result_b=res_b["result"], result_c=res_c["result"], result_d=res_d["result"], result_e=res_e["result"])
-    chat.prompt(msg)
-    chat.prompt(f"Topic: {topic}\nQuestion 2:")
-    chat.prompt(f"Topic: {topic}\nQuestion 3:")
-    chat.prompt(f"Topic: {topic}\nQuestion 4:")
-    chat.prompt(f"Topic: {topic}\nQuestion 5:")
+    q1 = question_parser.parse(chat.prompt(msg))
+    questions = [q1]
+    for i in range(2, 11):
+        if i % 2 == 0:
+            msg = f"Topic: {topic}\nQuestion {i}:"
+        else:
+            msg = f"Topic: {topic}\nQuestion {i}:"
+        q = question_parser.parse(chat.prompt(msg))
+        questions.append(q)
+
+    # Save all the questions out as a YAML file
+    with open(os.path.join(topic, date, "questions.yaml"), "w") as f:
+        yaml.dump(questions, f)
 
 
 if __name__ == "__main__":
