@@ -72,7 +72,7 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
             print(f"Image {i}: {image}")
 
             # Create the image using the DiffuserImageGenerator and search
-            score, image = aligner.search(generator, image + " A beautiful, high-quality image.", num_tries=num_tries)
+            score, image = aligner.search(generator, image, num_tries=num_tries)
             print(f"Final score: {score}")
 
             # Save the image
@@ -90,7 +90,7 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
             print(f"Image: {image}")
 
             # Create the image using the DiffuserImageGenerator and search
-            score, image = aligner.search(generator, image + " A beautiful, high-quality image.", num_tries=num_tries)
+            score, image = aligner.search(generator, image, num_tries=num_tries)
             print(f"Final score: {score}")
 
             # Save the image

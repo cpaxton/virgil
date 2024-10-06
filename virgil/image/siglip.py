@@ -47,10 +47,16 @@ class SigLIPAligner:
 
         return similarity
 
-    def search(self, image_generator, prompt: str, num_tries: int = 10) -> Image:
+    def search(self, image_generator, prompt: str, num_tries: int = 10, extras: Optional[str] = None) -> Image:
         """Generate an image based on the prompt, then return the image with the highest alignment score."""
         best_score = -1
         best_image = None
+
+        # Add some extra information to the prompt
+        if extras is None:
+            extras = "A beautiful, high-quality image, created by an expert artist."
+
+        prompt += " " + extras
 
         for i in range(num_tries):
             print("Generating image attempt", i + 1)
