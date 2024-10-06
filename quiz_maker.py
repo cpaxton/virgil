@@ -61,6 +61,15 @@ D. (text of option D)
 E. (text of option E)
 END QUESTION
 
+If the user answers mostly each letter, the personality quiz will give this as a result:
+A: {result_a}
+B: {result_b}
+C: {result_c}
+D: {result_d}
+E: {result_e}
+
+So make sure answers are roughly on-theme.
+
 Even numbered questions are highly related to the topic. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?". Odd numbered questions are more unhinged and nonsensical.
 
 NEVER repeat a question. Answers should be different and unique.
@@ -99,7 +108,7 @@ def main():
 
     chat.clear()
 
-    msg = prompt_questions.format(num_questions=10, topic=topic)
+    msg = prompt_questions.format(num_questions=10, topic=topic, result_a=res_a["result"], result_b=res_b["result"], result_c=res_c["result"], result_d=res_d["result"], result_e=res_e["result"])
     chat.prompt(msg)
     chat.prompt(f"Topic: {topic}\nQuestion 2:")
     chat.prompt(f"Topic: {topic}\nQuestion 3:")

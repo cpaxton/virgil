@@ -41,7 +41,7 @@ class ResultParser(Parser):
             elif line.startswith("Mostly"):
                 key, value = line.split(" ", 1)
                 key = "letter"
-                value = value[:-2]
+                value = value[0]
             else:
                 key, value = line.split(": ", 1)
 
