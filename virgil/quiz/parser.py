@@ -28,6 +28,7 @@ class ResultParser(Parser):
         Returns:
             Optional[Dict[str, Any]]: A dictionary of the parsed text.
         """
+        self.prune_to_key(text, "END RESULT")
         # Split the text into lines
         lines = text.split("\n")
         # Initialize the result dictionary
@@ -35,7 +36,9 @@ class ResultParser(Parser):
         # Iterate over the lines
         for line in lines:
             # Split the line into key and value
+            print(line)
             key, value = line.split(": ", 1)
+            print(key, value)
             # Add the key and value to the result dictionary
             result[key.lower()] = value
 
