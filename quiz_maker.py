@@ -108,7 +108,7 @@ Topic: {topic}
 Question 1:
 """
 
-def generate_quiz(topic: str, backend: Gemma = Gemma()) -> None:
+def generate_quiz(topic: str, backend: Gemma) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
     question_parser = QuestionParser(chat)
