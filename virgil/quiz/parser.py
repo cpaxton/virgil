@@ -72,7 +72,7 @@ class ResultParser(Parser):
         res["topic"] = topic
 
         print()
-        print(colored("-" * 10 + str(letter) + "-" * 10, green))
+        print(colored("-" * 10 + str(letter) + "-" * 10, "green"))
         for key, value in res.items():
             print(colored(f"{key}:", "green"), value)
 
@@ -158,7 +158,7 @@ class QuestionParser(Parser):
         res = self.parse(res)
 
         print()
-        print(colored("-" * 10 + str(question) + "-" * 10, blue))
+        print(colored("-" * 10 + str(question) + "-" * 10, "blue"))
         for key, value in res.items():
             print(colored(f"{key}:", "blue"), value)
 
