@@ -13,6 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/virgil",
     packages=["virgil"],
+    package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"]},
     install_requires=[
         "torch",
         "transformers",

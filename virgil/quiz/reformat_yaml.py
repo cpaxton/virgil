@@ -3,6 +3,25 @@ import os
 import click
 import re
 
+
+import pkg_resources
+import os
+
+def load_quiz_html():
+    # Get the path to the quiz.html file
+    file_path = pkg_resources.resource_filename('virgil.quiz', 'quiz.html')
+    
+    # Read the contents of the file
+    with open(file_path, 'r', encoding='utf-8') as file:
+        content = file.read()
+    
+    return content
+
+# Usage
+quiz_html = load_quiz_html()
+print(quiz_html)
+
+
 def read_and_parse_yaml_files(results_file, questions_file):
     try:
         # Read the results.yaml file
@@ -51,7 +70,7 @@ def read_and_parse_yaml_files(results_file, questions_file):
         print(f"An unexpected error occurred: {e}")
         return None
 
-def create_images_for_folder(folder_path: str) -> None:
+def create_combined_yaml_for_folder(folder_path: str) -> None:
 
     # Example usage
     results_file_path = os.path.join(folder_path, 'results.yaml')
@@ -75,7 +94,14 @@ def main(folder_path: str = ""):
     if len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
         folder_path = "What houseplant are you?/2024-10-05-23-22-27/"
-    create_images_for_folder(folder_path)
+    create_combined_yaml_for_folder(folder_path)
+
+    # Load the combined.yaml file
+    combined_file_path = os.path.join(folder_path, 'combined.yaml')
+    with open(combined_file_path, 'r') as combined_stream:
+        combined_data = yaml.safe_load(combined_stream)
+
+    # Create the html file based on the template
 
 if __name__ == "__main__":
     main()

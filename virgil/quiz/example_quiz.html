@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personality Quiz</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #question-image {
+            max-width: 100%;
+            height: auto;
+        }
+        .option {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+        }
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+    </style>
+</head>
+<body>
+    <div id="quiz-container">
+        <h1 id="question-text"></h1>
+        <img id="question-image" src="" alt="Question Image">
+        <div id="options-container"></div>
+    </div>
+
+    <script>
+    const quizData = `
+questions:
+  - text: What's your ideal weekend activity?
+    image: weekend.jpg
+    options:
+      - text: Reading a book
+        type: A
+      - text: Hiking in nature
+        type: B
+      - text: Attending a party
+        type: C
+      - text: Watching movies
+        type: D
+      - text: Cooking a gourmet meal
+        type: E
+  - text: How do you prefer to communicate?
+    image: communication.jpg
+    options:
+      - text: Face-to-face conversations
+        type: C
+      - text: Text messages
+        type: D
+      - text: Phone calls
+        type: A
+      - text: Social media
+        type: E
+      - text: Written letters
+        type: B
+  - text: What's your approach to problem-solving?
+    image: problem-solving.jpg
+    options:
+      - text: Analyze data and facts
+        type: A
+      - text: Trust your intuition
+        type: B
+      - text: Discuss with others
+        type: C
+      - text: Research online
+        type: D
+      - text: Try different solutions
+        type: E
+
+results:
+  A:
+    description: You're an analytical thinker who values logic and structure.
+    image: analytical.jpg
+  B:
+    description: You're an intuitive person who trusts your gut feelings.
+    image: intuitive.jpg
+  C:
+    description: You're a social butterfly who thrives on human interaction.
+    image: social.jpg
+  D:
+    description: You're a digital native who's always connected and informed.
+    image: digital.jpg
+  E:
+    description: You're an experimenter who loves trying new things.
+    image: experimenter.jpg
+`;
+
+    const data = jsyaml.load(quizData);
+    let currentQuestion = 0;
+    const answers = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+
+    function loadQuestion() {
+        const question = data.questions[currentQuestion];
+        document.getElementById('question-text').textContent = question.text;
+        document.getElementById('question-image').src = question.image;
+
+        const optionsContainer = document.getElementById('options-container');
+        optionsContainer.innerHTML = '';
+
+        question.options.forEach(option => {
+            const button = document.createElement('button');
+            button.textContent = option.text;
+            button.classList.add('option');
+            button.addEventListener('click', () => selectAnswer(option.type));
+            optionsContainer.appendChild(button);
+        });
+    }
+
+    function selectAnswer(type) {
+        answers[type]++;
+        currentQuestion++;
+
+        if (currentQuestion < data.questions.length) {
+            loadQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        const resultType = Object.keys(answers).reduce((a, b) => answers[a] > answers[b] ? a : b);
+        const result = data.results[resultType];
+
+        const quizContainer = document.getElementById('quiz-container');
+        quizContainer.innerHTML = `
+            <h1>Your Result</h1>
+            <img src="${result.image}" alt="Result Image" style="max-width: 100%; height: auto;">
+            <p>${result.description}</p>
+        `;
+    }
+
+    loadQuestion();
+    </script>
+</body>
+</html>
+
