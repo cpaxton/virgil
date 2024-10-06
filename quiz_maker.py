@@ -20,7 +20,7 @@ For example:
 Topic: What kind of sandwich are you?
 Mostly A's:
 Result: *Ham and cheese* sandwich.
-Description: You are the classic sandwich, reliable and comforting. You are the go-to, the classic, the reliable. You are comforting and familiar, and people know they can count on you to be there when they need you. (continue in this vein for 1-2 paragraphs)
+Description: You are the classic sandwich, reliable and comforting. You are the go-to, the classic, the reliable. You are comforting and familiar, and people know they can count on you to be there when they need you. Your weakness is that you might be a bit TOO familiar, and people might take you for granted. But you are always there, and you are always delicious.
 Image: A picture of a sandwich with ham and cheese.
 END RESULT
 
