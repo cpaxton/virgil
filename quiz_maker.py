@@ -1,12 +1,8 @@
 # (c) 2024 by Chris Paxton
 # Quiz Maker, advanced version
 
-import timeit
-from termcolor import colored
-import datetime
-
 from virgil.backend import Gemma
-backend = Gemma()
+from virgil.chat import ChatWrapper
 
 userprompt = """
 Enter something to make a quiz about.
@@ -70,30 +66,8 @@ Topic: {topic}
 Question 1:
 """
 
-conversation_history = []
-
-def prompt_llm(full_msg):
-    print()
-
-    conversation_history.append({"role": "user", "content": full_msg})
-
-    messages = conversation_history.copy()
-    t0 = timeit.default_timer()
-    outputs = backend(messages, max_new_tokens=256)
-    t1 = timeit.default_timer()
-    assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
-
-    # Add the assistant's response to the conversation history
-    conversation_history.append({"role": "assistant", "content": assistant_response})
-
-    # Print the assistant's response
-    print()
-    print(colored("User prompt:\n", "green") + full_msg)
-    print()
-    print(colored("Response:\n", "blue") + assistant_response)
-    print("----------------")
-    print(f"Generator time taken: {t1-t0:.2f} seconds")
-    print("----------------")
+backend = Gemma()
+chat = ChatWrapper(backend)
 
 print(userprompt)
 print()
@@ -102,16 +76,15 @@ print()
 topic = "Which Lord of the Rings character are you?"
 
 msg = prompt_answers.format(topic=topic)
-prompt_llm(msg)
-prompt_llm(f"Topic: {topic}\nMostly B's:")
-prompt_llm(f"Topic: {topic}\nMostly C's:")
-prompt_llm(f"Topic: {topic}\nMostly D's:")
-prompt_llm(f"Topic: {topic}\nMostly E's:")
+chat.prompt(msg)
+chat.prompt(f"Topic: {topic}\nMostly B's:")
+chat.prompt(f"Topic: {topic}\nMostly C's:")
+chat.prompt(f"Topic: {topic}\nMostly D's:")
+chat.prompt(f"Topic: {topic}\nMostly E's:")
 
 msg = prompt_questions.format(num_questions=10, topic=topic)
-prompt_llm(msg)
-prompt_llm(f"Topic: {topic}\nQuestion 2:")
-prompt_llm(f"Topic: {topic}\nQuestion 3:")
-prompt_llm(f"Topic: {topic}\nQuestion 4:")
-prompt_llm(f"Topic: {topic}\nQuestion 5:")
-
+chat.prompt(msg)
+chat.prompt(f"Topic: {topic}\nQuestion 2:")
+chat.prompt(f"Topic: {topic}\nQuestion 3:")
+chat.prompt(f"Topic: {topic}\nQuestion 4:")
+chat.prompt(f"Topic: {topic}\nQuestion 5:")
