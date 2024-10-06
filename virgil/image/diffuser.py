@@ -60,6 +60,6 @@ if __name__ == "__main__":
     # Blobfish tests
     prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
     aligner.check_alignment("blobfish.png", prompt)
-    score, image = aligner.search(generator, prompt, num_tries=10)
+    score, image = aligner.search(generator, prompt, num_tries=25)
     print(score)
     image.save("blobfish_search.png")

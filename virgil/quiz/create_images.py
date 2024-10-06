@@ -3,6 +3,10 @@ import yaml
 from typing import Dict, List
 import click
 
+from virgil.image.diffuser import DiffuserImageGenerator
+from virgil.image.siglip import SigLIPAligner
+
+
 def parse_yaml_files(folder_path: str) -> tuple[Dict[str, str], List[str]]:
     """
     Parse the results.yaml and questions.yaml files in the given folder.
@@ -47,21 +51,56 @@ def parse_yaml_files(folder_path: str) -> tuple[Dict[str, str], List[str]]:
 @click.command()
 @click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
 def main(folder_path: str = ""):
+
+    generator = DiffuserImageGenerator()
+    aligner = SigLIPAligner()
+
     if len(folder_path) == 0:
         folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
+
+    # Create subfolders for the images for questions and for the results
+    results_folder = os.path.join(folder_path, "results")
+    questions_folder = os.path.join(folder_path, "questions")
+    os.makedirs(results_folder, exist_ok=True)
+    os.makedirs(questions_folder, exist_ok=True)
 
     try:
         results, question_images = parse_yaml_files(folder_path)
         
+        print()
         print("Results:")
         for letter, image in results.items():
+            print("-" * 20)
             print(f"Letter: {letter}")
             print(f"Image: {image}")
+
+            # Create the image using the DiffuserImageGenerator and search
+            score, image = aligner.search(generator, image, num_tries=25)
+            print(f"Final score: {score}")
+
+            # Save the image
+            image.save(os.path.join(results_folder, f"{letter}.png"))
+            print(f"Image saved to {os.path.join(results_folder, f'{letter}.png')}")
             print()
+
         
         print("Question Images:")
         for i, image in enumerate(question_images, 1):
+            print("-" * 20)
             print(f"Image {i}: {image}")
+
+            # Create the image using the DiffuserImageGenerator and search
+            score, image = aligner.search(generator, image, num_tries=25)
+            print(f"Final score: {score}")
+
+            # Save the image
+            image.save(os.path.join(questions_folder, f"{i}.png"))
+            print(f"Image saved to {os.path.join(questions_folder, f'{i}.png')}")
+            
+            # Print a newline
             print()
     except FileNotFoundError as e:
         print(f"Error: {e}")
+
+if __name__ == "__main__":
+    main()
