@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -6,17 +6,23 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="virgil",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Chris Paxton",
+    author_email="chris.paxton.cs@gmail.com",
     description="A short description of the virgil project",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/virgil",
-    packages=find_packages(),
+    packages=["virgil"],
     install_requires=[
         "torch",
         "transformers",
         "diffusers",
+        "sentencepiece",
+        "Pillow",
+        "protobuf",
+        "numpy",
+        "click",
+        "matplotlib",
     ],
     extras_require={
         "dev": [
