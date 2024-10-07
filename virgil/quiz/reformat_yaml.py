@@ -117,7 +117,7 @@ def create_quiz_html(folder_path: str):
     print(template)
 
     # Write to file in the same folder
-    output_file_path = os.path.join(folder_path, 'quiz.html')
+    output_file_path = os.path.join(folder_path, 'index.html')
     with open(output_file_path, 'w') as output_stream:
         output_stream.write(template)
 
