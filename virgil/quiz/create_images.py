@@ -110,7 +110,9 @@ def main(folder_path: str = ""):
 
     if len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
-        folder_path = "2024-10-06"
+        folder_path = "2024-10-07"
+
+    """
         # topics = ["What kind of cocktail are you?", "What kind of beer are you?"]
         topics = ["What kind of tooth are you?", "Which bone are you?", "What halloween costume are you?", "What halloween creature are you?", "Which day in October are you?", "What halloween candy are you?",
     # Gemma failed to generate a quiz for "what halloween creature are you?"
@@ -121,11 +123,12 @@ def main(folder_path: str = ""):
         folder = os.path.join(folder_path, topic)
         print("Try to create images for folder:", folder)
         create_images_for_folder(folder)
+    """
 
-    # all_folders = glob.glob(f"{folder_path}/*")
-    # for folder in all_folders:
-    #    print("Try to create images for folder:", folder)
-    #    create_images_for_folder(folder)
+    all_folders = glob.glob(f"{folder_path}/*")
+    for folder in all_folders:
+        print("Try to create images for folder:", folder)
+        create_images_for_folder(folder)
 
 if __name__ == "__main__":
     main()

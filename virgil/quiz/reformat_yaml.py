@@ -130,7 +130,7 @@ def main(folder_path: str = ""):
 
     if len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
-        folder_path = "2024-10-06"
+        folder_path = "2024-10-07"
 
     all_folders = glob.glob(f"{folder_path}/*")
     for folder in all_folders:
