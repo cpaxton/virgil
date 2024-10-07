@@ -112,7 +112,11 @@ def main(folder_path: str = ""):
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
         folder_path = "2024-10-06"
         # topics = ["What kind of cocktail are you?", "What kind of beer are you?"]
-        topics = ["What kind of wine are you?", "What kind of spirit are you?", "What kind of non-alcoholic beverage are you?", "What kind of juice are you?", "What kind of soda are you?"]
+        topics = ["What kind of tooth are you?", "Which bone are you?", "What halloween costume are you?", "What halloween creature are you?", "Which day in October are you?", "What halloween candy are you?",
+    # Gemma failed to generate a quiz for "what halloween creature are you?"
+"Which cosmic horror are you devoted to?", "To which of the elder gods should you pray?", "Which afterlife will you end up in?",
+"Which kind of undead monstrosity will you be?", "What holiday are you?", "What kind of door are you?", "What extremely specific door are you?",
+                "What kind of wine are you?", "What kind of spirit are you?", "What kind of non-alcoholic beverage are you?", "What kind of juice are you?", "What kind of soda are you?"]
     for topic in topics:
         folder = os.path.join(folder_path, topic)
         print("Try to create images for folder:", folder)
