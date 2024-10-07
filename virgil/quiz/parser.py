@@ -123,8 +123,11 @@ class QuestionParser(Parser):
             if len(line.strip()) == 0:
                 break
             elif line.startswith("Question"):
-                key, value = line.split(": ", 1)
-                key = "question"
+                try:
+                    key, value = line.split(": ", 1)
+                    key = "question"
+                except ValueError:
+                    continue
             elif line.startswith("Image"):
                 key, value = line.split(": ", 1)
             elif line.startswith("A."):
