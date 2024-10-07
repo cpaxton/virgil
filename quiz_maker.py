@@ -58,7 +58,7 @@ Mostly A's:
 """
 
 prompt_questions = """
-You are generating a dumb, weird, BuzzFeed-style personality quiz titled, "{topic}".
+You are generating a weird, BuzzFeed-style personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be related to "{topic}", but will get increasingly weird as the quiz goes on.
 
@@ -84,9 +84,9 @@ C: {result_c}
 D: {result_d}
 E: {result_e}
 
-So make sure answers are on-theme. For example, answer A should be something relevant to {result_a}; answer B should be something relevant to {result_b}, etc.
+Make sure answers are on-theme. For example, answer A should be something relevant to {result_a}; answer B should be something relevant to {result_b}, etc.
 
-Even numbered questions are highly related to the topic. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?". Odd numbered questions are more unhinged and nonsensical.
+All questions are related to the topic. Even numbered questions are highly related to the topic. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?". Odd numbered questions are more unhinged and nonsensical.
 
 NEVER repeat a question. Answers should be different and unique.
 
@@ -102,7 +102,7 @@ D. (text of option D)
 E. (text of option E)
 END QUESTION
 
-When prompted, with "Question N", you will generate only the text for that question and no more. End each question with "END QUESTION". Provide no other output. Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
+When prompted, with "Question N", you will generate only the text and image prompt for that question and no more. End each question with "END QUESTION". Provide no other output. Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
 
 Topic: {topic}
 Question 1:
@@ -164,6 +164,13 @@ def main():
     topics1 = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?", "What kind of cat are you?", "What kind of dog are you?", "What kind of bird are you?", "What kind of fish are you?", "What kind of reptile are you?", "What kind of amphibian are you?", "What kind of insect are you?", "What kind of arachnid are you?", "What kind of mollusk are you?", "What kind of crustacean are you?", "What kind of arthropod are you?", "What kind of worm are you?", "What kind of fungus are you?", "What kind of bacteria are you?"]
     # Yet more topics
     topics2 = ["What kind of virus are you?", "What kind of protist are you?", "What kind of plant are you?", "What kind of tree are you?", "What kind of flower are you?", "What kind of fruit are you?", "What kind of vegetable are you?", "What kind of herb are you?", "What kind of spice are you?", "What kind of condiment are you?", "What kind of sauce are you?", "What kind of soup are you?", "What kind of salad are you?", "What kind of appetizer are you?", "What kind of entree are you?", "What kind of dessert are you?", "What kind of drink are you?", "What kind of cocktail are you?", "What kind of beer are you?", "What kind of wine are you?", "What kind of spirit are you?", "What kind of non-alcoholic beverage are you?", "What kind of juice are you?", "What kind of soda are you?"]
+
+    # More topics
+    topics3 = ["What kind of tooth are you?", "Which bone are you?", "What halloween costume are you?"]
+
+    # Gemma failed to generate a quiz for "what halloween creature are you?"
+    topics = ["What halloween creature are you?", "Which day in October are you?", "What halloween candy are you?", "Which cosmic horror are you devoted to?", "To which of the elder gods should you pray?", "Which afterlife will you end up in?", "Which kind of undead monstrosity will you be?", "What holiday are you?", "What kind of door are you?", "What extremely specific door are you?"]
+
     # Ran out of memory at tea
     topics3 = ["What kind of tea are you?", "What kind of coffee are you?", "What kind of milk are you?", "What kind of water are you?", "What kind of ice cream are you?", "What kind of candy are you?", "What kind of chocolate are you?", "What kind of snack are you?", "What kind of chip are you?", "What kind of cracker are you?", "What kind of cookie are you?", "What kind of cake are you?", "What kind of pie are you?", "What kind of bread are you?", "What kind of pasta are you?", "What kind of rice are you?", "What kind of grain are you?", "What kind of legume are you?", "What kind of nut are you?", "What kind of seed are you?", "What kind of oil are you?", "What kind of vinegar are you?"]
 

@@ -55,7 +55,8 @@ class SigLIPAligner:
 
         # Add some extra information to the prompt
         if extras is None:
-            extras = "A beautiful, high-quality image, created by an expert artist."
+            # extras = "A beautiful, high-quality image, created by an expert artist."
+            extras = "A detailed, high-quality image, created by an expert artist."
 
         prompt += " " + extras
 
