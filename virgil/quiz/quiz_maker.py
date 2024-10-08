@@ -79,17 +79,17 @@ E. You forgot your phone, grab it and go back to bed.
 END QUESTION
 
 If the user answers mostly each letter, the personality quiz will give this as a result:
-A: {result_a}
-B: {result_b}
-C: {result_c}
-D: {result_d}
-E: {result_e}
+A: {result_a} {description_a}
+B: {result_b} {description_b}
+C: {result_c} {description_c}
+D: {result_d} {description_d}
+E: {result_e} {description_e}
 
 Make sure answers are on-theme. For example, answer A should be something relevant to {result_a}; answer B should be something relevant to {result_b}, etc.
 
 All questions are related to the topic. Even numbered questions are highly related to the topic. For example, if the topic was "What kind of sandwich are you?", a good question might be "What is your favorite condiment?". Odd numbered questions are more unhinged and nonsensical.
 
-NEVER repeat a question. Answers should be different and unique.
+NEVER repeat a question. Answers should be different and unique. Never repeat an answer.
 
 After question 3, questions will get steadily more unhinged and nonsensical, as well as increasinly personal. For example, if the topic was "What kind of sandwich are you?", a good question might be "When was the last time you cried while eating a sandwich?".
 
@@ -141,7 +141,7 @@ def generate_quiz(topic: str, backend: Gemma) -> None:
 
     chat.clear()
 
-    msg = prompt_questions.format(num_questions=10, topic=topic, result_a=res_a["result"], result_b=res_b["result"], result_c=res_c["result"], result_d=res_d["result"], result_e=res_e["result"])
+    msg = prompt_questions.format(num_questions=10, topic=topic, result_a=res_a["result"], result_b=res_b["result"], result_c=res_c["result"], result_d=res_d["result"], result_e=res_e["result"], description_a=res_a["description"], description_b=res_b["description"], description_c=res_c["description"], description_d=res_d["description"], description_e=res_e["description"])
     q1 = question_parser.prompt(topic=topic, question=1, msg=msg)
     questions = [q1]
     for i in range(2, 11):
@@ -180,7 +180,8 @@ def main(topic: str = ""):
     # Gemma failed to generate a quiz for "what halloween creature are you?"
 "Which cosmic horror are you devoted to?", "To which of the elder gods should you pray?", "Which afterlife will you end up in?",
 "Which kind of undead monstrosity will you be?", "What holiday are you?", "What kind of door are you?", "What extremely specific door are you?"]
-    topics = ["What kind of potato are you?", "What extremely specific odor are you?", "What popular internet meme are you?", "What Andy are you?"]
+    topics4 = ["What kind of potato are you?", "What extremely specific odor are you?", "What popular internet meme are you?", "What Andy are you?", "What quiz are you?", "How drunk are you right now?"]
+    topics = ["How did you get so drunk?", "Who am I and how did I get here?", "What should I name my dog?", "How do I get out of here?"]
 
     # Ran out of memory at tea
     topics4 = ["What kind of tea are you?", "What kind of coffee are you?", "What kind of milk are you?", "What kind of water are you?", "What kind of ice cream are you?", "What kind of candy are you?", "What kind of chocolate are you?", "What kind of snack are you?", "What kind of chip are you?", "What kind of cracker are you?", "What kind of cookie are you?", "What kind of cake are you?", "What kind of pie are you?", "What kind of bread are you?", "What kind of pasta are you?", "What kind of rice are you?", "What kind of grain are you?", "What kind of legume are you?", "What kind of nut are you?", "What kind of seed are you?", "What kind of oil are you?", "What kind of vinegar are you?"]

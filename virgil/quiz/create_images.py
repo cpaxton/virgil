@@ -115,7 +115,7 @@ def main(folder_path: str = "", quiz_path: str = ""):
         return
     elif len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
-        folder_path = "2024-10-07"
+        folder_path = "2024-10-07-v2"
 
     """
         # topics = ["What kind of cocktail are you?", "What kind of beer are you?"]
