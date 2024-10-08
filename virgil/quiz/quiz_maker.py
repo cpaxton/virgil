@@ -23,7 +23,7 @@ It should be a question.
 Go ahead:
 """
 
-prompt_answers = """You are generating a weird, fun, clever personality quiz titled, "{topic}".
+prompt_answers = """You are generating a fun, clever personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
 
@@ -38,9 +38,9 @@ Description: You are the classic sandwich, reliable and comforting. You are the 
 Image: A picture of a sandwich with ham and cheese. The bread is golden brown, and the cheese is melted. There is a bit of lettuce peeking out from the side, and a slice of tomato. The sandwich is cut in half, and you can see the layers of ham and cheese inside.
 END RESULT
 
-NEVER repeat a result. Each result will be unique, and they will be the most popular or obvious things related to the question: {topic}
+NEVER repeat a result. Each result will be unique and as specific as possible, and they will be the most popular or obvious things related to the question: {topic}
 
-Every result needs a detailed image description as well.
+Every result needs a detailed image description.
 
 After Result C, options will get steadily more unhinged and nonsensical. When prompted, with "Result X", you will generate only the text for that result and no more. End each question with "END RESULT". Provide no other output.
 
@@ -59,7 +59,7 @@ Mostly A's:
 """
 
 prompt_questions = """
-You are generating a weird, fun, clever BuzzFeed-style personality quiz titled, "{topic}".
+You are generating a fun, clever personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be related to "{topic}", but will get increasingly weird as the quiz goes on.
 
@@ -79,11 +79,11 @@ E. You forgot your phone, grab it and go back to bed.
 END QUESTION
 
 If the user answers mostly each letter, the personality quiz will give this as a result:
-A: {result_a} {description_a}
-B: {result_b} {description_b}
-C: {result_c} {description_c}
-D: {result_d} {description_d}
-E: {result_e} {description_e}
+A: {result_a}: {description_a}
+B: {result_b}: {description_b}
+C: {result_c}: {description_c}
+D: {result_d}: {description_d}
+E: {result_e}: {description_e}
 
 Make sure answers are on-theme. For example, answer A should be something relevant to {result_a}; answer B should be something relevant to {result_b}, etc.
 
@@ -109,7 +109,7 @@ Topic: {topic}
 Question 1:
 """
 
-def generate_quiz(topic: str, backend: Gemma) -> None:
+def generate_quiz(topic: str, backend: Gemma, save_with_date: bool = False) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
     question_parser = QuestionParser(chat)
@@ -123,10 +123,15 @@ def generate_quiz(topic: str, backend: Gemma) -> None:
     # topic = "What houseplant are you?"
     # topic = "What kind of sandwich are you?"
 
-    # Add subfolder with datetime for current date and time
-    now = datetime.now()
-    date = now.strftime("%Y-%m-%d")
-    os.makedirs(os.path.join(date, topic), exist_ok=True)
+    if save_with_date:
+        # Add subfolder with datetime for current date and time
+        now = datetime.now()
+        date = now.strftime("%Y-%m-%d")
+        dirname = os.path.join(date, topic)
+        os.makedirs(dirname, exist_ok=True)
+    else:
+        dirname = topic
+        os.makedirs(dirname, exist_ok=True)
 
     msg = prompt_answers.format(topic=topic)
     res_a = result_parser.prompt(msg=msg, topic=topic, letter="A")
@@ -136,7 +141,7 @@ def generate_quiz(topic: str, backend: Gemma) -> None:
     res_e = result_parser.prompt(topic=topic, letter="E")
 
     # Save all the results out as a YAML file
-    with open(os.path.join(date, topic, "results.yaml"), "w") as f:
+    with open(os.path.join(dirname, "results.yaml"), "w") as f:
         yaml.dump({"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e}, f)
 
     chat.clear()
@@ -153,7 +158,7 @@ def generate_quiz(topic: str, backend: Gemma) -> None:
         questions.append(q)
 
     # Save all the questions out as a YAML file
-    with open(os.path.join(date, topic, "questions.yaml"), "w") as f:
+    with open(os.path.join(dirname, "questions.yaml"), "w") as f:
         yaml.dump(questions, f)
 
     chat.clear()

@@ -3,6 +3,7 @@ import os
 import click
 import re
 import numpy as np
+import glob
 
 
 import pkg_resources
@@ -124,10 +125,14 @@ def create_quiz_html(folder_path: str):
 
 # Example usage
 @click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
-def main(folder_path: str = ""):
-    import glob
+@click.option("--folder_path", default="", help="Path to the folder containing a set of quizes to process")
+@click.option("--quiz_path", default="", help="Path to the folder containing results.yaml and questions.yaml for a single quiz")
+def main(folder_path: str = "", quiz_path: str = "") -> None:
 
+    if len(quiz_path) > 0:
+        create_quiz_html(quiz_path)
+        return
+    
     if len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
         # folder_path = "2024-10-07-v2"
