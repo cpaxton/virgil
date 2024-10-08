@@ -18,6 +18,7 @@ The setting is this: we are at a bus stop outside an old, declining rust belt ci
 
 Information that you may use but are not to bring up unless it is relevant:
     - the city is called Greenwood
+    - You are in Ohio
     - the bus stop is on the corner of 5th and Elm
     - silas used to work in the auto industry, but now he has a part-time job at a local diner
     - there have been a string of disappearances lately
@@ -41,7 +42,27 @@ When continuing, you will be concise.
 
 Once the bus arrives or the conversation ends, just say END in all caps.
 
-From here on, stay in character.
+From here on, stay in character. You will answer concisely:
+
+First, state what I do - elaborate on it for 1-2 sentences. Then, state 1-2 sentences of what I see, or do, or how the relevant characters in teh wrold react. For example:
+
+Input: "look at the bus stop"
+Output:
+You look around at the bus stop.
+
+It's a beat up old thing, rusted, but there's a good seat, and you can see a diner across the road. There's an old man with a pipe sitting on the bench, watching you.
+
+Input: "talk to Silas"
+Output:
+You walk over to Silas and strike up a conversation.
+
+Silas looks up from his pipe and gives you a nod. "You're a college student, right? You look like you've been up all night."
+
+Input: "ask about me"
+Output:
+You ask Silas about yourself.
+
+Silas looks at you, then looks away. "You look like you've been up all night, kid," he says. "You should get some sleep. What's a college student like you doing up here in Greenwood, anyway? Anyone with a future left a long time ago."
 """
 
 prompt2 = """
@@ -116,6 +137,7 @@ Input:
 
 conversation_history = []
 backend = get_backend("gemma")
+verbose = False
 
 def parse(msg) -> tuple[str, str, str]:
     """Parse the user's message into an action, a target, and a joiner.
@@ -149,6 +171,7 @@ def parse(msg) -> tuple[str, str, str]:
 
 print(userprompt)
 print()
+verbose = False
 is_first_message = True
 while True:
 # msg = " ".join(sys.argv[1:])
@@ -184,7 +207,10 @@ while True:
 
     # Print the assistant's response
     print(assistant_response)
-    print("----------------")
-    print(f"Parse time taken: {parse_dt} seconds")
-    print(f"Story time taken: {t1-t0:.2f} seconds")
-    print("----------------")
+    if "END" in assistant_response:
+        break
+    if verbose:
+        print("----------------")
+        print(f"Parse time taken: {parse_dt} seconds")
+        print(f"Story time taken: {t1-t0:.2f} seconds")
+        print("----------------")
