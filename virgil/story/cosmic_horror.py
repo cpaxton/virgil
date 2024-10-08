@@ -1,14 +1,7 @@
-import torch
-from transformers import pipeline
 import timeit
 from termcolor import colored
 
-pipe = pipeline(
-    "text-generation",
-    model="google/gemma-2-2b-it",
-    model_kwargs={"torch_dtype": torch.bfloat16},
-    device="cuda",  # replace with "mps" to run on a Mac device
-)
+from virgil.backend import get_backend
 
 import sys
 
@@ -40,15 +33,15 @@ Information that you may use but are not to bring up unless it is relevant:
 
 All I know is that I am at a bus stop. You need to explain everything else to me, as it is relevant.
 
-My actions will be in the form action:description. For example, "look:bus stop" or "talk:Silas".
+My actions will be in the form action:description. For example, "look at the bus stop" or "talk to Silas".
+
+After an action, you will elaborate on what I did. For example, if the action was "look at the bus stop", you might say "You look around the bus stop. It's a beat up old thing, rusted and twisted by years in this awful town."
+
+When continuing, you will be concise.
 
 Once the bus arrives or the conversation ends, just say END in all caps.
 
 From here on, stay in character.
-"""
-
-removed = """
-After each message, you will end with a double line break, then the number of minutes left before the bus arrives, depending on what happens. A short exchange of a couple sentences will take about 1 minute. 1 minute per paragraph. The bus will come in 30 mins.
 """
 
 prompt2 = """
@@ -89,12 +82,30 @@ action=talk
 target=Silas
 joiner=to
 
+Input: "ask Silas about the lights"
+output:
+action=ask
+target=lights
+joiner=about the
+
+Input: "talk to Silas about the disappearances"
+output:
+action=talk
+target=disappearances
+joiner=about the
+
+Input: "use the phone"
+output:
+action=use
+target=phone
+joiner=the
+
 Actions should only be one word, if possible.
 
 You will always provide all three terms; infer the joiner if necessary.
 Give only the output, no other information, for the next input.
 
-Input: "I agree"
+Input: "I agree with Silas."
 Output:
 action=agree
 target=Silas
@@ -104,13 +115,22 @@ Input:
 """
 
 conversation_history = []
+backend = get_backend("gemma")
 
-def parse(msg) -> tuple[str, str, float]:
+def parse(msg) -> tuple[str, str, str]:
+    """Parse the user's message into an action, a target, and a joiner.
+
+    Args:
+        msg (str): The user's message.
+
+    Returns:
+        tuple[str, str, str]: The action, target, and joining text.
+    """
     t0 = timeit.default_timer()
     new_message = {"role": "user", "content": prompt2 + msg}
-    messages = conversation_history + [new_message]
-    # messages = [new_message]
-    outputs = pipe(messages, max_new_tokens=256)
+    messages = [new_message]
+
+    outputs = backend(messages, max_new_tokens=256)
     t1 = timeit.default_timer()
     msg = outputs[0]["generated_text"][-1]["content"].strip()
 
@@ -145,6 +165,8 @@ while True:
     if is_first_message:
         is_first_message = False
         full_msg = prompt + "\n" + parsed_msg
+    else:
+        full_msg = parsed_msg
 
     # conversation_history.append(parsed_msg)
     # conversation_history.append({"role": "user", "content": parsed_msg})
@@ -152,7 +174,8 @@ while True:
     # Prepare the messages including the conversation history
     messages = conversation_history.copy()
     t0 = timeit.default_timer()
-    outputs = pipe(messages, max_new_tokens=256)
+
+    outputs = backend(messages, max_new_tokens=256)
     t1 = timeit.default_timer()
     assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
