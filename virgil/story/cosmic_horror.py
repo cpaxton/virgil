@@ -52,28 +52,53 @@ After each message, you will end with a double line break, then the number of mi
 """
 
 prompt2 = """
-You are parsing commands or instructions into the form (action:description:joiner). For example:
+You are parsing commands or instructions into three parts: an action, a target, and any remaining text joining the two. For example:
 
 Input: "I look around the bus stop"
-output: look:bus stop:at the 
+output:
+action=look
+target=bus stop
+joiner=at the 
 
 Input: "sit down"
-output: sit:bus stop:at the
+action=sit
+target=bus stop
+joiner=at the
 
 Input: "take a seat"
-output: sit:bus stop:at the
+output:
+action=take a seat
+target=bus stop
+joiner=at the
 
 input: "look around"
-output: look:bus stop:at the
+output:
+action=look
+target=bus stop
+joiner=at the
 
 Input: "wait, what about the lights?"
-output: ask:lights:about the
+output:
+action=ask
+target=lights
+joiner=about the
 
 Input: "talk to Silas"
-output: talk:Silas:to
+output:
+action=talk
+target=Silas
+joiner=to
+
+Actions should only be one word, if possible.
 
 You will always provide all three terms; infer the joiner if necessary.
 Give only the output, no other information, for the next input.
+
+Input: "I agree"
+Output:
+action=agree
+target=Silas
+joiner=with
 
 Input: 
 """
@@ -88,7 +113,18 @@ def parse(msg) -> tuple[str, str, float]:
     outputs = pipe(messages, max_new_tokens=256)
     t1 = timeit.default_timer()
     msg = outputs[0]["generated_text"][-1]["content"].strip()
-    action, description, joiner = msg.split(":")
+
+    # Read each line
+    action = ""
+    description = ""
+    joiner = ""
+    for line in msg.split("\n"):
+        if line.startswith("action="):
+            action = line.split("=")[1]
+        elif line.startswith("target="):
+            description = line.split("=")[1]
+        elif line.startswith("joiner="):
+            joiner = line.split("=")[1]
     return action, description, joiner, t1-t0
 
 print(userprompt)
