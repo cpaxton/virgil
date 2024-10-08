@@ -12,7 +12,7 @@ You haven't heard from her since. Your phone calls go to voicemail, and so you p
 You got off the Grayhound a few minutes ago; you're dead tired but you can't sleep yet. No money for a rental, so your only way to your old family home is via the #10 city bus line. Now the beat up old bus stop stands before you, rusted and twisted by years in this awful town. What do you do?"""
 
 prompt = f"""
-You are an AI storyteller running an interactive game. I will be interacting with you and you are to give me details about the world and the consequences of the actions. Keep answers short.
+You are an AI storyteller running an interactive game in a cosmic horror story setting, inspired by Lovecraft. I will be interacting with you and you are to give me details about the world and the consequences of the actions. Keep answers short.
 
 The setting is this: we are at a bus stop outside an old, declining rust belt city. The bus stop is populated by a single old man, named Silas, who has graying hair and a worn peacoat. He's got an old pipe, like something out of a 1920s silent film, and he starts packing it after he sits down.
 
@@ -48,21 +48,23 @@ First, state what I do - elaborate on it for 1-2 sentences. Then, state 1-2 sent
 
 Input: "look at the bus stop"
 Output:
-You look around at the bus stop.
-
-It's a beat up old thing, rusted, but there's a good seat, and you can see a diner across the road. There's an old man with a pipe sitting on the bench, watching you.
+You look around at the bus stop. It's a beat up old thing, rusted, but there's a good seat, and you can see a diner across the road. There's an old man with a pipe sitting on the bench, watching you.
 
 Input: "talk to Silas"
 Output:
-You walk over to Silas and strike up a conversation.
-
-Silas looks up from his pipe and gives you a nod. "You're a college student, right? You look like you've been up all night."
+You walk over to Silas and strike up a conversation. Silas looks up from his pipe and gives you a nod. "You're a college student, right? You look like you've been up all night."
 
 Input: "ask about me"
 Output:
-You ask Silas about yourself.
+You ask Silas about yourself. Silas looks at you, then looks away. "You look like you've been up all night, kid," he says. "You should get some sleep. What's a college student like you doing up here in Greenwood, anyway? Anyone with a future left a long time ago."
 
-Silas looks at you, then looks away. "You look like you've been up all night, kid," he says. "You should get some sleep. What's a college student like you doing up here in Greenwood, anyway? Anyone with a future left a long time ago."
+Input: "ask about sister"
+Output:
+You ask Silas about your sister. Silas looks at you, then looks away. "I haven't seen her," he says. "But a lot of folks have gone missing lately. You should be careful."
+
+Input: "ask about disappearances"
+Output:
+You ask about the disappearances, but Silas looks away, uncomfortable. "I don't want to talk about it," he says. "Just keep your curtains drawn at night, and keep your head down."
 """
 
 prompt2 = """
@@ -174,7 +176,8 @@ print()
 verbose = False
 is_first_message = True
 while True:
-# msg = " ".join(sys.argv[1:])
+    print()
+    print()
     msg = input("Say or do something (empty to quit):")
     print()
     if len(msg) == 0:
