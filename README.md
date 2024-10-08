@@ -2,7 +2,7 @@
 
 A simple set of tools and scripts for generating fun and compelling AI-generated content.
 
-It's named after the AI from Mass Effect. Or maybe the Roman poet. Who can say.
+It's named after the AI from Mass Effect. Or maybe the Roman poet.
 
 ## Installation
 
@@ -34,7 +34,7 @@ Replace "What kind of crustacean are you?" with whatever prompt you want to use.
 
 It will generate a quiz with 10 questions and answers, in a folder with the same name. It will also generate images using [diffusers](https://huggingface.co/docs/diffusers/en/index), with [SIGLip](https://huggingface.co/docs/transformers/en/model_doc/siglip) used to filter out lower-quality images.
 
-Examples are available [on my website](https://cpaxton.github.io/quiz/). As it's an important topic I also have some [thoughts on AI art](https://itcanthink.substack.com/p/off-topic-what-role-for-ai-in-the) -- which is basically that I think it's a neat thing in its own right and not competitive with human art.
+Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all of them are winners, but plenty of them are fun. As it's an important and related topic, I also have some [thoughts on AI art](https://itcanthink.substack.com/p/off-topic-what-role-for-ai-in-the) -- which is basically that I think it's a neat thing in its own right and not competitive with human art.
 
 ### Storyteller
 
@@ -47,4 +47,4 @@ This is a work in progress. Just chat with the world. See how it goes.
 
 ## License
 
-If you somehow find this and want to use it just give me credit; everything here is by Chris Paxton
+If you somehow find this and want to use it, please give me credit; everything here is by [Chris Paxton](https://cpaxton.github.io/).
