@@ -104,11 +104,16 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
 
 # Example usage
 @click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing results.yaml and questions.yaml")
-def main(folder_path: str = ""):
+@click.option("--folder_path", default="", help="Path to the folder containing many different quizes")
+@click.option("--quiz_path", default="", help="Path to the folder containing the quiz results.yaml and questions.yaml")
+def main(folder_path: str = "", quiz_path: str = ""):
     import glob
 
-    if len(folder_path) == 0:
+    if len(quiz_path) > 0:
+        print("Try to create images for quiz:", quiz_path)
+        create_images_for_folder(quiz_path)
+        return
+    elif len(folder_path) == 0:
         # folder_path = "What sea creature are you?/2024-10-05-22-26-28/"
         folder_path = "2024-10-07"
 

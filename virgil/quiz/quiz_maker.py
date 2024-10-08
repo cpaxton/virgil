@@ -4,6 +4,7 @@
 import os
 from datetime import datetime
 import yaml
+import click
 
 from virgil.backend import Gemma
 from virgil.chat import ChatWrapper
@@ -22,7 +23,7 @@ It should be a question.
 Go ahead:
 """
 
-prompt_answers = """You are generating a weird personality quiz titled, "{topic}".
+prompt_answers = """You are generating a weird, fun, clever personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
 
@@ -58,7 +59,7 @@ Mostly A's:
 """
 
 prompt_questions = """
-You are generating a weird, BuzzFeed-style personality quiz titled, "{topic}".
+You are generating a weird, fun, clever BuzzFeed-style personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be related to "{topic}", but will get increasingly weird as the quiz goes on.
 
@@ -159,7 +160,17 @@ def generate_quiz(topic: str, backend: Gemma) -> None:
 
     # create_images_for_folder(os.path.join(date, topic)) 
 
-def main():
+@click.command()
+@click.option("--topic", default="", help="The topic of the quiz to generate.")
+def main(topic: str = ""):
+
+    if len(topic) > 0:
+        backend = Gemma()
+        generate_quiz(topic, backend)
+        return
+
+    # If you did not specify a quiz...
+
     # The first set of topics
     topics1 = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?", "What kind of cat are you?", "What kind of dog are you?", "What kind of bird are you?", "What kind of fish are you?", "What kind of reptile are you?", "What kind of amphibian are you?", "What kind of insect are you?", "What kind of arachnid are you?", "What kind of mollusk are you?", "What kind of crustacean are you?", "What kind of arthropod are you?", "What kind of worm are you?", "What kind of fungus are you?", "What kind of bacteria are you?"]
     # Yet more topics
@@ -169,9 +180,10 @@ def main():
     # Gemma failed to generate a quiz for "what halloween creature are you?"
 "Which cosmic horror are you devoted to?", "To which of the elder gods should you pray?", "Which afterlife will you end up in?",
 "Which kind of undead monstrosity will you be?", "What holiday are you?", "What kind of door are you?", "What extremely specific door are you?"]
+    topics = ["What kind of potato are you?", "What extremely specific odor are you?", "What popular internet meme are you?", "What Andy are you?"]
 
     # Ran out of memory at tea
-    topics3 = ["What kind of tea are you?", "What kind of coffee are you?", "What kind of milk are you?", "What kind of water are you?", "What kind of ice cream are you?", "What kind of candy are you?", "What kind of chocolate are you?", "What kind of snack are you?", "What kind of chip are you?", "What kind of cracker are you?", "What kind of cookie are you?", "What kind of cake are you?", "What kind of pie are you?", "What kind of bread are you?", "What kind of pasta are you?", "What kind of rice are you?", "What kind of grain are you?", "What kind of legume are you?", "What kind of nut are you?", "What kind of seed are you?", "What kind of oil are you?", "What kind of vinegar are you?"]
+    topics4 = ["What kind of tea are you?", "What kind of coffee are you?", "What kind of milk are you?", "What kind of water are you?", "What kind of ice cream are you?", "What kind of candy are you?", "What kind of chocolate are you?", "What kind of snack are you?", "What kind of chip are you?", "What kind of cracker are you?", "What kind of cookie are you?", "What kind of cake are you?", "What kind of pie are you?", "What kind of bread are you?", "What kind of pasta are you?", "What kind of rice are you?", "What kind of grain are you?", "What kind of legume are you?", "What kind of nut are you?", "What kind of seed are you?", "What kind of oil are you?", "What kind of vinegar are you?"]
 
     backend = Gemma()
     for topic in topics:
