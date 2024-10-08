@@ -2,8 +2,7 @@
 
 A simple set of tools and scripts for generating fun and compelling AI-generated content.
 
-It's named after the AI from Mass Effect. Or maybe the Roman poet.
-
+It's named after the AI from Mass Effect. Or maybe the Roman poet. Who can say.
 
 ## Installation
 
@@ -11,6 +10,8 @@ Just basic pip usage should do it:
 ```bash
 python -m pip install -e .
 ```
+
+You'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
 
 ## Usage
 
