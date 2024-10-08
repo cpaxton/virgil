@@ -40,10 +40,10 @@ Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all
 
 After installing `virgil`:
 ```bash
-python scripts/storyteller.py
+python -m virgil.story.cosmic_horror
 ```
 
-This is a work in progress. Just chat with the world. See how it goes.
+This is a work-in-progress of a single scene at the "beginning" of a cosmic horror story. You've just arrived at a bus stop in the town of Greenwood, Ohio, looking for your sister. See what you can find out.
 
 ## License
 
