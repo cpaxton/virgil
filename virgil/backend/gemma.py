@@ -7,13 +7,16 @@ from .base import Backend
 
 
 class Gemma(Backend):
-    def __init__(self):
+    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
         self.pipe = pipeline(
             "text-generation",
             model="google/gemma-2-2b-it",
             model_kwargs={"torch_dtype": torch.bfloat16},
             device="cuda",  # replace with "mps" to run on a Mac device
         )
+        self.temperature = temperature
+        self.top_p = top_p
+        self.do_sample = do_sample
 
     def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs) -> list:
         """Generate a response to a list of messages.
@@ -26,4 +29,7 @@ class Gemma(Backend):
             List[str]: A list of generated responses.
         """
         with torch.no_grad():
-            return self.pipe(messages, max_new_tokens=max_new_tokens)
+            return self.pipe(messages, max_new_tokens=max_new_tokens,
+                             temperature=self.temperature,
+                             top_p=self.top_p,
+                             do_sample=self.do_sample,)

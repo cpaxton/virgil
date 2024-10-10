@@ -23,7 +23,7 @@ It should be a question.
 Go ahead:
 """
 
-prompt_answers = """You are generating a fun, clever personality quiz titled, "{topic}".
+prompt_answers = """You are generating a weird, fun, clever Buzzfeed-style personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
 
@@ -59,7 +59,7 @@ Mostly A's:
 """
 
 prompt_questions = """
-You are generating a fun, clever personality quiz titled, "{topic}".
+You are generating a weird, fun, clever Buzzfeed-style personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be related to "{topic}", but will get increasingly weird as the quiz goes on.
 
@@ -96,11 +96,11 @@ After question 3, questions will get steadily more unhinged and nonsensical, as 
 Question N:
 Question: (text of the question)
 Image: A picture of (a detailed prompt for an image generator)
-A. (text of option A)
-B. (text of option B)
-C. (text of option C)
-D. (text of option D)
-E. (text of option E)
+A. (text of option A - relevant to {result_a})
+B. (text of option B - relevant to {result_b})
+C. (text of option C - relevant to {result_c})
+D. (text of option D - relevant to {result_d})
+E. (text of option E - relevant to {result_e})
 END QUESTION
 
 When prompted, with "Question N", you will generate only the text and image prompt for that question and no more. End each question with "END QUESTION". Provide no other output. Content will be formatted exactly as above, with no extra fields. You will not return or say anything else.
