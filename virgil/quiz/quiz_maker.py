@@ -23,7 +23,7 @@ It should be a question.
 Go ahead:
 """
 
-prompt_answers = """You are generating a weird, fun, clever Buzzfeed-style personality quiz titled, "{topic}".
+prompt_answers = """You are generating a fun, clever Buzzfeed-style personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
 
@@ -59,7 +59,7 @@ Mostly A's:
 """
 
 prompt_questions = """
-You are generating a weird, fun, clever Buzzfeed-style personality quiz titled, "{topic}".
+You are generating a fun, clever Buzzfeed-style personality quiz titled, "{topic}".
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be related to "{topic}", but will get increasingly weird as the quiz goes on.
 
