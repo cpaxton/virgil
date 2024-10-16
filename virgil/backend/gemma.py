@@ -3,7 +3,7 @@
 import torch
 from transformers import pipeline
 
-from .base import Backend
+from virgil.backend.base import Backend
 
 
 class Gemma(Backend):
@@ -33,3 +33,7 @@ class Gemma(Backend):
                              temperature=self.temperature,
                              top_p=self.top_p,
                              do_sample=self.do_sample,)
+
+if __name__ == '__main__':
+    gemma = Gemma()
+    print(gemma("The meaning of life is:"))
