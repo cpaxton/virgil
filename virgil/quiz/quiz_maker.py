@@ -1,3 +1,5 @@
+# # (c) 2024 by Chris Paxton
+
 # (c) 2024 by Chris Paxton
 # Quiz Maker, advanced version
 
@@ -109,6 +111,7 @@ Topic: {topic}
 Question 1:
 """
 
+
 def generate_quiz(topic: str, backend: Gemma, save_with_date: bool = False) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
@@ -163,12 +166,12 @@ def generate_quiz(topic: str, backend: Gemma, save_with_date: bool = False) -> N
 
     chat.clear()
 
-    # create_images_for_folder(os.path.join(date, topic)) 
+    # create_images_for_folder(os.path.join(date, topic))
+
 
 @click.command()
 @click.option("--topic", default="", help="The topic of the quiz to generate.")
 def main(topic: str = ""):
-
     if len(topic) > 0:
         backend = Gemma()
         generate_quiz(topic, backend)
@@ -177,23 +180,107 @@ def main(topic: str = ""):
     # If you did not specify a quiz...
 
     # The first set of topics
-    topics1 = ["Which Lord of the Rings character are you?", "Which faction from Iain Banks' Culture series are you?", "Which kitchen utensil are you?", "What sea creature are you?", "What houseplant are you?", "What kind of sandwich are you?", "What D&D character class are you?", "Which programming language are you?", "What kind of cat are you?", "What kind of dog are you?", "What kind of bird are you?", "What kind of fish are you?", "What kind of reptile are you?", "What kind of amphibian are you?", "What kind of insect are you?", "What kind of arachnid are you?", "What kind of mollusk are you?", "What kind of crustacean are you?", "What kind of arthropod are you?", "What kind of worm are you?", "What kind of fungus are you?", "What kind of bacteria are you?"]
+    topics1 = [
+        "Which Lord of the Rings character are you?",
+        "Which faction from Iain Banks' Culture series are you?",
+        "Which kitchen utensil are you?",
+        "What sea creature are you?",
+        "What houseplant are you?",
+        "What kind of sandwich are you?",
+        "What D&D character class are you?",
+        "Which programming language are you?",
+        "What kind of cat are you?",
+        "What kind of dog are you?",
+        "What kind of bird are you?",
+        "What kind of fish are you?",
+        "What kind of reptile are you?",
+        "What kind of amphibian are you?",
+        "What kind of insect are you?",
+        "What kind of arachnid are you?",
+        "What kind of mollusk are you?",
+        "What kind of crustacean are you?",
+        "What kind of arthropod are you?",
+        "What kind of worm are you?",
+        "What kind of fungus are you?",
+        "What kind of bacteria are you?",
+    ]
     # Yet more topics
-    topics2 = ["What kind of virus are you?", "What kind of protist are you?", "What kind of plant are you?", "What kind of tree are you?", "What kind of flower are you?", "What kind of fruit are you?", "What kind of vegetable are you?", "What kind of herb are you?", "What kind of spice are you?", "What kind of condiment are you?", "What kind of sauce are you?", "What kind of soup are you?", "What kind of salad are you?", "What kind of appetizer are you?", "What kind of entree are you?", "What kind of dessert are you?", "What kind of drink are you?", "What kind of cocktail are you?", "What kind of beer are you?", "What kind of wine are you?", "What kind of spirit are you?", "What kind of non-alcoholic beverage are you?", "What kind of juice are you?", "What kind of soda are you?"]
+    topics2 = [
+        "What kind of virus are you?",
+        "What kind of protist are you?",
+        "What kind of plant are you?",
+        "What kind of tree are you?",
+        "What kind of flower are you?",
+        "What kind of fruit are you?",
+        "What kind of vegetable are you?",
+        "What kind of herb are you?",
+        "What kind of spice are you?",
+        "What kind of condiment are you?",
+        "What kind of sauce are you?",
+        "What kind of soup are you?",
+        "What kind of salad are you?",
+        "What kind of appetizer are you?",
+        "What kind of entree are you?",
+        "What kind of dessert are you?",
+        "What kind of drink are you?",
+        "What kind of cocktail are you?",
+        "What kind of beer are you?",
+        "What kind of wine are you?",
+        "What kind of spirit are you?",
+        "What kind of non-alcoholic beverage are you?",
+        "What kind of juice are you?",
+        "What kind of soda are you?",
+    ]
     # More topics
-    topics3 = ["What kind of tooth are you?", "Which bone are you?", "What halloween costume are you?", "What halloween creature are you?", "Which day in October are you?", "What halloween candy are you?",
-    # Gemma failed to generate a quiz for "what halloween creature are you?"
-"Which cosmic horror are you devoted to?", "To which of the elder gods should you pray?", "Which afterlife will you end up in?",
-"Which kind of undead monstrosity will you be?", "What holiday are you?", "What kind of door are you?", "What extremely specific door are you?"]
+    topics3 = [
+        "What kind of tooth are you?",
+        "Which bone are you?",
+        "What halloween costume are you?",
+        "What halloween creature are you?",
+        "Which day in October are you?",
+        "What halloween candy are you?",
+        # Gemma failed to generate a quiz for "what halloween creature are you?"
+        "Which cosmic horror are you devoted to?",
+        "To which of the elder gods should you pray?",
+        "Which afterlife will you end up in?",
+        "Which kind of undead monstrosity will you be?",
+        "What holiday are you?",
+        "What kind of door are you?",
+        "What extremely specific door are you?",
+    ]
     topics4 = ["What kind of potato are you?", "What extremely specific odor are you?", "What popular internet meme are you?", "What Andy are you?", "What quiz are you?", "How drunk are you right now?"]
     topics = ["How did you get so drunk?", "Who am I and how did I get here?", "What should I name my dog?", "How do I get out of here?"]
 
     # Ran out of memory at tea
-    topics4 = ["What kind of tea are you?", "What kind of coffee are you?", "What kind of milk are you?", "What kind of water are you?", "What kind of ice cream are you?", "What kind of candy are you?", "What kind of chocolate are you?", "What kind of snack are you?", "What kind of chip are you?", "What kind of cracker are you?", "What kind of cookie are you?", "What kind of cake are you?", "What kind of pie are you?", "What kind of bread are you?", "What kind of pasta are you?", "What kind of rice are you?", "What kind of grain are you?", "What kind of legume are you?", "What kind of nut are you?", "What kind of seed are you?", "What kind of oil are you?", "What kind of vinegar are you?"]
+    topics4 = [
+        "What kind of tea are you?",
+        "What kind of coffee are you?",
+        "What kind of milk are you?",
+        "What kind of water are you?",
+        "What kind of ice cream are you?",
+        "What kind of candy are you?",
+        "What kind of chocolate are you?",
+        "What kind of snack are you?",
+        "What kind of chip are you?",
+        "What kind of cracker are you?",
+        "What kind of cookie are you?",
+        "What kind of cake are you?",
+        "What kind of pie are you?",
+        "What kind of bread are you?",
+        "What kind of pasta are you?",
+        "What kind of rice are you?",
+        "What kind of grain are you?",
+        "What kind of legume are you?",
+        "What kind of nut are you?",
+        "What kind of seed are you?",
+        "What kind of oil are you?",
+        "What kind of vinegar are you?",
+    ]
 
     backend = Gemma()
     for topic in topics:
         generate_quiz(topic, backend)
+
 
 if __name__ == "__main__":
     main()

@@ -1,3 +1,5 @@
+# # (c) 2024 by Chris Paxton
+
 import torch
 from transformers import pipeline
 import timeit
@@ -14,7 +16,7 @@ import sys
 conversation_history = []
 
 while True:
-# msg = " ".join(sys.argv[1:])
+    # msg = " ".join(sys.argv[1:])
     msg = input("Enter a message (empty to quit):")
     if len(msg) == 0:
         break
@@ -37,4 +39,3 @@ while True:
     print("----------------")
 
 # Ahoy, matey! I be Gemma, a digital scallywag, a language-slingin' parrot of the digital seas. I be here to help ye with yer wordy woes, answer yer questions, and spin ye yarns of the digital world.  So, what be yer pleasure, eh? 🦜
-

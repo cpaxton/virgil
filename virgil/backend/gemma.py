@@ -29,11 +29,15 @@ class Gemma(Backend):
             List[str]: A list of generated responses.
         """
         with torch.no_grad():
-            return self.pipe(messages, max_new_tokens=max_new_tokens,
-                             temperature=self.temperature,
-                             top_p=self.top_p,
-                             do_sample=self.do_sample,)
+            return self.pipe(
+                messages,
+                max_new_tokens=max_new_tokens,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                do_sample=self.do_sample,
+            )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     gemma = Gemma()
     print(gemma("The meaning of life is:"))

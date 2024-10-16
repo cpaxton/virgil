@@ -13,8 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/virgil",
     packages=["virgil"],
-    package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"],
-                  "virgil.meme": ["prompt.txt"]},
+    package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"]},
     install_requires=[
         "torch",
         "transformers",
@@ -26,7 +25,7 @@ setup(
         "click",
         "matplotlib",
         "discord",  # Install discord library for discord-using robots
-        "python-dotenv", # For pulling things like API keys and tokens from env
+        "python-dotenv",  # For pulling things like API keys and tokens from env
     ],
     extras_require={
         "dev": [

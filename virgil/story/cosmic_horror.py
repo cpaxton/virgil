@@ -1,3 +1,5 @@
+# # (c) 2024 by Chris Paxton
+
 import timeit
 from termcolor import colored
 
@@ -74,7 +76,7 @@ Input: "I look around the bus stop"
 output:
 action=look
 target=bus stop
-joiner=at the 
+joiner=at the
 
 Input: "sit down"
 action=sit
@@ -134,12 +136,13 @@ action=agree
 target=Silas
 joiner=with
 
-Input: 
+Input:
 """
 
 conversation_history = []
 backend = get_backend("gemma")
 verbose = False
+
 
 def parse(msg) -> tuple[str, str, str]:
     """Parse the user's message into an action, a target, and a joiner.
@@ -169,7 +172,8 @@ def parse(msg) -> tuple[str, str, str]:
             description = line.split("=")[1]
         elif line.startswith("joiner="):
             joiner = line.split("=")[1]
-    return action, description, joiner, t1-t0
+    return action, description, joiner, t1 - t0
+
 
 print(userprompt)
 print()

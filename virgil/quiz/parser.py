@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional
 
 from termcolor import colored
 
+
 class ResultParser(Parser):
     def parse(self, text: str) -> Optional[Dict[str, Any]]:
         """Results are of the format:
@@ -48,7 +49,7 @@ class ResultParser(Parser):
 
             # Add the key and value to the result dictionary
             result[key.lower()] = value
-    
+
         # Verify that all the required keys are present
         required_keys = ["result", "description", "image"]
         if all(key in result for key in required_keys):
