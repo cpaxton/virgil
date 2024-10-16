@@ -25,6 +25,8 @@ setup(
         "numpy",
         "click",
         "matplotlib",
+        "discord",  # Install discord library for discord-using robots
+        "python-dotenv", # For pulling things like API keys and tokens from env
     ],
     extras_require={
         "dev": [
