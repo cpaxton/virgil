@@ -1,6 +1,8 @@
 import torch
 from transformers import pipeline
-from typimg import Optional
+from typing import Optional
+
+from virgil.backend.base import Backend
 
 class Llama(Backend):
     def __init__(self, model_id: Optional[str] = None, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
