@@ -41,7 +41,8 @@ class Friend(DiscordBot):
             guild_count = guild_count + 1
 
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
-        print("This bot is in " + str(guild_count) + " guilds.")
+        print("This bot is in " + str(guild_count) + " guild(s).")
+        print("Loaded conversation history:", len(self.chat))
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
