@@ -24,6 +24,7 @@ class Friend(DiscordBot):
     def __init__(self, token: Optional[str] = None, backend="gemma"):
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend)
+        self.prompt = load_prompt()
         super(Friend, self).__init__(token)
 
     def on_ready(self):
@@ -43,6 +44,11 @@ class Friend(DiscordBot):
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
         print("This bot is in " + str(guild_count) + " guild(s).")
         print("Loaded conversation history:", len(self.chat))
+        if len(self.chat) == 0:
+            print(" -> we will resend the prompt at the appropriate time.")
+            print()
+            print("Prompt:")
+            print(self.prompt)
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
@@ -51,10 +57,6 @@ class Friend(DiscordBot):
             print(message)
             print("Content =", message.content)
             print("Content type =", type(message.content))
-
-        text = message.content
-        if text.startswith("hello"):
-            return "Hello!"
 
 
 if __name__ == "__main__":
