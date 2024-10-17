@@ -4,6 +4,16 @@ import os
 import discord
 
 
+def read_discord_token_from_env():
+    """Helpful tool to get a discord token from the command line, e.g. for a bot."""
+    from dotenv import load_dotenv
+
+    # Load environment variables from .env file
+    load_dotenv()
+    TOKEN = os.getenv("DISCORD_TOKEN")
+    return TOKEN
+
+
 class DiscordBot:
     def __init__(self, token):
         # Create intents
@@ -62,16 +72,6 @@ class DiscordBot:
 
     def run(self):
         self.client.run(token)
-
-
-def read_discord_token_from_env():
-    """Helpful tool to get a discord token from the command line, e.g. for a bot."""
-    from dotenv import load_dotenv
-
-    # Load environment variables from .env file
-    load_dotenv()
-    TOKEN = os.getenv("DISCORD_TOKEN")
-    return TOKEN
 
 
 if __name__ == "__main__":
