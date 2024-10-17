@@ -27,7 +27,9 @@ class DiscordBot:
 
         @client.event
         async def on_message(message):
-            return self.on_message(message)
+            response = self.on_message(message)
+            if response is not None:
+                await message.channel.send(response)
 
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
@@ -55,8 +57,8 @@ class DiscordBot:
             print("Content type =", type(message.content))
 
         text = message.content
-        if text.contains("hello"):
-            message.channel.send("Hello!")
+        if text.startswith("hello"):
+            return "Hello"
 
     def run(self):
         self.client.run(token)
