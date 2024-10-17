@@ -58,7 +58,7 @@ class DiscordBot:
 
         text = message.content
         if text.startswith("hello"):
-            return "Hello"
+            return "Hello!"
 
     def run(self):
         self.client.run(token)
