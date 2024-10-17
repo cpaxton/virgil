@@ -25,6 +25,8 @@ class DiscordBot:
 
         # Create an instance of a Client
         self.client = discord.Client(intents=intents)
+        print("User name:", self.client.user.name)
+        print("Global name:", self.client.user.global_name)
 
         self._setup_hooks(self.client)
 
