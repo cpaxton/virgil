@@ -4,6 +4,7 @@
 from typing import Optional
 import os
 import discord
+from discord.ext import commands
 
 
 def read_discord_token_from_env():
@@ -24,7 +25,8 @@ class DiscordBot:
         intents.message_content = True
 
         # Create an instance of a Client
-        self.client = discord.Client(intents=intents)
+        # self.client = discord.Client(intents=intents)
+        self.client = commands.Bot(command_prefix="!", intents=intents)
         self._setup_hooks(self.client)
 
         # Save the token
