@@ -25,6 +25,8 @@ class Friend(DiscordBot):
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend)
         self.prompt = load_prompt()
+        self._user_name = None
+        self._user_id = None
         super(Friend, self).__init__(token)
 
     def on_ready(self):
@@ -34,6 +36,9 @@ class Friend(DiscordBot):
 
         print("Bot User name:", self.client.user.name)
         print("Bot Global name:", self.client.user.global_name)
+        print("Bot User IDL", self.client.user.id)
+        self._user_name = self.client.user.name
+        self._user_id = self.client.user.id
 
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
@@ -65,6 +70,10 @@ class Friend(DiscordBot):
         sender_name = message.author.name
         # Only necessary once we want multi-server Friends
         # global_name = message.author.global_name
+
+        # Skip anything that's from this bot
+        if message.author.id == self._user_id:
+            return None
 
         if len(self.chat) == 0:
             text = self.prompt + f"\n{sender_name}: " + message.content
