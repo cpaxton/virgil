@@ -25,9 +25,6 @@ class DiscordBot:
 
         # Create an instance of a Client
         self.client = discord.Client(intents=intents)
-        print("User name:", self.client.user.name)
-        print("Global name:", self.client.user.global_name)
-
         self._setup_hooks(self.client)
 
         # Save the token
@@ -52,6 +49,9 @@ class DiscordBot:
         """Event listener called when the bot has switched from offline to online."""
         print(f"{self.client.user} has connected to Discord!")
         guild_count = 0
+
+        print("Bot User name:", self.client.user.name)
+        print("Bot Global name:", self.client.user.global_name)
 
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.

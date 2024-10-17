@@ -32,6 +32,9 @@ class Friend(DiscordBot):
         print(f"{self.client.user} has connected to Discord!")
         guild_count = 0
 
+        print("Bot User name:", self.client.user.name)
+        print("Bot Global name:", self.client.user.global_name)
+
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
         for guild in self.client.guilds:
