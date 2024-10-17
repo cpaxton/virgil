@@ -59,16 +59,19 @@ class Friend(DiscordBot):
             print(self.prompt)
             print()
 
-    def on_message(self, message, verbose: bool = True):
+    def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
         if verbose:
             # Printing some information to learn about what this actually does
             print(message)
             print("Content =", message.content)
             print("Content type =", type(message.content))
-            print("Author:", message.author)
+            print("Author name:", message.author.name)
+            print("Author global name:", message.author.global_name)
 
-        sender_name = message.author.name
+        # This is your actual username
+        # sender_name = message.author.name
+        sender_name = message.author.display_name
         # Only necessary once we want multi-server Friends
         # global_name = message.author.global_name
 
