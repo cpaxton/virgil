@@ -1,6 +1,7 @@
 # # (c) 2024 by Chris Paxton
 # Useful reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
+from typing import Optional
 import os
 import discord
 
@@ -16,7 +17,7 @@ def read_discord_token_from_env():
 
 
 class DiscordBot:
-    def __init__(self, token: str):
+    def __init__(self, token: Optional[str] = None):
         """Create the bot, using an authorization token from Discord."""
         # Create intents
         intents = discord.Intents.default()
@@ -28,6 +29,8 @@ class DiscordBot:
         self._setup_hooks(self.client)
 
         # Save the token
+        if token is None:
+            token = read_discord_token_from_env()
         self.token = token
 
     def _setup_hooks(self, client):
@@ -73,10 +76,9 @@ class DiscordBot:
             return "Hello!"
 
     def run(self):
-        self.client.run(token)
+        self.client.run(self.token)
 
 
 if __name__ == "__main__":
-    token = read_discord_token_from_env()
-    bot = DiscordBot(token)
+    bot = DiscordBot()
     bot.run()
