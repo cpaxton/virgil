@@ -1,4 +1,5 @@
 # # (c) 2024 by Chris Paxton
+# Useful reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
 import os
 import discord
@@ -15,7 +16,8 @@ def read_discord_token_from_env():
 
 
 class DiscordBot:
-    def __init__(self, token):
+    def __init__(self, token: str):
+        """Create the bot, using an authorization token from Discord."""
         # Create intents
         intents = discord.Intents.default()
         intents.message_content = True
