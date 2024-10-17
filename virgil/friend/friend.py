@@ -2,7 +2,20 @@
 
 from virgil.io.discord_bot import DiscordBot
 from virgil.backend import get_backend
+from virgil.chat import ChatWrapper
 from typing import Optional
+import pkg_resources
+
+
+def load_prompt():
+    # Get the path to the quiz.html file
+    file_path = pkg_resources.resource_filename("virgil.friend", "prompt.txt")
+
+    # Read the contents of the file
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read()
+
+    return content
 
 
 class Friend(DiscordBot):
@@ -10,6 +23,7 @@ class Friend(DiscordBot):
 
     def __init__(self, token: Optional[str] = None, backend="gemma"):
         self.backend = get_backend(backend)
+        self.chat = ChatWrapper(self.backend)
         super(Friend, self).__init__(token)
 
     def on_ready(self):
