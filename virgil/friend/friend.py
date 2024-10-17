@@ -49,6 +49,7 @@ class Friend(DiscordBot):
             print()
             print("Prompt:")
             print(self.prompt)
+            print()
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
@@ -57,6 +58,19 @@ class Friend(DiscordBot):
             print(message)
             print("Content =", message.content)
             print("Content type =", type(message.content))
+
+        sender_name = message.author.name
+        # Only necessary once we want multi-server Friends
+        # global_name = message.author.global_name
+
+        if len(self.chat) == 0:
+            text = self.prompt + f"\n{sender_name}: " + message.content
+        else:
+            text = f"{sender_name}: " + message.content
+
+        # Now actually prompt the AI
+        response = self.chat.prompt(text, verbose=True)
+        return response
 
 
 if __name__ == "__main__":
