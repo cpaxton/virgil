@@ -35,7 +35,7 @@ Topic: What kind of sandwich are you?
 Mostly A's:
 Result: Ham and Cheese Sandwich.
 Description: You are the classic sandwich, reliable and comforting. You are the go-to, the classic, the reliable. You are comforting and familiar, and people know they can count on you to be there when they need you. Your weakness is that you might be a bit TOO familiar, and people might take you for granted. But you are always there, and you are always delicious.
-Image: A picture of a sandwich with ham and cheese. The bread is golden brown, and the cheese is melted. There is a bit of lettuce peeking out from the side, and a slice of tomato. The sandwich is cut in half, and you can see the layers of ham and cheese inside.
+Image: A sandwich with ham and cheese. The bread is golden brown, and the cheese is melted. There is a bit of lettuce peeking out from the side, and a slice of tomato. The sandwich is cut in half, and you can see the layers of ham and cheese inside.
 END RESULT
 
 NEVER repeat a result. Each result will be unique and as specific as possible, and they will be the most popular or obvious things related to the question: {topic}
@@ -52,7 +52,7 @@ Topic: (the title of the quiz)
 Mostly (letter)'s:
 Result: (the result)
 Description: (the description)
-Image: A picture of (a detailed prompt for an image generator)
+Image: (A detailed prompt for an image generator)
 
 Topic: {topic}
 Mostly A's:
@@ -95,7 +95,7 @@ After question 3, questions will get steadily more unhinged and nonsensical, as 
 
 Question N:
 Question: (text of the question)
-Image: A picture of (a detailed prompt for an image generator)
+Image: (a detailed prompt for an image generator)
 A. (text of option A - relevant to {result_a})
 B. (text of option B - relevant to {result_b})
 C. (text of option C - relevant to {result_c})
