@@ -5,6 +5,10 @@ from .base import Backend
 from .llama import Llama
 
 
+backend_list = ["gemma", "gemma2b", "gemma-2b-it",
+                "llama-3.2-1B"]
+
+
 def get_backend(name: str) -> Backend:
     """Get a backend by name.
 
@@ -16,7 +20,7 @@ def get_backend(name: str) -> Backend:
     """
     if name == "gemma" or name == "gemma2b" or name == "gemma-2b-it":
         return Gemma()
-    elif name == "llama-3.2-1B":
+    elif name == "llama" or name == "llama-3.2-1B":
         return Llama(model_name="meta-llama/Llama-3.2-1B")
     else:
         raise ValueError(f"Unknown backend: {name}")

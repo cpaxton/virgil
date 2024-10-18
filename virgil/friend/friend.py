@@ -1,5 +1,6 @@
 # # (c) 2024 by Chris Paxton
 
+import click
 from virgil.io.discord_bot import DiscordBot
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
@@ -88,7 +89,12 @@ class Friend(DiscordBot):
         response = self.chat.prompt(text, verbose=True)
         return response
 
+@click.command()
+@click.option("--token", default=None, help="The token for the discord bot.")
+@click.option("--backend", default="gemma", help="The backend to use for the chat.")
+def main(token, backend):
+    bot = Friend(token=token, backend=backend)
+    bot.run()
 
 if __name__ == "__main__":
-    bot = Friend()
-    bot.run()
+    main()
