@@ -6,7 +6,7 @@ from typing import Optional
 
 from virgil.backend.base import Backend
 
-qwen_sizes = ["0.5B", "1B", "3B", "7B", "14B", "32B", "72B"]
+qwen_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
 qwen_specializations = ["Instruct", "Coder", "Math"]
 
 class Qwen(Backend):
@@ -14,7 +14,7 @@ class Qwen(Backend):
 
     def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
         if size is None:
-            size = "1B"
+            size = "1.5B"
         size = size.upper()
         # Check if the size is valid
         if size not in qwen_sizes:

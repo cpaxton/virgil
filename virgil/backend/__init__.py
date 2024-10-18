@@ -7,7 +7,13 @@ from .qwen import Qwen, qwen_sizes, qwen_specializations
 
 
 backend_list = ["gemma", "gemma2b", "gemma-2b-it",
-                "llama-3.2-1B"]
+                "llama-3.2-1B",
+                "qwen", "qwen-0.5B-Instruct", "qwen-0.5B-Coder", "qwen-0.5B-Math",
+                "qwen-1.5B-Instruct", "qwen-1.5B-Coder", "qwen-1.5B-Math",
+                "qwen-3B-Instruct", "qwen-3B-Coder", "qwen-3B-Math",
+                "qwen-7B-Instruct", "qwen-7B-Coder", "qwen-7B-Math",
+                "qwen-14B-Instruct", "qwen-14B-Coder", "qwen-14B-Math",
+                ]
 
 
 def get_backend(name: str) -> Backend:
@@ -30,7 +36,7 @@ def get_backend(name: str) -> Backend:
 
         # TODO: process this better
         if name == "qwen":
-            size = "1B"
+            size = "1.5B"
             specialization = "Instruct"
         # if one of the sizes is in the name...
         elif any(size in name for size in qwen_sizes):
