@@ -39,19 +39,25 @@ def get_backend(name: str) -> Backend:
             size = "1.5B"
             specialization = "Instruct"
         # if one of the sizes is in the name...
-        elif any(size in name for size in qwen_sizes):
+        elif any(size.lower() in name for size in qwen_sizes):
             for size in qwen_sizes:
-                if size in name:
+                if size.lower() in name:
                     break
-            if any(spec in name for spec in qwen_specializations):
+            else:
+                # if we didn't find a size, default to 1.5B
+                size = "1.5B"
+            if any(spec.lower() in name for spec in qwen_specializations):
                 for spec in qwen_specializations:
-                    if spec in name:
+                    if spec.lower() in name:
                         specialization = spec
                         break
+                else:
+                    specialization = "Instruct"
             else:
                 specialization = "Instruct"
+            print(f"Size: {size}, Specialization: {specialization}")
         else:
-            size = "1B"
+            size = "1.5B"
             specialization = "Instruct"
 
         return Qwen(model_name=f"Qwen/Qwen2.5-{size}-{specialization}")
