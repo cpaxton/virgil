@@ -8,10 +8,10 @@ from virgil.backend.base import Backend
 
 
 class Llama(Backend):
-    def __init__(self, model_id: Optional[str] = None, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
-        if model_id is None:
-            model_id = "meta-llama/Llama-3.2-1B"
-        self.pipe = pipeline("text-generation", model=model_id, torch_dtype=torch.bfloat16, device_map="auto")
+    def __init__(self, model_name: Optional[str] = None, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
+        if model_name is None:
+            model_name = "meta-llama/Llama-3.2-1B"
+        self.pipe = pipeline("text-generation", model=model_name, torch_dtype=torch.bfloat16, device_map="auto")
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample
