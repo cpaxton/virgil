@@ -118,6 +118,8 @@ class DiscordBot:
 
     async def setup_hook(self):
         # This method is called when the bot is starting up
+        print()
+        print(" -> Start process_queue")
         self.process_queue.start()
 
     def _setup_hooks(self, client):
@@ -172,6 +174,7 @@ class DiscordBot:
         async def _main():
             async with self.client as bot:
                 await bot.start(self.token)
+
         # self.client.start(self.token)
         asyncio.run(_main())
 
