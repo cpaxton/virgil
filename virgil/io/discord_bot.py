@@ -1,8 +1,9 @@
 # # (c) 2024 by Chris Paxton
 # Useful reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
-from typing import Optional
+from typing import Optional, List
 import os
+import time
 import discord
 from discord.ext import commands
 
@@ -16,6 +17,14 @@ def read_discord_token_from_env():
     load_dotenv()
     TOKEN = os.getenv("DISCORD_TOKEN")
     return TOKEN
+
+
+class Task:
+    """Holds the fields for: message, channel, and content."""
+    def __init__(self, message, channel, content):
+        self.message = message
+        self.channel = channel
+        self.content = content
 
 
 class DiscordBot:
@@ -36,12 +45,16 @@ class DiscordBot:
         self.token = token
 
         self.running = True
-        self.message_queue = []
+        self.message_queue: List[Task] = []
 
         # Create a thread and lock for the message queue
         self.queue_lock = threading.Lock()
         self.queue_thread = threading.Thread(target=self.process_queue)
 
+    def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None):
+        """Add a message to the queue to send."""
+        with self.queue_lock:
+            self.message_queue.append(Task(message, channel, content))
 
     def process_queue(self):
         """Process the queue of messages to send."""
@@ -50,9 +63,19 @@ class DiscordBot:
                 if len(self.message_queue) > 0:
                     message = self.message_queue.pop(0)
                     # self.client.loop.create_task(message.channel.send(message.content))
+
+            # Loop over all channels we have not yet started
+            # Add a message for each one 
+            for channel in self.client.get_all_channels():
+                if channel.type == discord.ChannelType.text:
+                    self.push_task(channel, message=self.greeting(), content=None)
                     
             # Sleep for a short time
             time.sleep(0.1)
+
+    def greeting(self) -> str:
+        """Return a greeting message."""
+        return "Hello everyone!"
 
     def _setup_hooks(self, client):
         """Prepare the various hooks to use this Bot object's methods."""
