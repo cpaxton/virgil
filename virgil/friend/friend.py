@@ -6,6 +6,8 @@ from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
 from typing import Optional
 import pkg_resources
+import timeit
+import random
 
 
 def load_prompt():
@@ -88,19 +90,23 @@ class Friend(DiscordBot):
             channel_name = message.channel.name
             ok = False
 
+            print("Current whitelist channels: ", self.whitelist)
+
             if channel_name in self.whitelist:
                 # Check if it was within last 10 mins
                 t2 = self.whitelist[channel_name]
-                if t1 - t2 < 600:
+                if t1 - t2 < 60:
                     # This is ok
                     ok = True
             
             # Random number generator - 1 in 1000 chance
             random_number = random.randint(1, 100)
-            if random_number == 1:
+            print("Random number:", random_number)
+            if random_number < 2:
                 # Add to whitelist 
                 self.whitelist[channel_name] = t1
                 ok = True
+                print(f" -> Added {channel_name} to whitelist")
 
             if not ok:
                 return None
