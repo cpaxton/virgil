@@ -58,6 +58,10 @@ class Friend(DiscordBot):
 
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
         print("This bot is in " + str(guild_count) + " guild(s).")
+
+        print("Starting the message processing queue.")
+        self.process_queue.start()
+
         print("Loaded conversation history:", len(self.chat))
         if len(self.chat) == 0:
             print(" -> we will resend the prompt at the appropriate time.")

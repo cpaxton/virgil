@@ -88,39 +88,33 @@ class DiscordBot:
         if task.message is not None:
             await task.channel.send(task.message)
 
-    @tasks.loop()
+    @tasks.loop(seconds=1)
     async def process_queue(self):
         """Process the queue of messages to send."""
 
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
+        # Loop over all channels we have not yet started
+        # Add a message for each one 
+        for channel in self.client.get_all_channels():
+            # print(" -", channel.id, channel.name, channel.type)
+            if channel.type == discord.ChannelType.text:
+                # print(" -> Text channel")
+                if channel not in self.introduced_channels:
+                    # print(" -> Not introduced yet")
+                    self.introduced_channels.add(channel)
+                    # print("Check if channel is valid: ", channel.id, channel.name)
+                    if self.channel_is_valid(channel):
+                        print(f"Introducing myself to channel {channel.name}")
+                        self.push_task(channel, message=self.greeting(), content=None)
 
-        while self.running:
-            # Loop over all channels we have not yet started
-            # Add a message for each one 
-            for channel in self.client.get_all_channels():
-                if channel.type == discord.ChannelType.text:
-                    if channel not in self.introduced_channels:
-                        introduced_channels.add(channel)
-                        print("Check if channel is valid: ", channel.id, channel.name)
-                        if self.channel_is_valid(channel):
-                            print(f"Introducing myself to channel {channel.name}")
-                            self.push_task(channel, message=self.greeting(), content=None)
-
-            try:
-                await self.handle_task(task)
-            except queue.Empty:
-                await asyncio.sleep(1)  # Wait a bit before checking again
+        try:
+            task = self.task_queue.get_nowait()
+            await self.handle_task(task)
+        except queue.Empty:
+            await asyncio.sleep(1)  # Wait a bit before checking again
 
     def greeting(self) -> str:
         """Return a greeting message."""
         return "Hello everyone!"
-
-    async def setup_hook(self):
-        # This method is called when the bot is starting up
-        print()
-        print(" -> Start process_queue")
-        self.process_queue.start()
 
     def _setup_hooks(self, client):
         """Prepare the various hooks to use this Bot object's methods."""
@@ -154,6 +148,10 @@ class DiscordBot:
 
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
         print("This bot is in " + str(guild_count) + " guilds.")
+
+        print("Starting the message processing queue.")
+        self.process_queue.start()
+
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
