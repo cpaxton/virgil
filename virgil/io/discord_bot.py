@@ -6,6 +6,7 @@ import os
 import discord
 from discord.ext import commands
 
+import threading
 
 def read_discord_token_from_env():
     """Helpful tool to get a discord token from the command line, e.g. for a bot."""
@@ -33,6 +34,25 @@ class DiscordBot:
         if token is None:
             token = read_discord_token_from_env()
         self.token = token
+
+        self.running = True
+        self.message_queue = []
+
+        # Create a thread and lock for the message queue
+        self.queue_lock = threading.Lock()
+        self.queue_thread = threading.Thread(target=self.process_queue)
+
+
+    def process_queue(self):
+        """Process the queue of messages to send."""
+        while self.running:
+            with self.queue_lock:
+                if len(self.message_queue) > 0:
+                    message = self.message_queue.pop(0)
+                    # self.client.loop.create_task(message.channel.send(message.content))
+                    
+            # Sleep for a short time
+            time.sleep(0.1)
 
     def _setup_hooks(self, client):
         """Prepare the various hooks to use this Bot object's methods."""
@@ -80,7 +100,13 @@ class DiscordBot:
             return "Hello!"
 
     def run(self):
+        # Start the message thread to process the queue
+        self.queue_thread.start()
         self.client.run(self.token)
+
+    def __del__(self):
+        self.running = False
+        self.queue_thread.join()
 
 
 if __name__ == "__main__":
