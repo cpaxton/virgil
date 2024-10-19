@@ -1,3 +1,5 @@
+# # (c) 2024 by Chris Paxton
+
 # (c) 2024 by Chris Paxton
 
 from PIL import Image

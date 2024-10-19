@@ -7,12 +7,14 @@ It's named after the AI from Mass Effect. Or maybe the Roman poet.
 ## Installation
 
 Optionally create a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for this project:
+
 ```bash
 conda create -n virgil python=3.8
 conda activate virgil
 ```
 
 Just basic pip usage should do it:
+
 ```bash
 python -m pip install -e .
 ```
@@ -26,6 +28,7 @@ The Infinite Quiz Machine requires about 12GB of GPU memory; I ran it on an NVID
 ### The Infinite Quiz Machine
 
 After installing `virgil`:
+
 ```bash
 ./scripts/infinite_quiz_machine.sh "What kind of crustacean are you?"
 ```
@@ -39,6 +42,7 @@ Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all
 ### Storyteller
 
 After installing `virgil`:
+
 ```bash
 python -m virgil.story.cosmic_horror
 ```

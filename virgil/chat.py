@@ -24,6 +24,9 @@ class ChatWrapper:
         """Clear the conversation history."""
         self.conversation_history = []
 
+    def __len__(self):
+        return len(self.conversation_history)
+
     def prompt(self, msg: str, verbose: bool = False) -> str:
         """Prompt the LLM with a message.
 

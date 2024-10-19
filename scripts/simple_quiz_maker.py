@@ -1,3 +1,5 @@
+# # (c) 2024 by Chris Paxton
+
 # (c) 2024 by Chris Paxton
 # This is the proof of concept for the simple quiz maker. It uses an LLM to generate a quiz based on a user's input.
 
@@ -42,6 +44,7 @@ Question 1:
 
 conversation_history = []
 
+
 def prompt_llm(msg, is_first_message: bool = False):
     print()
 
@@ -68,13 +71,14 @@ def prompt_llm(msg, is_first_message: bool = False):
     print(f"Generator time taken: {t1-t0:.2f} seconds")
     print("----------------")
 
+
 print(userprompt)
 print()
 is_first_message = True
 
 topic = input("Enter the title of your dumb personality quiz: ")
 prompt_llm(topic, is_first_message=True)
-for i in range(1,5):
+for i in range(1, 5):
     prompt_llm(f"Topic: {topic}\nQuestion {i+1}:")
 
 prompt_llm("""If you were mostly A, you were:""")

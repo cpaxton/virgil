@@ -2,18 +2,16 @@
 
 import torch
 from transformers import pipeline
+from typing import Optional
 
 from virgil.backend.base import Backend
 
 
-class Gemma(Backend):
-    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
-        self.pipe = pipeline(
-            "text-generation",
-            model="google/gemma-2-2b-it",
-            model_kwargs={"torch_dtype": torch.bfloat16},
-            device="cuda",  # replace with "mps" to run on a Mac device
-        )
+class Llama(Backend):
+    def __init__(self, model_name: Optional[str] = None, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
+        if model_name is None:
+            model_name = "meta-llama/Llama-3.2-1B"
+        self.pipe = pipeline("text-generation", model=model_name, torch_dtype=torch.bfloat16, device_map="auto")
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample
@@ -39,5 +37,5 @@ class Gemma(Backend):
 
 
 if __name__ == "__main__":
-    gemma = Gemma()
-    print(gemma("The meaning of life is:"))
+    llama = Llama()
+    print(llama("The key to life is"))

@@ -24,4 +24,3 @@ echo "Creating HTML..."
 python -m virgil.quiz.create_html --quiz_path "$prompt"
 
 echo "Script completed successfully."
-
