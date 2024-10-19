@@ -6,8 +6,9 @@ import os
 import time
 import timeit
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 import asyncio
+import queue
 
 import threading
 
@@ -47,14 +48,15 @@ class DiscordBot:
         self.token = token
 
         self.running = True
-        self.message_queue: List[Task] = []
+        self.task_queue = queue.Queue()
+        self.introduced_channels = set()
 
         # Whitelist of channels we can and will post in
         self.whitelist: Dict[str, float] = {}
 
         # Create a thread and lock for the message queue
         self.queue_lock = threading.Lock()
-        self.queue_thread = threading.Thread(target=self.process_queue)
+        # self.queue_thread = threading.Thread(target=self.process_queue)
 
     def add_to_whitelist(self, channel_id: str, current_time: Optional[float] = None):
         """Add a channel to the whitelist."""
@@ -78,43 +80,37 @@ class DiscordBot:
 
     def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None):
         """Add a message to the queue to send."""
-        with self.queue_lock:
-            self.message_queue.append(Task(message, channel, content))
+        self.task_queue.put(Task(message, channel, content))
 
     async def handle_task(self, task: Task):
         """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
         if task.message is not None:
             await task.channel.send(task.message)
 
-    def process_queue(self):
+    @tasks.loop(seconds=1)
+    async def process_queue(self):
         """Process the queue of messages to send."""
 
-        introduced_channels = set()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
         while self.running:
-            with self.queue_lock:
-                if len(self.message_queue) > 0:
-                    task = self.message_queue.pop(0)
-                    # self.client.loop.create_task(message.channel.send(message.content))
-                    self.loop.run_until_complete(self.handle_task(task))
-
             # Loop over all channels we have not yet started
             # Add a message for each one 
             for channel in self.client.get_all_channels():
                 if channel.type == discord.ChannelType.text:
-                    if channel not in introduced_channels:
+                    if channel not in self.introduced_channels:
                         introduced_channels.add(channel)
                         print("Check if channel is valid: ", channel.id, channel.name)
                         if self.channel_is_valid(channel):
                             print(f"Introducing myself to channel {channel.name}")
                             self.push_task(channel, message=self.greeting(), content=None)
-                    else:
-                        pass
-                    
-            # Sleep for a short time
-            time.sleep(0.1)
+
+            try:
+                task = self.task_queue.get_nowait()
+                await self.handle_task(task)
+            except queue.Empty:
+                await asyncio.sleep(1)  # Wait a bit before checking again
 
     def greeting(self) -> str:
         """Return a greeting message."""
@@ -168,12 +164,10 @@ class DiscordBot:
     def run(self):
         # Start the message thread to process the queue
         self.running = True
-        self.queue_thread.start()
         self.client.run(self.token)
 
     def __del__(self):
         self.running = False
-        self.queue_thread.join()
 
 
 if __name__ == "__main__":
