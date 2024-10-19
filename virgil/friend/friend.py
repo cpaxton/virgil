@@ -26,11 +26,13 @@ class Friend(DiscordBot):
 
     def __init__(self, token: Optional[str] = None, backend="gemma"):
         self.backend = get_backend(backend)
-        self.chat = ChatWrapper(self.backend)
+        self.chat = ChatWrapper(self.backend, max_history_length=100, preserve=2)
         self.prompt = load_prompt()
         self._user_name = None
         self._user_id = None
         super(Friend, self).__init__(token)
+
+        self.chat.prompt(self.prompt)
 
         # Add ask-a-robot to the whitelist
         # This one is always valid
@@ -119,10 +121,7 @@ class Friend(DiscordBot):
             if not ok:
                 return None
 
-        if len(self.chat) == 0:
-            text = self.prompt + f"\n{sender_name} on #{channel_name} at {datetime}: " + message.content
-        else:
-            text = f"{sender_name} on #{channel_name} at {datetime}: " + message.content
+        text = f"{sender_name} on #{channel_name} at {datetime}: " + message.content
 
         # Now actually prompt the AI
         response = self.chat.prompt(text, verbose=True)

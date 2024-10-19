@@ -7,8 +7,10 @@ from virgil.backend import Backend
 
 
 class ChatWrapper:
-    def __init__(self, backend: Backend) -> None:
+    def __init__(self, backend: Backend, max_history_length: int = 50, preserve: int = 2) -> None:
         self.backend = backend
+        self.max_history_length = max_history_length
+        self.preserve = preserve
         self.conversation_history = []
 
     def add_conversation_history(self, role: str, content: str):
@@ -19,6 +21,11 @@ class ChatWrapper:
             content (str): The content of the message.
         """
         self.conversation_history.append({"role": role, "content": content})
+
+        # Trim the conversation history, preserving the first `preserve` messages
+        # TODO: handle self.preserve > 0
+        if len(self.conversation_history) > self.max_history_length:
+            self.conversation_history = self.conversation_history[self.preserve:self.max_history_length - self.preserve]
 
     def clear(self):
         """Clear the conversation history."""

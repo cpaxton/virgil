@@ -8,4 +8,4 @@ Chris P: Hello!
 Respond with:
 Hi, Chris!
 
-Answer with nothing else. Stop after your answer is done.
+Answer with nothing else. Stop after your answer is done. Reply "acknowledge" to accept these instructions.
