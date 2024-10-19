@@ -25,6 +25,37 @@ You'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b
 
 The Infinite Quiz Machine requires about 12GB of GPU memory; I ran it on an NVIDIA RTX 4080 on my laptop and it worked fine. If that isn't available, you may need to do some tuning to get it to work on a smaller GPU.
 
+### Friend
+
+Friend is a simple chatbot which can use various backends to generate text on Discord. After installing `virgil`:
+
+```bash
+python -m virgil.friend.friend
+
+# You can use various backends
+# Gemma 2B is the default, small and fast, but not the fastest
+python -m virgil.friend.friend --backend gemma
+
+# Qwen 1.5B is a small model and should work on a laptop GPU
+python -m virgil.friend.friend --backend qwen-1.5B
+```
+
+#### Discord Setup for Friend
+
+You will need to create your Discord bot and get a token. You can do this by going to the [Discord Developer Portal](https://discord.com/developers/applications) and creating a new application. Then, create a bot and get the token.
+
+You can find the token in the "Installation" tab of the discord developer UI for your app. You will be able to get a link something like this:
+```
+https://discord.com/oauth2/authorize?client_id=999999999999999999&scope=bot
+```
+
+But you'll need to replace the `client_id` with your own:
+```
+https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
+```
+
+where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page.
+
 ### The Infinite Quiz Machine
 
 After installing `virgil`:
