@@ -4,6 +4,7 @@
 from typing import Optional, List
 import os
 import time
+import timeit
 import discord
 from discord.ext import commands
 import asyncio
@@ -55,6 +56,24 @@ class DiscordBot:
         self.queue_lock = threading.Lock()
         self.queue_thread = threading.Thread(target=self.process_queue)
 
+    def add_to_whitelist(self, channel_id: str, current_time: Optional[float] = None):
+        """Add a channel to the whitelist."""
+        if current_time is None:
+            current_time = timeit.default_timer()
+        self.whitelist[channel_id] = current_time
+
+    def remove_from_whitelist(self, channel_id: str):
+        """Remove a channel from the whitelist."""
+        del self.whitelist[channel_id]
+
+    def channel_is_valid(self, channel_id: str, current_time: Optional[float] = None, threshold: float = 60) -> bool:
+        """Check if a channel is valid to post in."""
+        if channel_id in self.whitelist:
+            if current_time is None:
+                current_time = timeit.default_timer()
+            return current_time - self.whitelist[channel_id] < threshold
+        return False
+
     def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None):
         """Add a message to the queue to send."""
         with self.queue_lock:
@@ -83,8 +102,9 @@ class DiscordBot:
                 if channel.type == discord.ChannelType.text:
                     if channel not in introduced_channels:
                         introduced_channels.add(channel)
-                        print(f"Introducing myself to channel {channel.name}")
-                        self.push_task(channel, message=self.greeting(), content=None)
+                        if self.channel_is_valid(channel.id):
+                            print(f"Introducing myself to channel {channel.name}")
+                            self.push_task(channel, message=self.greeting(), content=None)
                     else:
                         pass
                     

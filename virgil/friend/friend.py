@@ -32,6 +32,10 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
+        # Add ask-a-robot to the whitelist
+        # This one is always valid
+        self.add_to_whitelist("ask-a-robot", float('Inf'))
+
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
         print(f"{self.client.user} has connected to Discord!")
@@ -87,15 +91,15 @@ class Friend(DiscordBot):
         datetime = message.created_at
         if channel_name != "ask-a-robot":
             # Check name in whitelist
-            t1 = timeit.default_timer()
             ok = False
 
             print("Current whitelist channels: ", self.whitelist)
 
             if channel_name in self.whitelist:
                 # Check if it was within last 10 mins
+                t1 = timeit.default_timer()
                 t2 = self.whitelist[channel_name]
-                if t1 - t2 < 60:
+                if t2 - t1 < 60:
                     # This is ok
                     ok = True
             
@@ -104,7 +108,7 @@ class Friend(DiscordBot):
             print("Random number:", random_number)
             if random_number < 2:
                 # Add to whitelist 
-                self.whitelist[channel_name] = t1
+                self.add_to_whitelist(channel_name)
                 ok = True
                 print(f" -> Added {channel_name} to whitelist")
 
