@@ -80,6 +80,9 @@ class Friend(DiscordBot):
         if message.author.id == self._user_id:
             return None
 
+        if message.channel.name != "ask-a-robot":
+            return None
+
         if len(self.chat) == 0:
             text = self.prompt + f"\n{sender_name}: " + message.content
         else:

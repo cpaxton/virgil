@@ -6,6 +6,7 @@ import os
 import time
 import discord
 from discord.ext import commands
+import asyncio
 
 import threading
 
@@ -56,19 +57,32 @@ class DiscordBot:
         with self.queue_lock:
             self.message_queue.append(Task(message, channel, content))
 
+    async def handle_task(self, task: Task):
+        """Handle a task by sending the message to the channel."""
+        if task.message is not None:
+            asyncio.run(task.channel.send(task.message))
+
     def process_queue(self):
         """Process the queue of messages to send."""
+
+        introduced_channels = set()
+
         while self.running:
             with self.queue_lock:
                 if len(self.message_queue) > 0:
-                    message = self.message_queue.pop(0)
+                    task = self.message_queue.pop(0)
                     # self.client.loop.create_task(message.channel.send(message.content))
+                    self.handle_task(task)
 
             # Loop over all channels we have not yet started
             # Add a message for each one 
             for channel in self.client.get_all_channels():
                 if channel.type == discord.ChannelType.text:
-                    self.push_task(channel, message=self.greeting(), content=None)
+                    if channel not in introduced_channels:
+                        introduced_channels.add(channel)
+                        self.push_task(channel, message=self.greeting(), content=None)
+                    else:
+                        pass
                     
             # Sleep for a short time
             time.sleep(0.1)
@@ -124,6 +138,7 @@ class DiscordBot:
 
     def run(self):
         # Start the message thread to process the queue
+        self.running = True
         self.queue_thread.start()
         self.client.run(self.token)
 
