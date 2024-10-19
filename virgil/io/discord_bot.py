@@ -49,6 +49,7 @@ class DiscordBot:
 
         self.running = True
         self.task_queue = queue.Queue()
+
         self.introduced_channels = set()
 
         # Whitelist of channels we can and will post in
@@ -87,7 +88,7 @@ class DiscordBot:
         if task.message is not None:
             await task.channel.send(task.message)
 
-    @tasks.loop(seconds=1)
+    @tasks.loop()
     async def process_queue(self):
         """Process the queue of messages to send."""
 
@@ -107,7 +108,6 @@ class DiscordBot:
                             self.push_task(channel, message=self.greeting(), content=None)
 
             try:
-                task = self.task_queue.get_nowait()
                 await self.handle_task(task)
             except queue.Empty:
                 await asyncio.sleep(1)  # Wait a bit before checking again
@@ -115,6 +115,10 @@ class DiscordBot:
     def greeting(self) -> str:
         """Return a greeting message."""
         return "Hello everyone!"
+
+    async def setup_hook(self):
+        # This method is called when the bot is starting up
+        self.process_queue.start()
 
     def _setup_hooks(self, client):
         """Prepare the various hooks to use this Bot object's methods."""
@@ -164,7 +168,12 @@ class DiscordBot:
     def run(self):
         # Start the message thread to process the queue
         self.running = True
-        self.client.run(self.token)
+
+        async def _main():
+            async with self.client as bot:
+                await bot.start(self.token)
+        # self.client.start(self.token)
+        asyncio.run(_main())
 
     def __del__(self):
         self.running = False
