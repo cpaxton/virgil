@@ -84,7 +84,7 @@ class DiscordBot:
     async def handle_task(self, task: Task):
         """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
         if task.message is not None:
-            task.channel.send(task.message)
+            await task.channel.send(task.message)
 
     def process_queue(self):
         """Process the queue of messages to send."""
