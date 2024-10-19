@@ -11,6 +11,8 @@ class ChatWrapper:
         self.backend = backend
         self.max_history_length = max_history_length
         self.preserve = preserve
+        if self.preserve > self.max_history_length:
+            raise ValueError(f"Preserve must be less than or equal to max_history_length. Got preserve={self.preserve} and max_history_length={self.max_history_length}")
         self.conversation_history = []
 
     def add_conversation_history(self, role: str, content: str):
