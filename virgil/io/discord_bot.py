@@ -81,22 +81,24 @@ class DiscordBot:
         with self.queue_lock:
             self.message_queue.append(Task(message, channel, content))
 
-    def handle_task(self, task: Task):
-        """Handle a task by sending the message to the channel. Not an async function; this will make the necessary calls in its thread to the different child functions that send messages, for example."""
+    async def handle_task(self, task: Task):
+        """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
         if task.message is not None:
-            asyncio.run(task.channel.send(task.message))
+            task.channel.send(task.message)
 
     def process_queue(self):
         """Process the queue of messages to send."""
 
         introduced_channels = set()
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
 
         while self.running:
             with self.queue_lock:
                 if len(self.message_queue) > 0:
                     task = self.message_queue.pop(0)
                     # self.client.loop.create_task(message.channel.send(message.content))
-                    self.handle_task(task)
+                    self.loop.run_until_complete(self.handle_task(task))
 
             # Loop over all channels we have not yet started
             # Add a message for each one 
