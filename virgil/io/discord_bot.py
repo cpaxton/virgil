@@ -66,12 +66,14 @@ class DiscordBot:
         """Remove a channel from the whitelist."""
         del self.whitelist[channel_id]
 
-    def channel_is_valid(self, channel_id: str, current_time: Optional[float] = None, threshold: float = 60) -> bool:
+    def channel_is_valid(self, channel, current_time: Optional[float] = None, threshold: float = 60) -> bool:
         """Check if a channel is valid to post in."""
-        if channel_id in self.whitelist:
+        if channel.id in self.whitelist or channel.name in self.whitelist:
+            print(" -> Channel is in the whitelist")
+            last_time = self.whitelist[channel.id] if channel.id in self.whitelist else self.whitelist[channel.name]
             if current_time is None:
                 current_time = timeit.default_timer()
-            return current_time - self.whitelist[channel_id] < threshold
+            return current_time - last_time < threshold
         return False
 
     def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None):
@@ -102,7 +104,8 @@ class DiscordBot:
                 if channel.type == discord.ChannelType.text:
                     if channel not in introduced_channels:
                         introduced_channels.add(channel)
-                        if self.channel_is_valid(channel.id):
+                        print("Check if channel is valid: ", channel.id, channel.name)
+                        if self.channel_is_valid(channel):
                             print(f"Introducing myself to channel {channel.name}")
                             self.push_task(channel, message=self.greeting(), content=None)
                     else:
