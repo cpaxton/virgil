@@ -30,7 +30,6 @@ class Friend(DiscordBot):
         self.prompt = load_prompt()
         self._user_name = None
         self._user_id = None
-        self.whitelist: Dict[str, float] = {}
         super(Friend, self).__init__(token)
 
     def on_ready(self):

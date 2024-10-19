@@ -48,6 +48,9 @@ class DiscordBot:
         self.running = True
         self.message_queue: List[Task] = []
 
+        # Whitelist of channels we can and will post in
+        self.whitelist: Dict[str, float] = {}
+
         # Create a thread and lock for the message queue
         self.queue_lock = threading.Lock()
         self.queue_thread = threading.Thread(target=self.process_queue)
@@ -57,8 +60,8 @@ class DiscordBot:
         with self.queue_lock:
             self.message_queue.append(Task(message, channel, content))
 
-    async def handle_task(self, task: Task):
-        """Handle a task by sending the message to the channel."""
+    def handle_task(self, task: Task):
+        """Handle a task by sending the message to the channel. Not an async function; this will make the necessary calls in its thread to the different child functions that send messages, for example."""
         if task.message is not None:
             asyncio.run(task.channel.send(task.message))
 
@@ -80,6 +83,7 @@ class DiscordBot:
                 if channel.type == discord.ChannelType.text:
                     if channel not in introduced_channels:
                         introduced_channels.add(channel)
+                        print(f"Introducing myself to channel {channel.name}")
                         self.push_task(channel, message=self.greeting(), content=None)
                     else:
                         pass
