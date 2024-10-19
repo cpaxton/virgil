@@ -45,24 +45,42 @@ class DiffuserImageGenerator(ImageGenerator):
 
 
 if __name__ == "__main__":
-    prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
-    generator = DiffuserImageGenerator()
-    image = generator.generate(prompt)
-    image.save("blobfish.png")
-
-    # prompt = "A sea turtle wearing a scuba diving suit, working as a marine biologist."
-    # image = generator.generate(prompt)
-    # image.save("sea_turtle.png")
-
-    # prompt = "Picture of A sea turtle wearing a scuba diving suit, working as a marine biologist."
-    # image = generator.generate(prompt)
-    # image.save("sea_turtle2.png")
-
+    # generator = DiffuserImageGenerator()
+    # Sized for Discord banner
+    generator = DiffuserImageGenerator(height=240, width=680)
     aligner = SigLIPAligner()
 
-    # Blobfish tests
-    prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
-    aligner.check_alignment("blobfish.png", prompt + " A beautiful, high-quality image.")
-    score, image = aligner.search(generator, prompt + " A beautiful, high-quality image.", num_tries=25)
-    print(score)
-    image.save("blobfish_search.png")
+    blobfish = False
+    friend = True
+
+    if blobfish:
+        prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
+        image = generator.generate(prompt)
+        image.save("blobfish.png")
+
+        # prompt = "A sea turtle wearing a scuba diving suit, working as a marine biologist."
+        # image = generator.generate(prompt)
+        # image.save("sea_turtle.png")
+
+        # prompt = "Picture of A sea turtle wearing a scuba diving suit, working as a marine biologist."
+        # image = generator.generate(prompt)
+        # image.save("sea_turtle2.png")
+
+        # Blobfish tests
+        prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
+
+        aligner.check_alignment("blobfish.png", prompt + " A beautiful, high-quality image.")
+        score, image = aligner.search(generator, prompt + " A beautiful, high-quality image.", num_tries=25)
+        print(score)
+        image.save("blobfish_search.png")
+    if friend:
+        # prompt = "a vibrant, neon-colored synth that has been transformed into a character. Its body is sleek and metallic, adorned with glowing circuits and buttons reminiscent of a vintage computer console. The arms extend outwards, each ending in a curved handle that resembles a stylized guitar. Futuristic, high-quality, artisitic image."
+        prompt = "A giant, glowing onion with a mischievous grin, surrounded by tiny, dancing emojis; high-quality, vibrant, and whimsical."
+        prompt = "A giant, glowing onion, but it's not just any onion. It's a sentient onion, radiating a warm, fuzzy light. Its skin is a vibrant, shifting fuchsia that changes colors with every passing second, creating a mesmerizing visual experience.  Around the onion, a swirling galaxy of dancing emojis bursts forth:  funky, colorful emojis in a chaotic yet harmonious ballet, representing the fun and weirdness of the app itself."
+        image = generator.generate(prompt)
+        image.save("onion.png")
+        aligner.check_alignment("onion.png", prompt)
+        score, image = aligner.search(generator, prompt, num_tries=25)
+        print(score)
+        image.save("onion_search.png")
+
