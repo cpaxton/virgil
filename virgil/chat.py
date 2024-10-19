@@ -25,7 +25,7 @@ class ChatWrapper:
         # Trim the conversation history, preserving the first `preserve` messages
         # TODO: handle self.preserve > 0
         if len(self.conversation_history) > self.max_history_length:
-            self.conversation_history = self.conversation_history[self.preserve:self.max_history_length - self.preserve]
+            self.conversation_history = self.conversation_history[:self.preserve] + self.conversation_history[-(self.max_history_length - self.preserve):]
 
     def clear(self):
         """Clear the conversation history."""
