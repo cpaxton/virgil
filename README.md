@@ -27,6 +27,20 @@ The Infinite Quiz Machine requires about 12GB of GPU memory; I ran it on an NVID
 
 Bots like Friend can run on a smaller GPU, but you may need to adjust the batch size to get it to work; they'll die if they run out of memory, and so you may want to restart them. Nothing clever is being done here to keep them to a certain memory limit.
 
+### The Infinite Quiz Machine
+
+After installing `virgil`:
+
+```bash
+./scripts/infinite_quiz_machine.sh "What kind of crustacean are you?"
+```
+
+Replace "What kind of crustacean are you?" with whatever prompt you want to use.
+
+It will generate a quiz with 10 questions and answers, in a folder with the same name. It will also generate images using [diffusers](https://huggingface.co/docs/diffusers/en/index), with [SIGLip](https://huggingface.co/docs/transformers/en/model_doc/siglip) used to filter out lower-quality images.
+
+Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all of them are winners, but plenty of them are fun. As it's an important and related topic, I also have some [thoughts on AI art](https://itcanthink.substack.com/p/off-topic-what-role-for-ai-in-the) -- which is basically that I think it's a neat thing in its own right and not competitive with human art.
+
 ### Friend
 
 Friend is a simple chatbot which can use various backends to generate text on Discord. After installing `virgil`:
@@ -58,19 +72,7 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page.
 
-### The Infinite Quiz Machine
 
-After installing `virgil`:
-
-```bash
-./scripts/infinite_quiz_machine.sh "What kind of crustacean are you?"
-```
-
-Replace "What kind of crustacean are you?" with whatever prompt you want to use.
-
-It will generate a quiz with 10 questions and answers, in a folder with the same name. It will also generate images using [diffusers](https://huggingface.co/docs/diffusers/en/index), with [SIGLip](https://huggingface.co/docs/transformers/en/model_doc/siglip) used to filter out lower-quality images.
-
-Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all of them are winners, but plenty of them are fun. As it's an important and related topic, I also have some [thoughts on AI art](https://itcanthink.substack.com/p/off-topic-what-role-for-ai-in-the) -- which is basically that I think it's a neat thing in its own right and not competitive with human art.
 
 ### Storyteller
 
