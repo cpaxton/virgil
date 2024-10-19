@@ -28,6 +28,7 @@ class Friend(DiscordBot):
         self.prompt = load_prompt()
         self._user_name = None
         self._user_id = None
+        self.whitelist: Dict[str, float] = {}
         super(Friend, self).__init__(token)
 
     def on_ready(self):
@@ -80,8 +81,29 @@ class Friend(DiscordBot):
         if message.author.id == self._user_id:
             return None
 
+        # TODO: make this a command line parameter for which channel(s) he should be in
         if message.channel.name != "ask-a-robot":
-            return None
+            # Check name in whitelist
+            t1 = timeit.default_timer()
+            channel_name = message.channel.name
+            ok = False
+
+            if channel_name in self.whitelist:
+                # Check if it was within last 10 mins
+                t2 = self.whitelist[channel_name]
+                if t1 - t2 < 600:
+                    # This is ok
+                    ok = True
+            
+            # Random number generator - 1 in 1000 chance
+            random_number = random.randint(1, 100)
+            if random_number == 1:
+                # Add to whitelist 
+                self.whitelist[channel_name] = t1
+                ok = True
+
+            if not ok:
+                return None
 
         if len(self.chat) == 0:
             text = self.prompt + f"\n{sender_name}: " + message.content
