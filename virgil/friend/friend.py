@@ -85,6 +85,7 @@ class Friend(DiscordBot):
 
         # TODO: make this a command line parameter for which channel(s) he should be in
         channel_name = message.channel.name
+        datetime = message.created_at
         if channel_name != "ask-a-robot":
             # Check name in whitelist
             t1 = timeit.default_timer()
@@ -112,9 +113,9 @@ class Friend(DiscordBot):
                 return None
 
         if len(self.chat) == 0:
-            text = self.prompt + f"\n{sender_name} on #{channel_name}: " + message.content
+            text = self.prompt + f"\n{sender_name} on #{channel_name} at {datetime}: " + message.content
         else:
-            text = f"{sender_name} on {#channel_name}: " + message.content
+            text = f"{sender_name} on #{channel_name} at {datetime}: " + message.content
 
         # Now actually prompt the AI
         response = self.chat.prompt(text, verbose=True)
