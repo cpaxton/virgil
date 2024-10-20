@@ -73,6 +73,37 @@ class Friend(DiscordBot):
             print(self.prompt)
             print()
 
+
+    @bot.command(name='virgil', help='Summons Virgil to the channel.')
+    async def whitelist_channel(ctx,  *args, message=''):
+        # Get the channel where the command was used
+        channel = ctx.channel
+        
+        # Call the add_to_whitelist function with the channel ID
+        success = self.add_to_whitelist(channel.name)
+        
+        if success:
+            # If successful, send a confirmation message
+            await ctx.send(f"Channel {channel.name} (ID: {channel.id}) has been added to {self._user_name}'s whitelist.")
+
+            if message:
+                sender_name = message.author.name
+                if message.author.id == self._user_id:
+                    pass
+                else:
+                    # construct the text to prompt the ai
+                    text = f"{sender_name} on #{channel.name}: " + message.content
+
+                    # now actually prompt the ai
+                    response = self.chat.prompt(text, verbose=true, assistant_history_prefix=f"{self._user_name} on #{channel.name}: ")
+                    print("Current history length:", len(self.chat))
+
+                    # Send the response
+                    await ctx.send(response)
+        else:
+            # If unsuccessful, send an error message
+            await ctx.send(f"Failed to add channel {channel.name} to {self._user_name}'s whitelist. Please try again.")
+
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
         if verbose:
@@ -128,11 +159,11 @@ class Friend(DiscordBot):
             if not ok:
                 return None
 
-        # Construct the text to prompt the AI
+        # construct the text to prompt the ai
         text = f"{sender_name} on #{channel_name}: " + message.content
 
-        # Now actually prompt the AI
-        response = self.chat.prompt(text, verbose=True, assistant_history_prefix=f"{self._user_name} on #{channel_name}: ")
+        # now actually prompt the ai
+        response = self.chat.prompt(text, verbose=true, assistant_history_prefix=f"{self._user_name} on #{channel_name}: ")
         print("Current history length:", len(self.chat))
         return response
 
