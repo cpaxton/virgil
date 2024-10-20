@@ -73,38 +73,7 @@ class Friend(DiscordBot):
             print(self.prompt)
             print()
 
-
-    @bot.command(name='virgil', help='Summons Virgil to the channel.')
-    async def whitelist_channel(ctx,  *args, message=''):
-        # Get the channel where the command was used
-        channel = ctx.channel
-        
-        # Call the add_to_whitelist function with the channel ID
-        success = self.add_to_whitelist(channel.name)
-        
-        if success:
-            # If successful, send a confirmation message
-            await ctx.send(f"Channel {channel.name} (ID: {channel.id}) has been added to {self._user_name}'s whitelist.")
-
-            if message:
-                sender_name = message.author.name
-                if message.author.id == self._user_id:
-                    pass
-                else:
-                    # construct the text to prompt the ai
-                    text = f"{sender_name} on #{channel.name}: " + message.content
-
-                    # now actually prompt the ai
-                    response = self.chat.prompt(text, verbose=true, assistant_history_prefix=f"{self._user_name} on #{channel.name}: ")
-                    print("Current history length:", len(self.chat))
-
-                    # Send the response
-                    await ctx.send(response)
-        else:
-            # If unsuccessful, send an error message
-            await ctx.send(f"Failed to add channel {channel.name} to {self._user_name}'s whitelist. Please try again.")
-
-    def on_message(self, message, verbose: bool = False):
+    def on_message(self, message, verbose: bool = True):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
         if verbose:
             # Printing some information to learn about what this actually does
@@ -126,18 +95,27 @@ class Friend(DiscordBot):
 
         # TODO: make this a command line parameter for which channel(s) he should be in
         channel_name = message.channel.name
+        print("Channel name:", channel_name)
+        channel_id = message.channel.id
+        print("Channel ID:", channel_id)
         # datetime = message.created_at
-        # timestamp = message.created_at.timestamp()
+        timestamp = message.created_at.timestamp()
+
+        # Check if this channel is in the whitelist
         if channel_name != "ask-a-robot":
             # Check name in whitelist
             ok = False
 
             print("Current whitelist channels: ", self.whitelist)
 
-            if channel_name in self.whitelist:
+            if channel_name in self.whitelist or channel_id in self.whitelist:
                 # Check if it was within last 10 mins
                 t1 = timeit.default_timer()
-                t2 = self.whitelist[channel_name]
+                if channel_name in self.whitelist:
+                    t2 = self.whitelist[channel_name]
+                elif channel_id in self.whitelist:
+                    t2 = self.whitelist[channel_id]
+
                 print(" -> Checked time: ", t1, t2, "delta is", t1 - t2, "vs attention window", self.attention_window_seconds)
                 if t1 - t2 < self.attention_window_seconds:
                     # This is ok
@@ -159,12 +137,13 @@ class Friend(DiscordBot):
             if not ok:
                 return None
 
-        # construct the text to prompt the ai
+        # Construct the text to prompt the AI
         text = f"{sender_name} on #{channel_name}: " + message.content
 
-        # now actually prompt the ai
-        response = self.chat.prompt(text, verbose=true, assistant_history_prefix=f"{self._user_name} on #{channel_name}: ")
+        # Now actually prompt the AI
+        response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
         print("Current history length:", len(self.chat))
+        print(" -> Response:", response)
         return response
 
 @click.command()
@@ -172,6 +151,18 @@ class Friend(DiscordBot):
 @click.option("--backend", default="gemma", help="The backend to use for the chat.")
 def main(token, backend):
     bot = Friend(token=token, backend=backend)
+    client = bot.client
+
+    
+    @bot.client.command(name="summon", help="Summon the bot to a channel.")
+    async def summon(ctx):
+        """Summon the bot to a channel."""
+        print("Summoning the bot.")
+        print(" -> Channel name:", ctx.channel.name)
+        print(" -> Channel ID:", ctx.channel.id)
+        bot.add_to_whitelist(ctx.channel.id)
+        await ctx.send("Hello! I am here to help you.")
+
     bot.run()
 
 if __name__ == "__main__":

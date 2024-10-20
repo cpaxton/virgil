@@ -36,6 +36,11 @@ class DiscordBot:
         # Create intents
         intents = discord.Intents.default()
         intents.message_content = True
+        intents.members = True
+
+        # Store the user ID and name for the bot
+        self._user_id = None
+        self._user_name = None
 
         # Create an instance of a Client
         # self.client = discord.Client(intents=intents)
@@ -121,13 +126,37 @@ class DiscordBot:
 
         @client.event
         async def on_ready():
+            self._user_name = self.client.user.name
+            self._user_id = self.client.user.id
             return self.on_ready()
 
         @client.event
         async def on_message(message):
+            # This line is important to allow commands to work
+            # await bot.process_commands(message)
+    
+            # Check if the bot was mentioned
+            # print()
+            # print("Mentions:", message.mentions)
+            idx1 = message.content.find("@" + self._user_name)
+            idx2 = message.content.find("<@" + str(self._user_id) + ">")
+            if idx1 >= 0 or idx2 >= 0:
+                print(" ->", self._user_name, " was mentioned in channel", message.channel.name, "with content:", message.content)
+                if not self.channel_is_valid(message.channel):
+                    # Add it to the whitelist since we were mentioned
+                    self.add_to_whitelist(message.channel.id)
+
+            print("Message content:", message.content)
             response = self.on_message(message)
+
             if response is not None:
+                print('Sending response:', response)
                 await message.channel.send(response)
+                print("Done")
+            else:
+                print("No response")
+
+            print("-------------")
 
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
