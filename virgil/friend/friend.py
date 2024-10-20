@@ -110,6 +110,10 @@ class Friend(DiscordBot):
                 if t1 - t2 < self.attention_window_seconds:
                     # This is ok
                     ok = True
+                else:
+                    # Remove from whitelist
+                    del self.whitelist[channel_name]
+                    print(f" -> Removed {channel_name} from whitelist")
             
             # Random number generator - 1 in 1000 chance
             random_number = random.randint(1, 100)
