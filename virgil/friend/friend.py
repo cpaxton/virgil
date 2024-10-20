@@ -24,9 +24,10 @@ def load_prompt():
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma"):
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.) -> None:
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=25, preserve=2)
+        self.attention_window_seconds = attention_window_seconds
         self.prompt = load_prompt()
         self._user_name = None
         self._user_id = None
@@ -105,7 +106,8 @@ class Friend(DiscordBot):
                 # Check if it was within last 10 mins
                 t1 = timeit.default_timer()
                 t2 = self.whitelist[channel_name]
-                if t2 - t1 < 60:
+                print(" -> Checked time: ", t1, t2, "delta is", t1 - t2, "vs attention window", self.attention_window_seconds)
+                if t1 - t2 < self.attention_window_seconds:
                     # This is ok
                     ok = True
             
