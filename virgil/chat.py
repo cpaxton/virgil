@@ -36,7 +36,7 @@ class ChatWrapper:
     def __len__(self):
         return len(self.conversation_history)
 
-    def prompt(self, msg: str, verbose: bool = False) -> str:
+    def prompt(self, msg: str, verbose: bool = False, assistant_history_prefix: str = "") -> str:
         """Prompt the LLM with a message.
 
         Args:
@@ -55,7 +55,7 @@ class ChatWrapper:
         assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
         # Add the assistant's response to the conversation history
-        self.add_conversation_history("assistant", assistant_response)
+        self.add_conversation_history("assistant", assistant_history_prefix + assistant_response)
 
         if verbose:
             # Print the assistant's response

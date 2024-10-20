@@ -95,7 +95,8 @@ class Friend(DiscordBot):
 
         # TODO: make this a command line parameter for which channel(s) he should be in
         channel_name = message.channel.name
-        datetime = message.created_at
+        # datetime = message.created_at
+        # timestamp = message.created_at.timestamp()
         if channel_name != "ask-a-robot":
             # Check name in whitelist
             ok = False
@@ -127,10 +128,11 @@ class Friend(DiscordBot):
             if not ok:
                 return None
 
-        text = f"{sender_name} on #{channel_name} at {datetime}: " + message.content
+        # Construct the text to prompt the AI
+        text = f"{sender_name} on #{channel_name}: " + message.content
 
         # Now actually prompt the AI
-        response = self.chat.prompt(text, verbose=True)
+        response = self.chat.prompt(text, verbose=True, assistant_history_prefix=f"{self._user_name} on #{channel_name}: ")
         print("Current history length:", len(self.chat))
         return response
 
