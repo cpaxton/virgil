@@ -40,6 +40,9 @@ class DiscordBot:
         intents.message_content = True
         intents.members = True
 
+        # Track if we have sent our startup message
+        self._started = False
+
         # Store the user ID and name for the bot
         self._user_id = None
         self._user_name = None
@@ -121,19 +124,22 @@ class DiscordBot:
     async def process_queue(self):
         """Process the queue of messages to send."""
 
-        # Loop over all channels we have not yet started
-        # Add a message for each one 
-        for channel in self.client.get_all_channels():
-            # print(" -", channel.id, channel.name, channel.type)
-            if channel.type == discord.ChannelType.text:
-                # print(" -> Text channel")
-                if channel not in self.introduced_channels:
-                    # print(" -> Not introduced yet")
-                    self.introduced_channels.add(channel)
-                    # print("Check if channel is valid: ", channel.id, channel.name)
-                    if self.channel_is_valid(channel):
-                        print(f"Introducing myself to channel {channel.name}")
-                        self.push_task(channel, message=self.greeting(), content=None)
+
+        if not self._started:
+            # Loop over all channels we have not yet started
+            # Add a message for each one 
+            for channel in self.client.get_all_channels():
+                # print(" -", channel.id, channel.name, channel.type)
+                if channel.type == discord.ChannelType.text:
+                    # print(" -> Text channel")
+                    if channel not in self.introduced_channels:
+                        # print(" -> Not introduced yet")
+                        self.introduced_channels.add(channel)
+                        # print("Check if channel is valid: ", channel.id, channel.name)
+                        if self.channel_is_valid(channel):
+                            print(f"Introducing myself to channel {channel.name}")
+                            self.push_task(channel, message=self.greeting(), content=None)
+            self._started = True
 
         # Print queue length
         # print("Queue length:", self.task_queue.qsize())
