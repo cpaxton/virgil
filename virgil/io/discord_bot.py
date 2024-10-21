@@ -141,7 +141,7 @@ class DiscordBot:
                         # print("Check if channel is valid: ", channel.id, channel.name)
                         if self.channel_is_valid(channel):
                             print(f"Introducing myself to channel {channel.name}")
-                            self.push_task(channel, message=self.greeting(), content=None)
+                            self.push_task(channel, message=self.greeting(), content=None, explicit=True)
             self._started = True
 
         # Print queue length
