@@ -38,7 +38,7 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
-        self.image_generator = DiffuserImageGenerator(height=128, width=128, num_inference_steps=30)
+        self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=True)
         self.parser = ChatbotActionParser(self.chat)
 
         self._chat_lock = threading.Lock()  # Lock for chat access
@@ -167,7 +167,8 @@ class Friend(DiscordBot):
                     print("Pushing task to generate image for prompt:", content)
                     time.sleep(0.1)  # Wait for messsage to be sent
                     print("Generating image for prompt:", content)
-                    image = self.image_generator.generate(content)
+                    with self._chat_lock:
+                        image = self.image_generator.generate(content)
                     image.save("generated_image.png")
                     self.push_task(channel=message.channel, message=content, content=image)
                 elif action == "remember":

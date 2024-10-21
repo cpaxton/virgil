@@ -9,38 +9,81 @@ from virgil.image.base import ImageGenerator
 from virgil.image.siglip import SigLIPAligner
 
 
+from diffusers import AutoPipelineForText2Image
+import torch
+from PIL import Image
+
 class DiffuserImageGenerator(ImageGenerator):
     """
-    A class for generating images from text prompts using the Diffusers library.
+    A class for generating images from text prompts using the Diffusers library,
+    with support for various small and efficient models.
     """
 
-    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 50, guidance_scale: float = 7.5) -> None:
+    MODEL_OPTIONS = {
+        "base": "stabilityai/stable-diffusion-xl-base-1.0",
+        "turbo": "stabilityai/sdxl-turbo",
+        "small": "segmind/SSD-1B",
+        "tiny": "segmind/tiny-sd",
+        "small_sd3": "stabilityai/stable-diffusion-3-medium",
+    }
+
+    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 50,
+                 guidance_scale: float = 7.5, model: str = "base", xformers: bool = False) -> None:
         """
         Initialize the DiffuserImageGenerator with a pre-trained model and image generation parameters.
 
         Args:
             height (int): The height of the generated image. Defaults to 512.
             width (int): The width of the generated image. Defaults to 512.
-            num_inference_steps (int): The number of denoising steps. Defaults to 20.
+            num_inference_steps (int): The number of denoising steps. Defaults to 50.
+            guidance_scale (float): The guidance scale for generation. Defaults to 7.5.
+            model (str): The model to use. Options: "base", "turbo", "small", "tiny", "small_sd3". Defaults to "base".
+            xformers (bool): Whether to use xformers for memory efficiency. Defaults to False.
         """
         self.height = height
         self.width = width
         self.num_inference_steps = num_inference_steps
         self.guidance_scale = guidance_scale
 
-        self.pipeline = AutoPipelineForText2Image.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=torch.float16, variant="fp16").to("cuda")
+        if model not in self.MODEL_OPTIONS:
+            raise ValueError(f"Unknown model: {model}. Available options are: {', '.join(self.MODEL_OPTIONS.keys())}")
 
-    def generate(self, prompt: str) -> Image.Image:
+        model_name = self.MODEL_OPTIONS[model]
+
+        # Adjust parameters for specific models
+        if model == "turbo":
+            self.num_inference_steps = min(4, num_inference_steps)
+            self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
+
+        self.pipeline = AutoPipelineForText2Image.from_pretrained(
+            model_name,
+            torch_dtype=torch.float16,
+            variant="fp16"
+        ).to("cuda")
+
+        # Optional: Enable memory efficient attention
+        if xformers:
+            self.pipeline.enable_xformers_memory_efficient_attention()
+
+    def generate(self, prompt: str, negative_prompt: str = "blurry, bad quality, duplicated") -> Image.Image:
         """
         Generate an image based on the given text prompt.
 
         Args:
             prompt (str): The text description of the image to generate.
+            negative_prompt (str): The negative prompt to guide generation away from certain attributes.
 
         Returns:
             Image.Image: The generated image.
         """
-        result = self.pipeline(prompt=prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, guidance_scale=self.guidance_scale, negative_prompt="blurry, bad quality, duplicated", return_images=True)
+        result = self.pipeline(
+            prompt=prompt,
+            negative_prompt=negative_prompt,
+            height=self.height,
+            width=self.width,
+            num_inference_steps=self.num_inference_steps,
+            guidance_scale=self.guidance_scale
+        )
         return result.images[0]
 
 
