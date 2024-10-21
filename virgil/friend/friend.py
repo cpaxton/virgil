@@ -11,6 +11,8 @@ import random
 import threading
 import time
 from termcolor import colored
+import io
+import discord
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
@@ -90,6 +92,11 @@ class Friend(DiscordBot):
         print("Handling task: message = ", task.message, " channel = ", task.channel.name)
 
         text = task.message
+        if task.explicit:
+            print("This task was explicitly triggered.")
+            await task.channel.send(task.message)
+            return
+
         try:
             # Now actually prompt the AI
             with self._chat_lock:

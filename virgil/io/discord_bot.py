@@ -26,10 +26,13 @@ def read_discord_token_from_env():
 
 class Task:
     """Holds the fields for: message, channel, and content."""
-    def __init__(self, message, channel, content):
+    def __init__(self, message, channel, content, explicit: bool = False):
         self.message = message
         self.channel = channel
         self.content = content
+
+        # This tracks if we need to parse it or not
+        self.explicit = explicit
 
 
 class DiscordBot:
