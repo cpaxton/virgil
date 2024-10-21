@@ -21,6 +21,22 @@ def extract_tags(text: str, tags: List[str]) -> List[Tuple[str, str]]:
         content = match.group(2).strip()
         result.append((tag, content))
 
+
+    # Check for an unmatched <tag> at the end
+    text += "</end>"  # Add a closing tag for unmatched tags
+    unmatched_pattern = f"<({tag_pattern})>(?!.*?</end>)"
+    if re.search(unmatched_pattern, text):
+        print(colored("Warning: Unmatched opening tag found.", "yellow"))
+        matches = re.finditer(unmatched_pattern, text)
+        for match in matches:
+            tag = match.group(1)
+            content = text[match.start():].strip()
+            # Remove initial tag from content
+            content = content.replace(f"<{tag}>", "").strip()
+        # remove </end> from content
+        content = content.replace("</end>", "")
+        result.append((tag, content))
+
     return result
 
 class ChatbotActionParser(Parser):
@@ -60,6 +76,7 @@ if __name__ == '__main__':
     </action>
 
     <observation>The loop printed numbers 0 to 4</observation>
+    <observation>unmatched tag example
     """
 
     tags_to_extract = ["action", "thought", "observation"]
