@@ -99,7 +99,9 @@ class Friend(DiscordBot):
         channel_id = message.channel.id
         print("Channel ID:", channel_id)
         # datetime = message.created_at
+
         timestamp = message.created_at.timestamp()
+        print("Timestamp:", timestamp)
 
         # Check if this channel is in the whitelist
         if channel_name != "ask-a-robot":
@@ -140,8 +142,13 @@ class Friend(DiscordBot):
         # Construct the text to prompt the AI
         text = f"{sender_name} on #{channel_name}: " + message.content
 
-        # Now actually prompt the AI
-        response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+        try:
+            # Now actually prompt the AI
+            response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+        except Exception as e:
+            print("Error in prompting the AI:", e)
+            return None
+
         print("Current history length:", len(self.chat))
         print(" -> Response:", response)
         return response
