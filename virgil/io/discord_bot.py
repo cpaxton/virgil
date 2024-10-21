@@ -8,6 +8,7 @@ import timeit
 import discord
 from discord.ext import commands, tasks
 import asyncio
+from termcolor import colored
 import queue
 
 import threading
@@ -86,14 +87,25 @@ class DiscordBot:
 
     def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None):
         """Add a message to the queue to send."""
+        # print("Adding task to queue:", message, channel.name, content)
         self.task_queue.put(Task(message, channel, content))
+        # print( "Queue length after push:", self.task_queue.qsize())
 
     async def handle_task(self, task: Task):
         """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
+        print()
+        print("Handling task: message = ", task.message, " channel = ", task.channel.name, " content = ", task.content)
         if task.message is not None:
+            print(" - Sending message:", task.message)
             await task.channel.send(task.message)
+        if task.content is not None:
+            # Send an image
+            print(" - Sending content:", task.content)
+            # This should be a Discord file
+            file = discord.File(io.BytesIO(task.content), filename="image.png")
+            await task.channel.send(file=file)
 
-    @tasks.loop(seconds=1)
+    @tasks.loop(seconds=0.1)
     async def process_queue(self):
         """Process the queue of messages to send."""
 
@@ -111,11 +123,16 @@ class DiscordBot:
                         print(f"Introducing myself to channel {channel.name}")
                         self.push_task(channel, message=self.greeting(), content=None)
 
+        # Print queue length
+        # print("Queue length:", self.task_queue.qsize())
         try:
             task = self.task_queue.get_nowait()
+            print("Handling task from queue:", task)
             await self.handle_task(task)
         except queue.Empty:
-            await asyncio.sleep(1)  # Wait a bit before checking again
+            await asyncio.sleep(0.1)  # Wait a bit before checking again
+        except Exception as e:
+            print(colored( "Error in processing queue: " + str(e), "red"))
 
     def greeting(self) -> str:
         """Return a greeting message."""

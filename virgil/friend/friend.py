@@ -8,6 +8,10 @@ from typing import Optional
 import pkg_resources
 import timeit
 import random
+import threading
+
+from virgil.friend.parser import ChatbotActionParser
+from virgil.image.diffuser import DiffuserImageGenerator
 
 
 def load_prompt():
@@ -33,6 +37,10 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
+        self.image_generator = DiffuserImageGenerator()
+        self.parser = ChatbotActionParser(self.chat)
+
+        self._chat_lock = threading.Lock()  # Lock for chat access
         self.chat.prompt(self.prompt, verbose=True)
 
         # Add ask-a-robot to the whitelist
@@ -144,14 +152,30 @@ class Friend(DiscordBot):
 
         try:
             # Now actually prompt the AI
-            response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+            with self._chat_lock:
+                response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+            action_plan = self.parser.parse(response)
+            print("Action plan:", action_plan)
+            for action, content in action_plan:
+                print(f"Action: {action}, Content: {content}")  # Handle actions here
+                if action == "say":
+                    self.push_task(channel=message.channel, message=content)  # Send the response back to the channel
+                elif action == "imagine":
+                    self.push_task( channel=message.channel, message="Thinking about: " + content)  # Send a thinking message
+                    image = self.image_generator.generate(content)
+                    image.save("generated_image.png")
+                    self.push_task(channel=message.channel, message=content, content=image)
+                elif action == "remember":
+                    print("Remembering:", content)
+                    # TODO: handle memory actions as well
+                    self.push_task( channel=message.channel, message="Got it! I'll remember: " + content)
         except Exception as e:
-            print("Error in prompting the AI:", e)
+            print(colored("Error in prompting the AI: " + str(e), "red"))
             return None
 
         print("Current history length:", len(self.chat))
         print(" -> Response:", response)
-        return response
+        return None
 
 @click.command()
 @click.option("--token", default=None, help="The token for the discord bot.")
