@@ -9,6 +9,7 @@ import pkg_resources
 import timeit
 import random
 import threading
+import time
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
@@ -37,7 +38,7 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
-        self.image_generator = DiffuserImageGenerator(height=150, width=150, num_inference_steps=30)
+        self.image_generator = DiffuserImageGenerator(height=128, width=128, num_inference_steps=30)
         self.parser = ChatbotActionParser(self.chat)
 
         self._chat_lock = threading.Lock()  # Lock for chat access
@@ -155,6 +156,7 @@ class Friend(DiscordBot):
             with self._chat_lock:
                 response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
             action_plan = self.parser.parse(response)
+            print()
             print("Action plan:", action_plan)
             for action, content in action_plan:
                 print(f"Action: {action}, Content: {content}")  # Handle actions here
@@ -162,6 +164,9 @@ class Friend(DiscordBot):
                     self.push_task(channel=message.channel, message=content)  # Send the response back to the channel
                 elif action == "imagine":
                     self.push_task( channel=message.channel, message="Thinking about: " + content)  # Send a thinking message
+                    print("Pushing task to generate image for prompt:", content)
+                    time.sleep(0.1)  # Wait for messsage to be sent
+                    print("Generating image for prompt:", content)
                     image = self.image_generator.generate(content)
                     image.save("generated_image.png")
                     self.push_task(channel=message.channel, message=content, content=image)
