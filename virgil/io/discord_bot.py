@@ -1,5 +1,5 @@
 # # (c) 2024 by Chris Paxton
-# Useful reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
+# Usefuleight reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
 from typing import Optional, List
 import os
@@ -103,7 +103,18 @@ class DiscordBot:
             # Send an image
             print(" - Sending content:", task.content)
             # This should be a Discord file
-            file = discord.File(io.BytesIO(task.content), filename="image.png")
+            # Create a BytesIO object
+            byte_arr = io.BytesIO()
+
+            image = task.content
+            # Save the image to the BytesIO object
+            image.save(byte_arr, format="PNG")  # Save as PNG
+            print( " - Image saved to byte array, format: ", image.format)
+
+            # Move the cursor to the beginning of the BytesIO object
+            byte_arr.seek(0)
+
+            file = discord.File(byte_arr, filename="image.png")
             await task.channel.send(file=file)
 
     @tasks.loop(seconds=0.1)
