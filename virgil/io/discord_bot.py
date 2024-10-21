@@ -92,10 +92,10 @@ class DiscordBot:
             return current_time - last_time < threshold
         return False
 
-    def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None):
+    def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None, explicit: bool = False):
         """Add a message to the queue to send."""
         # print("Adding task to queue:", message, channel.name, content)
-        self.task_queue.put(Task(message, channel, content))
+        self.task_queue.put(Task(message, channel, content, explicit=explicit))
         # print( "Queue length after push:", self.task_queue.qsize())
 
     async def handle_task(self, task: Task):
@@ -141,7 +141,10 @@ class DiscordBot:
                         # print("Check if channel is valid: ", channel.id, channel.name)
                         if self.channel_is_valid(channel):
                             print(f"Introducing myself to channel {channel.name}")
-                            self.push_task(channel, message=self.greeting(), content=None, explicit=True)
+                            try:
+                                self.push_task(channel, message=self.greeting(), content=None, explicit=True)
+                            except Exception as e:
+                                print(colored("Error in introducing myself: " + str(e), "red"))
             self._started = True
 
         # Print queue length
@@ -164,6 +167,7 @@ class DiscordBot:
 
         @client.event
         async def on_ready():
+            self._started = False
             self._user_name = self.client.user.name
             self._user_id = self.client.user.id
             return self.on_ready()

@@ -92,10 +92,13 @@ class Friend(DiscordBot):
         print("Handling task: message = ", task.message, " channel = ", task.channel.name)
 
         text = task.message
-        if task.explicit:
-            print("This task was explicitly triggered.")
-            await task.channel.send(task.message)
-            return
+        try:
+            if task.explicit:
+                print("This task was explicitly triggered.")
+                await task.channel.send(task.message)
+                return
+        except Exception as e:
+            print(colored("Error in handling task: " + str(e), "red"))
 
         try:
             # Now actually prompt the AI
