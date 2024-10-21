@@ -37,7 +37,7 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
-        self.image_generator = DiffuserImageGenerator()
+        self.image_generator = DiffuserImageGenerator(height=200, width=200)
         self.parser = ChatbotActionParser(self.chat)
 
         self._chat_lock = threading.Lock()  # Lock for chat access

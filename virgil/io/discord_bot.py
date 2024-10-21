@@ -10,6 +10,7 @@ from discord.ext import commands, tasks
 import asyncio
 from termcolor import colored
 import queue
+import io
 
 import threading
 
