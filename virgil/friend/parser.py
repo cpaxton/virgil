@@ -5,7 +5,17 @@ from termcolor import colored
 
 import re
 
-def extract_tags(text: str, tags: List[str]) -> List[Tuple[str, str]]:
+def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> List[Tuple[str, str]]:
+    """Eextracts specified tags and their content from the given text.
+
+    Args:
+        text (str): The text to extract tags from.
+        tags (List[str]): A list of tags to extract.
+        allow_unmatched (bool): Whether to allow unmatched opening tags.
+
+    Returns:
+        List[Tuple[str, str]]: A list of tuples containing the tag and its content.
+    """
     result = []
 
     # Create a pattern that matches any of the given tags
@@ -21,21 +31,22 @@ def extract_tags(text: str, tags: List[str]) -> List[Tuple[str, str]]:
         content = match.group(2).strip()
         result.append((tag, content))
 
-
-    # Check for an unmatched <tag> at the end
-    text += "</end>"  # Add a closing tag for unmatched tags
-    unmatched_pattern = f"<({tag_pattern})>(?!.*?</end>)"
-    if re.search(unmatched_pattern, text):
-        print(colored("Warning: Unmatched opening tag found.", "yellow"))
-        matches = re.finditer(unmatched_pattern, text)
-        for match in matches:
-            tag = match.group(1)
-            content = text[match.start():].strip()
-            # Remove initial tag from content
-            content = content.replace(f"<{tag}>", "").strip()
-        # remove </end> from content
-        content = content.replace("</end>", "")
-        result.append((tag, content))
+    
+    if allow_unmatched:
+        # Check for an unmatched <tag> at the end
+        text += "</end>"  # Add a closing tag for unmatched tags
+        unmatched_pattern = f"<({tag_pattern})>(?!.*?</end>)"
+        if re.search(unmatched_pattern, text):
+            print(colored("Warning: Unmatched opening tag found.", "yellow"))
+            matches = re.finditer(unmatched_pattern, text)
+            for match in matches:
+                tag = match.group(1)
+                content = text[match.start():].strip()
+                # Remove initial tag from content
+                content = content.replace(f"<{tag}>", "").strip()
+            # remove </end> from content
+            content = content.replace("</end>", "")
+            result.append((tag, content))
 
     return result
 
