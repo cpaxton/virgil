@@ -1,7 +1,7 @@
 # # (c) 2024 by Chris Paxton
 
 import click
-from virgil.io.discord_bot import DiscordBot
+from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
 from typing import Optional
@@ -10,6 +10,7 @@ import timeit
 import random
 import threading
 import time
+from termcolor import colored
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
@@ -82,7 +83,55 @@ class Friend(DiscordBot):
             print(self.prompt)
             print()
 
-    def on_message(self, message, verbose: bool = True):
+    async def handle_task(self, task: Task):
+        """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
+        print()
+        print("-" * 40)
+        print("Handling task: message = ", task.message, " channel = ", task.channel.name)
+
+        text = task.message
+        try:
+            # Now actually prompt the AI
+            with self._chat_lock:
+                response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+            action_plan = self.parser.parse(response)
+            print()
+            print("Action plan:", action_plan)
+            for action, content in action_plan:
+                print(f"Action: {action}, Content: {content}")  # Handle actions here
+                if action == "say":
+                    await task.channel.send(content)
+                elif action == "imagine":
+                    await task.channel.send("Thinking about: " + content)
+                    time.sleep(0.1)  # Wait for messsage to be sent
+                    print("Generating image for prompt:", content)
+                    with self._chat_lock:
+                        image = self.image_generator.generate(content)
+                    image.save("generated_image.png")
+
+                    # Send an image
+                    print(" - Sending content:", image)
+                    # This should be a Discord file
+                    # Create a BytesIO object
+                    byte_arr = io.BytesIO()
+
+                    # Save the image to the BytesIO object
+                    image.save(byte_arr, format="PNG")  # Save as PNG
+                    print( " - Image saved to byte array")
+
+                    # Move the cursor to the beginning of the BytesIO object
+                    byte_arr.seek(0)
+
+                    file = discord.File(byte_arr, filename="image.png")
+                    await task.channel.send(file=file)
+                elif action == "remember":
+                    print("Remembering:", content)
+                    # TODO: handle memory actions as well
+                    await task.channel.send("Got it! I'll remember: " + content)
+        except Exception as e:
+            print(colored("Error in prompting the AI: " + str(e), "red"))
+
+    def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
         if verbose:
             # Printing some information to learn about what this actually does
@@ -150,37 +199,11 @@ class Friend(DiscordBot):
 
         # Construct the text to prompt the AI
         text = f"{sender_name} on #{channel_name}: " + message.content
+        self.push_task( channel=message.channel, message=text)
 
-        try:
-            # Now actually prompt the AI
-            with self._chat_lock:
-                response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
-            action_plan = self.parser.parse(response)
-            print()
-            print("Action plan:", action_plan)
-            for action, content in action_plan:
-                print(f"Action: {action}, Content: {content}")  # Handle actions here
-                if action == "say":
-                    self.push_task(channel=message.channel, message=content)  # Send the response back to the channel
-                elif action == "imagine":
-                    self.push_task( channel=message.channel, message="Thinking about: " + content)  # Send a thinking message
-                    print("Pushing task to generate image for prompt:", content)
-                    time.sleep(0.1)  # Wait for messsage to be sent
-                    print("Generating image for prompt:", content)
-                    with self._chat_lock:
-                        image = self.image_generator.generate(content)
-                    image.save("generated_image.png")
-                    self.push_task(channel=message.channel, message=content, content=image)
-                elif action == "remember":
-                    print("Remembering:", content)
-                    # TODO: handle memory actions as well
-                    self.push_task( channel=message.channel, message="Got it! I'll remember: " + content)
-        except Exception as e:
-            print(colored("Error in prompting the AI: " + str(e), "red"))
-            return None
-
+        print("Current task queue: ", self.task_queue.qsize())
         print("Current history length:", len(self.chat))
-        print(" -> Response:", response)
+        # print(" -> Response:", response)
         return None
 
 @click.command()
