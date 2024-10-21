@@ -21,6 +21,11 @@ python -m pip install -e .
 
 You'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
 
+You may want to use [xformers](https://github.com/facebookresearch/xformers) for better memory efficiency. You can install it with:
+```bash
+pip install --pre -U xformers
+```
+
 ## Usage
 
   - [The Infinite Quiz Machine](#the-infinite-quiz-machine): Generates a quiz based on a prompt.
