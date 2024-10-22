@@ -1,8 +1,8 @@
 # # (c) 2024 by Chris Paxton
 
 import torch
-from transformers import pipeline
-
+from transformers import pipeline, BitsAndBytesConfig
+from typing import Optional
 from virgil.backend.base import Backend
 
 
@@ -35,7 +35,6 @@ class Gemma(Backend):
             "text-generation",
             model="google/gemma-2-2b-it",
             model_kwargs=model_kwargs,
-            device="cuda",  # replace with "mps" to run on a Mac device
         )
         self.temperature = temperature
         self.top_p = top_p
