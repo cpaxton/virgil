@@ -44,6 +44,6 @@ def fibonacci(n):
 	a, b = b, a + b
 ```</say>
 
-Never respond with anything other than these actions. Every action needs a matching, closing tag. You may use an action more than once.
+Always group everything into the appropriate action. Never output anything without a tag. Never respond with anything other than these actions. Every action needs a matching, closing tag. You may use an action more than once.
 
 Answer with nothing else. Stop after your answer is done. Reply "acknowledge" to accept these instructions.
