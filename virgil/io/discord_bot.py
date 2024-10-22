@@ -195,8 +195,6 @@ class DiscordBot:
                 print('Sending response:', response)
                 await message.channel.send(response)
                 print("Done")
-            else:
-                print("No response")
 
             print("-------------")
 
