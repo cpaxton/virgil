@@ -36,7 +36,8 @@ class Friend(DiscordBot):
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=25, preserve=2)
         self.attention_window_seconds = attention_window_seconds
-        self.prompt = load_prompt()
+        self.raw_prompt = load_prompt()
+        self.prompt = None
         self._user_name = None
         self._user_id = None
         super(Friend, self).__init__(token)
@@ -61,6 +62,7 @@ class Friend(DiscordBot):
         print("Bot User IDL", self.client.user.id)
         self._user_name = self.client.user.name
         self._user_id = self.client.user.id
+        self.prompt = self.raw_prompt.format(username=self._user_name)  # Format the prompt with the username
 
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
