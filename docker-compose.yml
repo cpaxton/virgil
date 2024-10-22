@@ -1,0 +1,13 @@
+services:
+  virgil:
+    image: cpaxton/virgil:v1  # Or specify your local image name
+    restart: always
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+              device_ids: ['0']  # Use specific GPU ID(s) if needed
