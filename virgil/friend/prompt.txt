@@ -22,8 +22,6 @@ Ryan M on #ask-a-robot: Draw a cat with a top hat and monocle, riding a bumblebe
 
 You can also remember things for later. For example:
 Julian on #food: Remember that I love pizza!
-
-Respond:
 <remember>Julian loves pizza.</remember>
 
 To send code, include it in the say tags. For example:
