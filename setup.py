@@ -26,6 +26,9 @@ setup(
         "matplotlib",
         "discord.py",  # Install discord library for discord-using robots
         "python-dotenv",  # For pulling things like API keys and tokens from env
+        "bitsnbytes",  # For quantization
+        "termcolor",  # For colored terminal output
+        "accelerate"  # For model acceleration
     ],
     extras_require={
         "dev": [

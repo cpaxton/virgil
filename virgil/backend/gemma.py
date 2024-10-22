@@ -7,11 +7,34 @@ from virgil.backend.base import Backend
 
 
 class Gemma(Backend):
-    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
+    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int8") -> None:
+        """Initialize the Gemma backend.
+
+        Args:
+            temperature (float): Sampling temperature.
+            top_p (float): Top-p sampling parameter.
+            do_sample (bool): Whether to sample or not.
+            quantization (Optional[str]): Optional quantization method.
+        """
+
+        if quantization is not None:
+            if quantization == "int8":
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+            elif quantization == "int4":
+                quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+            else:
+                raise ValueError(f"Unknown quantization method: {quantization}")
+        else:
+            quantization_config = None
+
+        model_kwargs = {"torch_dtype": torch.bfloat16}
+        if quantization_config is not None:
+            model_kwargs["quantization_config"] = quantization_config
+
         self.pipe = pipeline(
             "text-generation",
             model="google/gemma-2-2b-it",
-            model_kwargs={"torch_dtype": torch.bfloat16},
+            model_kwargs=model_kwargs,
             device="cuda",  # replace with "mps" to run on a Mac device
         )
         self.temperature = temperature
