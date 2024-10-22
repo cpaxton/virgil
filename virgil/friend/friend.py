@@ -112,7 +112,7 @@ class Friend(DiscordBot):
                 if action == "say":
                     await task.channel.send(content)
                 elif action == "imagine":
-                    await task.channel.send("*Imagining " + content + "...*")
+                    await task.channel.send("*Imagining: " + content + "...*")
                     time.sleep(0.1)  # Wait for messsage to be sent
                     print("Generating image for prompt:", content)
                     with self._chat_lock:
