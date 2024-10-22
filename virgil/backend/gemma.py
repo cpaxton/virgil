@@ -7,7 +7,7 @@ from virgil.backend.base import Backend
 
 
 class Gemma(Backend):
-    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int8") -> None:
+    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int8", use_flash_attention: bool = True) -> None:
         """Initialize the Gemma backend.
 
         Args:
@@ -30,6 +30,9 @@ class Gemma(Backend):
         model_kwargs = {"torch_dtype": torch.bfloat16}
         if quantization_config is not None:
             model_kwargs["quantization_config"] = quantization_config
+
+        if use_flash_attention:
+            model_kwargs["attn_implementation"] = "flash_attention_2"
 
         self.pipe = pipeline(
             "text-generation",

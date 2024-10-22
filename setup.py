@@ -28,7 +28,8 @@ setup(
         "python-dotenv",  # For pulling things like API keys and tokens from env
         "bitsandbytes",  # For quantization
         "termcolor",  # For colored terminal output
-        "accelerate"  # For model acceleration
+        "accelerate",  # For model acceleration
+        "flash-attn",
     ],
     extras_require={
         "dev": [
