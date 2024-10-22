@@ -33,6 +33,10 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
 
     
     if allow_unmatched:
+
+        # Remove all matched content from the text
+        text = re.sub(pattern, '', text, flags=re.DOTALL)
+
         # Check for an unmatched <tag> at the end
         text += "</end>"  # Add a closing tag for unmatched tags
         unmatched_pattern = f"<({tag_pattern})>(?!.*?</end>)"
