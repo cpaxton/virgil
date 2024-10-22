@@ -46,7 +46,6 @@ class Friend(DiscordBot):
         self.parser = ChatbotActionParser(self.chat)
 
         self._chat_lock = threading.Lock()  # Lock for chat access
-        self.chat.prompt(self.prompt, verbose=True)
 
         # Add ask-a-robot to the whitelist
         # This one is always valid
@@ -62,7 +61,10 @@ class Friend(DiscordBot):
         print("Bot User IDL", self.client.user.id)
         self._user_name = self.client.user.name
         self._user_id = self.client.user.id
-        self.prompt = self.raw_prompt.format(username=self._user_name)  # Format the prompt with the username
+        self.prompt = self.raw_prompt.format(username=self._user_name)
+
+        with _chat_lock:
+            self.chat.prompt(self.prompt, verbose=True)
 
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
