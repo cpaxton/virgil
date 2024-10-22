@@ -112,7 +112,7 @@ class Friend(DiscordBot):
                 if action == "say":
                     await task.channel.send(content)
                 elif action == "imagine":
-                    await task.channel.send("Thinking about: " + content)
+                    await task.channel.send("*Imagining " + content + "...*")
                     time.sleep(0.1)  # Wait for messsage to be sent
                     print("Generating image for prompt:", content)
                     with self._chat_lock:
@@ -137,7 +137,7 @@ class Friend(DiscordBot):
                 elif action == "remember":
                     print("Remembering:", content)
                     # TODO: handle memory actions as well
-                    await task.channel.send("Got it! I'll remember: " + content)
+                    await task.channel.send("*Remembering: " + content + "*")
         except Exception as e:
             print(colored("Error in prompting the AI: " + str(e), "red"))
 
