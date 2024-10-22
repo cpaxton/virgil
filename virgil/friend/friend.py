@@ -63,8 +63,7 @@ class Friend(DiscordBot):
         self._user_id = self.client.user.id
         self.prompt = self.raw_prompt.format(username=self._user_name)
 
-        with _chat_lock:
-            self.chat.prompt(self.prompt, verbose=True)
+        self.chat.prompt(self.prompt, verbose=True)
 
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
