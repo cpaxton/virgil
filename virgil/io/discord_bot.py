@@ -26,22 +26,26 @@ def read_discord_token_from_env():
 
 class Task:
     """Holds the fields for: message, channel, and content."""
-    def __init__(self, message, channel, content, explicit: bool = False):
+    def __init__(self, message, channel, content, explicit: bool = False, t: float = None):
         self.message = message
         self.channel = channel
         self.content = content
+        self.t = t  # This tracks the time the task was created
 
         # This tracks if we need to parse it or not
         self.explicit = explicit
 
 
 class DiscordBot:
-    def __init__(self, token: Optional[str] = None):
+    def __init__(self, token: Optional[str] = None, timeout: float = 120):
         """Create the bot, using an authorization token from Discord."""
         # Create intents
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
+
+        # This is how long until we drop tasks
+        self.timeout = timeout
 
         # Track if we have sent our startup message
         self._started = False
@@ -95,7 +99,7 @@ class DiscordBot:
     def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None, explicit: bool = False):
         """Add a message to the queue to send."""
         # print("Adding task to queue:", message, channel.name, content)
-        self.task_queue.put(Task(message, channel, content, explicit=explicit))
+        self.task_queue.put(Task(message, channel, content, explicit=explicit, t=timeit.default_timer()))
         # print( "Queue length after push:", self.task_queue.qsize())
 
     async def handle_task(self, task: Task):
@@ -151,6 +155,9 @@ class DiscordBot:
         # print("Queue length:", self.task_queue.qsize())
         try:
             task = self.task_queue.get_nowait()
+            if task.t + self.timeout < timeit.default_timer():
+                print("Dropping task due to timeout: ", task.message, task.channel.name)
+                return
             print("Handling task from queue:", task)
             await self.handle_task(task)
         except queue.Empty:
