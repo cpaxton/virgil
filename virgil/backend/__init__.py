@@ -36,7 +36,7 @@ def get_backend(name: str) -> Backend:
 
         # TODO: process this better
         if name == "qwen":
-            size = "1.5B"
+            size = "3B"
             specialization = "Instruct"
         # if one of the sizes is in the name...
         elif any(size.lower() in name for size in qwen_sizes):
