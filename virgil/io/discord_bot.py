@@ -1,3 +1,17 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 # # (c) 2024 by Chris Paxton
 # Usefuleight reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
@@ -14,6 +28,7 @@ import io
 
 import threading
 
+
 def read_discord_token_from_env():
     """Helpful tool to get a discord token from the command line, e.g. for a bot."""
     from dotenv import load_dotenv
@@ -26,6 +41,7 @@ def read_discord_token_from_env():
 
 class Task:
     """Holds the fields for: message, channel, and content."""
+
     def __init__(self, message, channel, content, explicit: bool = False, t: float = None):
         self.message = message
         self.channel = channel
@@ -119,7 +135,7 @@ class DiscordBot:
             image = task.content
             # Save the image to the BytesIO object
             image.save(byte_arr, format="PNG")  # Save as PNG
-            print( " - Image saved to byte array, format: ", image.format)
+            print(" - Image saved to byte array, format: ", image.format)
 
             # Move the cursor to the beginning of the BytesIO object
             byte_arr.seek(0)
@@ -131,10 +147,9 @@ class DiscordBot:
     async def process_queue(self):
         """Process the queue of messages to send."""
 
-
         if not self._started:
             # Loop over all channels we have not yet started
-            # Add a message for each one 
+            # Add a message for each one
             for channel in self.client.get_all_channels():
                 # print(" -", channel.id, channel.name, channel.type)
                 if channel.type == discord.ChannelType.text:
@@ -163,7 +178,7 @@ class DiscordBot:
         except queue.Empty:
             await asyncio.sleep(0.1)  # Wait a bit before checking again
         except Exception as e:
-            print(colored( "Error in processing queue: " + str(e), "red"))
+            print(colored("Error in processing queue: " + str(e), "red"))
 
     def greeting(self) -> str:
         """Return a greeting message."""
@@ -183,7 +198,7 @@ class DiscordBot:
         async def on_message(message):
             # This line is important to allow commands to work
             # await bot.process_commands(message)
-    
+
             # Check if the bot was mentioned
             # print()
             # print("Mentions:", message.mentions)
@@ -199,7 +214,7 @@ class DiscordBot:
             response = self.on_message(message)
 
             if response is not None:
-                print('Sending response:', response)
+                print("Sending response:", response)
                 await message.channel.send(response)
                 print("Done")
 
@@ -227,7 +242,6 @@ class DiscordBot:
 
         print("Starting the message processing queue.")
         self.process_queue.start()
-
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""

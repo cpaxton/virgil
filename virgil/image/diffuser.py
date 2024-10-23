@@ -1,3 +1,17 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 # # (c) 2024 by Chris Paxton
 
 # (c) 2024 by Chris Paxton
@@ -13,6 +27,7 @@ from diffusers import AutoPipelineForText2Image
 import torch
 from PIL import Image
 
+
 class DiffuserImageGenerator(ImageGenerator):
     """
     A class for generating images from text prompts using the Diffusers library,
@@ -27,8 +42,7 @@ class DiffuserImageGenerator(ImageGenerator):
         "small_sd3": "stabilityai/stable-diffusion-3-medium",
     }
 
-    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 50,
-                 guidance_scale: float = 7.5, model: str = "base", xformers: bool = False) -> None:
+    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 50, guidance_scale: float = 7.5, model: str = "base", xformers: bool = False) -> None:
         """
         Initialize the DiffuserImageGenerator with a pre-trained model and image generation parameters.
 
@@ -55,11 +69,7 @@ class DiffuserImageGenerator(ImageGenerator):
             self.num_inference_steps = min(4, num_inference_steps)
             self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
 
-        self.pipeline = AutoPipelineForText2Image.from_pretrained(
-            model_name,
-            torch_dtype=torch.float16,
-            variant="fp16"
-        ).to("cuda")
+        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name, torch_dtype=torch.float16, variant="fp16").to("cuda")
 
         # Optional: Enable memory efficient attention
         if xformers:
@@ -76,14 +86,7 @@ class DiffuserImageGenerator(ImageGenerator):
         Returns:
             Image.Image: The generated image.
         """
-        result = self.pipeline(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            height=self.height,
-            width=self.width,
-            num_inference_steps=self.num_inference_steps,
-            guidance_scale=self.guidance_scale
-        )
+        result = self.pipeline(prompt=prompt, negative_prompt=negative_prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, guidance_scale=self.guidance_scale)
         return result.images[0]
 
 
@@ -126,4 +129,3 @@ if __name__ == "__main__":
         score, image = aligner.search(generator, prompt, num_tries=25)
         print(score)
         image.save("onion_search.png")
-

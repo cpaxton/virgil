@@ -1,12 +1,27 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 from virgil.parser import Parser
-from typing import List, Any, Optional, Tuple, Dict
+from typing import List, Any, Optional, Tuple
 
 from termcolor import colored
 
 import re
 
+
 def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> List[Tuple[str, str]]:
-    """Eextracts specified tags and their content from the given text.
+    """Extracts specified tags and their content from the given text.
 
     Args:
         text (str): The text to extract tags from.
@@ -19,7 +34,7 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
     result = []
 
     # Create a pattern that matches any of the given tags
-    tag_pattern = '|'.join(map(re.escape, tags))
+    tag_pattern = "|".join(map(re.escape, tags))
     pattern = f"<({tag_pattern})>(.*?)</\\1>"
 
     # Find all matches
@@ -31,11 +46,9 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
         content = match.group(2).strip()
         result.append((tag, content))
 
-    
     if allow_unmatched:
-
         # Remove all matched content from the text
-        text = re.sub(pattern, '', text, flags=re.DOTALL)
+        text = re.sub(pattern, "", text, flags=re.DOTALL)
 
         # Check for an unmatched <tag> at the end
         text += "</end>"  # Add a closing tag for unmatched tags
@@ -45,7 +58,7 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
             matches = re.finditer(unmatched_pattern, text)
             for match in matches:
                 tag = match.group(1)
-                content = text[match.start():].strip()
+                content = text[match.start() :].strip()
                 # Remove initial tag from content
                 content = content.replace(f"<{tag}>", "").strip()
             # remove </end> from content
@@ -54,9 +67,9 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
 
     return result
 
-class ChatbotActionParser(Parser):
 
-    def parse(self, text: str): #  -> Optional[List[str, Any]]:
+class ChatbotActionParser(Parser):
+    def parse(self, text: str):  #  -> Optional[List[str, Any]]:
         """Parse the action tags:
           <action>...</action>
           <remember>...</remember>
@@ -74,7 +87,7 @@ class ChatbotActionParser(Parser):
         return extracted_tags
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Example usage
     text = """
     <action>
@@ -99,4 +112,3 @@ if __name__ == '__main__':
 
     for tag, content in result:
         print(f"{tag}: {content}")
-

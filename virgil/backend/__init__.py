@@ -1,3 +1,17 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 # # (c) 2024 by Chris Paxton
 
 from .gemma import Gemma
@@ -6,14 +20,28 @@ from .llama import Llama
 from .qwen import Qwen, qwen_sizes, qwen_specializations
 
 
-backend_list = ["gemma", "gemma2b", "gemma-2b-it",
-                "llama-3.2-1B",
-                "qwen", "qwen-0.5B-Instruct", "qwen-0.5B-Coder", "qwen-0.5B-Math",
-                "qwen-1.5B-Instruct", "qwen-1.5B-Coder", "qwen-1.5B-Math",
-                "qwen-3B-Instruct", "qwen-3B-Coder", "qwen-3B-Math",
-                "qwen-7B-Instruct", "qwen-7B-Coder", "qwen-7B-Math",
-                "qwen-14B-Instruct", "qwen-14B-Coder", "qwen-14B-Math",
-                ]
+backend_list = [
+    "gemma",
+    "gemma2b",
+    "gemma-2b-it",
+    "llama-3.2-1B",
+    "qwen",
+    "qwen-0.5B-Instruct",
+    "qwen-0.5B-Coder",
+    "qwen-0.5B-Math",
+    "qwen-1.5B-Instruct",
+    "qwen-1.5B-Coder",
+    "qwen-1.5B-Math",
+    "qwen-3B-Instruct",
+    "qwen-3B-Coder",
+    "qwen-3B-Math",
+    "qwen-7B-Instruct",
+    "qwen-7B-Coder",
+    "qwen-7B-Math",
+    "qwen-14B-Instruct",
+    "qwen-14B-Coder",
+    "qwen-14B-Math",
+]
 
 
 def get_backend(name: str) -> Backend:

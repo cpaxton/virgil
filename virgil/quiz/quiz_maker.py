@@ -1,3 +1,17 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 # # (c) 2024 by Chris Paxton
 
 # (c) 2024 by Chris Paxton
@@ -67,7 +81,7 @@ There will be 5 multiple-choice options per question: A, B, C, D, and E. At the 
 
 For example, Question 1 will be weirdness level 1, but Question 3 will be weirdness level 9, and may be something very absurd or personal. It will refer back to the answers of the previous question.
 
-You will also give a detailed prompt for an image generator associated with each question. You will be very clear about the image, and willl include sufficient detail. You will not hallucinate.
+You will also give a detailed prompt for an image generator associated with each question. You will be very clear about the image, and will include sufficient detail. You will not hallucinate.
 
 For example:
 Question 1:

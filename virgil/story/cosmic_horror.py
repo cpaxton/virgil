@@ -1,3 +1,17 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 # # (c) 2024 by Chris Paxton
 
 import timeit
@@ -26,7 +40,7 @@ Information that you may use but are not to bring up unless it is relevant:
     - there have been a string of disappearances lately
     - silas will comment on my appearance before anything else
     - there are stories about lights at night over the water.
-    - Silas saw these lights once; his friend saw them too. They caught them late at night once, coming home after a shift at the diner. The lights hummed in his brain, made his nose bleed. The song was madly like something he used to know but couldnt understand, like a lullaby in a language he'd forgotten.
+    - Silas saw these lights once; his friend saw them too. They caught them late at night once, coming home after a shift at the diner. The lights hummed in his brain, made his nose bleed. The song was madly like something he used to know but couldn't understand, like a lullaby in a language he'd forgotten.
     - If you prompt enough, silas will admit that his friend stepped in front of a bus the next day and dioed, and that since then Silas has been seeing the lights in his dreams. After this he'll be too upset to talk until the bus comes. He will not talk after mentioning his friend's death.
     - I look like a college student: black hair, tired, hoodie, jeans, and a backpack, bags under my eyes. Silas will comment on this eventually.
     - Silas will never repeat himself
@@ -46,7 +60,7 @@ Once the bus arrives or the conversation ends, just say END in all caps.
 
 From here on, stay in character. You will answer concisely:
 
-First, state what I do - elaborate on it for 1-2 sentences. Then, state 1-2 sentences of what I see, or do, or how the relevant characters in teh wrold react. For example:
+First, state what I do - elaborate on it for 1-2 sentences. Then, state 1-2 sentences of what I see, or do, or how the relevant characters in the world react. For example:
 
 Input: "look at the bus stop"
 Output:

@@ -1,3 +1,17 @@
+# # Copyright 2024 Chris Paxton
+# #
+# # Licensed under the Apache License, Version 2.0 (the "License");
+# # you may not use this file except in compliance with the License.
+# # You may obtain a copy of the License at
+# #
+# #     http://www.apache.org/licenses/LICENSE-2.0
+# #
+# # Unless required by applicable law or agreed to in writing, software
+# # distributed under the License is distributed on an "AS IS" BASIS,
+# # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# # See the License for the specific language governing permissions and
+# # limitations under the License.
+
 # # (c) 2024 by Chris Paxton
 
 import click
@@ -32,7 +46,7 @@ def load_prompt():
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.) -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0) -> None:
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=25, preserve=2)
         self.attention_window_seconds = attention_window_seconds
@@ -49,7 +63,7 @@ class Friend(DiscordBot):
 
         # Add ask-a-robot to the whitelist
         # This one is always valid
-        self.add_to_whitelist("ask-a-robot", float('Inf'))
+        self.add_to_whitelist("ask-a-robot", float("Inf"))
 
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
@@ -116,7 +130,7 @@ class Friend(DiscordBot):
                     await task.channel.send(content)
                 elif action == "imagine":
                     await task.channel.send("*Imagining: " + content + "...*")
-                    time.sleep(0.1)  # Wait for messsage to be sent
+                    time.sleep(0.1)  # Wait for message to be sent
                     print("Generating image for prompt:", content)
                     with self._chat_lock:
                         image = self.image_generator.generate(content)
@@ -130,7 +144,7 @@ class Friend(DiscordBot):
 
                     # Save the image to the BytesIO object
                     image.save(byte_arr, format="PNG")  # Save as PNG
-                    print( " - Image saved to byte array")
+                    print(" - Image saved to byte array")
 
                     # Move the cursor to the beginning of the BytesIO object
                     byte_arr.seek(0)
@@ -197,12 +211,12 @@ class Friend(DiscordBot):
                     # Remove from whitelist
                     del self.whitelist[channel_name]
                     print(f" -> Removed {channel_name} from whitelist")
-            
+
             # Random number generator - 1 in 1000 chance
             random_number = random.randint(1, 100)
             print("Random number:", random_number)
             if random_number < 2:
-                # Add to whitelist 
+                # Add to whitelist
                 self.add_to_whitelist(channel_name)
                 ok = True
                 print(f" -> Added {channel_name} to whitelist")
@@ -212,12 +226,13 @@ class Friend(DiscordBot):
 
         # Construct the text to prompt the AI
         text = f"{sender_name} on #{channel_name}: " + message.content
-        self.push_task( channel=message.channel, message=text)
+        self.push_task(channel=message.channel, message=text)
 
         print("Current task queue: ", self.task_queue.qsize())
         print("Current history length:", len(self.chat))
         # print(" -> Response:", response)
         return None
+
 
 @click.command()
 @click.option("--token", default=None, help="The token for the discord bot.")
@@ -226,7 +241,6 @@ def main(token, backend):
     bot = Friend(token=token, backend=backend)
     client = bot.client
 
-    
     @bot.client.command(name="summon", help="Summon the bot to a channel.")
     async def summon(ctx):
         """Summon the bot to a channel."""
@@ -237,6 +251,7 @@ def main(token, backend):
         await ctx.send("Hello! I am here to help you.")
 
     bot.run()
+
 
 if __name__ == "__main__":
     main()
