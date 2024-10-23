@@ -37,7 +37,7 @@ class Task:
 
 
 class DiscordBot:
-    def __init__(self, token: Optional[str] = None, timeout: float = 120):
+    def __init__(self, token: Optional[str] = None, timeout: float = 30):
         """Create the bot, using an authorization token from Discord."""
         # Create intents
         intents = discord.Intents.default()
