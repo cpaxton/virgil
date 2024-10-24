@@ -120,7 +120,7 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
 
 # Example usage
 @click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing many different quizes")
+@click.option("--folder_path", default="", help="Path to the folder containing many different quizzes")
 @click.option("--quiz_path", default="", help="Path to the folder containing the quiz results.yaml and questions.yaml")
 def main(folder_path: str = "", quiz_path: str = ""):
     import glob

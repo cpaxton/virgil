@@ -131,7 +131,7 @@ def create_quiz_html(folder_path: str):
 
 # Example usage
 @click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing a set of quizes to process")
+@click.option("--folder_path", default="", help="Path to the folder containing a set of quizzes to process")
 @click.option("--quiz_path", default="", help="Path to the folder containing results.yaml and questions.yaml for a single quiz")
 def main(folder_path: str = "", quiz_path: str = "") -> None:
     if len(quiz_path) > 0:
