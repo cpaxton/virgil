@@ -47,6 +47,15 @@ class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
     def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None) -> None:
+        """Initialize the bot with the given token and backend.
+
+        Args:
+            token (Optional[str]): The token for the discord bot. Defaults to None.
+            backend (str): The backend to use for the chat. Defaults to "gemma".
+            attention_window_seconds (float): The number of seconds to pay attention to a channel. Defaults to 600.0.
+            image_generator (Optional[DiffuserImageGenerator]): The image generator to use. Defaults to None.
+        """
+
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=25, preserve=2)
         self.attention_window_seconds = attention_window_seconds
