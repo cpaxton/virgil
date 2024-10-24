@@ -15,7 +15,7 @@
 # (c) 2024 by Chris Paxton
 
 import torch
-from transformers import pipeline
+from transformers import pipeline, BitsAndBytesConfig
 from typing import Optional
 
 from virgil.backend.base import Backend
@@ -27,7 +27,7 @@ qwen_specializations = ["Instruct", "Coder", "Math"]
 class Qwen(Backend):
     """Use the Qwen model to generate responses to messages."""
 
-    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True) -> None:
+    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "AWQ") -> None:
         if size is None:
             size = "1.5B"
         size = size.upper()
@@ -40,6 +40,19 @@ class Qwen(Backend):
         # Check if the model name is valid
         if model_name is None:
             model_name = "Qwen/Qwen2.5-{size}-{specialization}"
+
+        if quantization is not None:
+            quantization = quantization.lower()
+            if quantization in ["AWQ", "int4"]:
+                if quantization == "AWQ":
+                    model_name += "-AWQ"
+                elif quantization == "int4":
+                    model_name += "-Int4"
+                else:
+                    raise ValueError(f"Unknown quantization method: {quantization}")
+            else:
+                raise ValueError(f"Unknown quantization method: {quantization}")
+
         self.pipe = pipeline("text-generation", model=model_name, torch_dtype="auto", device_map="auto")
         self.temperature = temperature
         self.top_p = top_p

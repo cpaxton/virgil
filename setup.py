@@ -30,6 +30,7 @@ setup(
         "termcolor",  # For colored terminal output
         "accelerate",  # For model acceleration
         "flash-attn",
+        "autoawq", # attention-aware quantization
     ],
     extras_require={
         "dev": [
