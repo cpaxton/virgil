@@ -25,7 +25,7 @@ import click
 from virgil.backend import Gemma
 from virgil.chat import ChatWrapper
 from virgil.quiz.parser import ResultParser, QuestionParser
-from virgil.quiz.create_images import create_images_for_folder
+
 
 userprompt = """
 Enter something to make a quiz about. For example:

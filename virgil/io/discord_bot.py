@@ -15,7 +15,7 @@
 # (c) 2024 by Chris Paxton
 # Usefuleight reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
-from typing import Optional, List
+from typing import Optional, List, Dict
 import os
 import time
 import timeit
