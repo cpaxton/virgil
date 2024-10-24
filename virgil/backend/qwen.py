@@ -43,11 +43,10 @@ class Qwen(Backend):
 
         if quantization is not None:
             quantization = quantization.lower()
-            if quantization in ["AWQ", "int4"]:
+            # Note: there were supposed to be other options but this is the only one that worked this way
+            if quantization in ["AWQ"]:
                 if quantization == "AWQ":
                     model_name += "-AWQ"
-                elif quantization == "int4":
-                    model_name += "-Int4"
                 else:
                     raise ValueError(f"Unknown quantization method: {quantization}")
             else:
