@@ -37,6 +37,7 @@ class DiffuserImageGenerator(ImageGenerator):
     MODEL_OPTIONS = {
         "base": "stabilityai/stable-diffusion-xl-base-1.0",
         "turbo": "stabilityai/sdxl-turbo",
+        "turbo_3.5": "stabilityai/stable-diffusion-3.5-large-turbo",
         "small": "segmind/SSD-1B",
         "tiny": "segmind/tiny-sd",
         "small_sd3": "stabilityai/stable-diffusion-3-medium",
