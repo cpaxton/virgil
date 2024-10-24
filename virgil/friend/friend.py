@@ -46,7 +46,7 @@ def load_prompt():
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0) -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None) -> None:
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=25, preserve=2)
         self.attention_window_seconds = attention_window_seconds
@@ -56,7 +56,13 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
-        self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=True)
+        if image_generator is None:
+            # This worked well as of 2024-10-22 with the diffusers library
+            # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=True)
+            self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo_3.5", xformers=True)
+        else:
+            self.image_generator = image_generator
+
         self.parser = ChatbotActionParser(self.chat)
 
         self._chat_lock = threading.Lock()  # Lock for chat access
