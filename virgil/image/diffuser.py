@@ -74,19 +74,18 @@ class DiffuserImageGenerator(ImageGenerator):
         self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name,
                                                                   torch_dtype=torch.float32,
                                                                   variant="fp16",
-                                                                  use_safetensors=True,
-                                                                  device="cuda" if torch.cuda.is_available() else "cpu")
+                                                                  use_safetensors=True)
 
         # Place the model on the GPU if available
         self.pipeline = self.pipeline.to("cuda" if torch.cuda.is_available() else "cpu")
 
         # Convert the model to float16 for memory efficiency
-        self.pipeline = self.pipeline.to(torch.float16)
+        # self.pipeline = self.pipeline.to(torch.float16)
 
         # Ensure all model components are in FP16
-        self.pipeline.unet = self.pipeline.unet.to(torch.float16)
-        self.pipeline.text_encoder = self.pipeline.text_encoder.to(torch.float16)
-        self.pipeline.vae = self.pipeline.vae.to(torch.float16)
+        #self.pipeline.unet = self.pipeline.unet.to(torch.float16)
+        #self.pipeline.text_encoder = self.pipeline.text_encoder.to(torch.float16)
+        #self.pipeline.vae = self.pipeline.vae.to(torch.float16)
 
         # Optional: Enable memory efficient attention
         if xformers:
@@ -104,13 +103,13 @@ class DiffuserImageGenerator(ImageGenerator):
             Image.Image: The generated image.
         """
         with torch.no_grad():
-            with torch.cuda.amp.autocast(dtype=torch.float16):
-                result = self.pipeline(prompt=prompt,
-                                       negative_prompt=negative_prompt,
-                                       height=self.height,
-                                       width=self.width,
-                                       num_inference_steps=self.num_inference_steps,
-                                       guidance_scale=self.guidance_scale)
+            # with torch.cuda.amp.autocast(dtype=torch.float16):
+            result = self.pipeline(prompt=prompt,
+                                   negative_prompt=negative_prompt,
+                                   height=self.height,
+                                   width=self.width,
+                                   num_inference_steps=self.num_inference_steps,
+                                   guidance_scale=self.guidance_scale)
         return result.images[0]
 
 
@@ -122,7 +121,7 @@ if __name__ == "__main__":
     # generator = DiffuserImageGenerator()
     # Sized for Discord banner
     # generator = DiffuserImageGenerator(height=500, width=500)
-    generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=True)
+    generator = DiffuserImageGenerator(height=200, width=200, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=True)
     aligner = SigLIPAligner()
 
     blobfish = False
