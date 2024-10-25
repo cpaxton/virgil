@@ -25,8 +25,6 @@ pipe = pipeline(
     device="cuda",  # replace with "mps" to run on a Mac device
 )
 
-import sys
-
 conversation_history = []
 
 while True:

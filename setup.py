@@ -16,6 +16,8 @@ setup(
     package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"]},
     install_requires=[
         "torch",
+        "torchvision",
+        "torchaudio",
         "transformers",
         "diffusers",
         "sentencepiece",
@@ -30,7 +32,8 @@ setup(
         "termcolor",  # For colored terminal output
         "accelerate",  # For model acceleration
         "flash-attn",
-        "autoawq",  # attention-aware quantization
+        # "xformers"
+        # "autoawq",  # attention-aware quantization
     ],
     extras_require={
         "dev": [
