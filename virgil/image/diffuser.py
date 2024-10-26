@@ -76,6 +76,13 @@ class DiffuserImageGenerator(ImageGenerator):
         # Place the model on the GPU if available
         self.pipeline = self.pipeline.to("cuda" if torch.cuda.is_available() else "cpu")
 
+        # Change to channels-last format for speed
+        self.pipeline.unet.to(memory_format=torch.channels_last)
+        self.pipeline.vae.to(memory_format=torch.channels_last)
+
+        # Fuse the QKV projections for memory efficiency
+        self.pipeline.fuse_qkv_projections()
+
         # Convert the model to float16 for memory efficiency
         # self.pipeline = self.pipeline.to(torch.float16)
 

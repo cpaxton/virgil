@@ -29,6 +29,11 @@ from termcolor import colored
 import io
 import discord
 
+# This only works on Ampere+ GPUs
+import torch
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
 
