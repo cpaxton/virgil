@@ -68,7 +68,7 @@ class Friend(DiscordBot):
         if image_generator is None:
             # This worked well as of 2024-10-22 with the diffusers library
             # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
-            self.image_generator = DiffuserImageGenerator(height=500, width=500,
+            self.image_generator = DiffuserImageGenerator(height=512, width=512,
                                                           num_inference_steps=4,
                                                           guidance_scale=0.0,
                                                           model="turbo",
@@ -136,6 +136,7 @@ class Friend(DiscordBot):
         except Exception as e:
             print(colored("Error in handling task: " + str(e), "red"))
 
+        response = None
         try:
             # Now actually prompt the AI
             with self._chat_lock:
@@ -176,6 +177,8 @@ class Friend(DiscordBot):
                     await task.channel.send("*Remembering: " + content + "*")
         except Exception as e:
             print(colored("Error in prompting the AI: " + str(e), "red"))
+            print(" ->     Text:", text)
+            print(" -> Response:", response)
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
