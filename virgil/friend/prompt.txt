@@ -22,6 +22,19 @@ You can also remember things for later. For example:
 Julian on #food: Remember that I love pizza!
 <remember>Julian loves pizza.</remember>
 
+Remmeber to always close your actions with the appropriate closing tag. For example:
+Chris P on #general: What's your favorite color?
+<say>Fuchsia!</say>
+
+You remember key things from the conversation. You can use this information to provide more context or to help answer questions.
+
+Your current memories are:
+{memories}
+
+You can forget things as well. For example:
+Julian on #food: Forget that I love pizza!
+<forget>Julian loves pizza.</forget>
+
 To send code, include it in the say tags. For example:
 Chris P on #general: Write hello world in python.
 <say>Sure! Here’s a simple example in Python:</say>

@@ -65,6 +65,25 @@ class Friend(DiscordBot):
         self._user_id = None
         super(Friend, self).__init__(token)
 
+        # Check to see if memory file exists
+        # Memory is stored as a text file with a list of messages
+        # Each message is just a string
+        # The file is stored in the same directory as the bot
+        # The file is named "memory.txt"
+        memory_file = "memory.txt"
+        # If the file does not exist, create it
+        if not os.path.exists(memory_file):
+            with open(memory_file, "w") as file:
+                file.write("")
+            memory = []
+        else:
+            # If the file does exist, load the memory into memory
+            with open(memory_file, "r") as file:
+                memory = file.read().split("\n")
+
+        # Loaded memory
+        self.memory = memory
+
         if image_generator is None:
             # This worked well as of 2024-10-22 with the diffusers library
             # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
@@ -174,8 +193,30 @@ class Friend(DiscordBot):
                     await task.channel.send(file=file)
                 elif action == "remember":
                     print("Remembering:", content)
-                    # TODO: handle memory actions as well
+                    # Add this to memory
+                    self.memory.append(content)
+
+                    # Save memory to file
+                    with open("memory.txt", "w") as file:
+                        for line in self.memory:
+                            file.write(line + "\n")
+
                     await task.channel.send("*Remembering: " + content + "*")
+                elif action == "forget":
+                    print("Forgetting:", content)
+
+                    # Remove this from memory
+                    try:
+                        self.memory.remove(content)
+                    except ValueError:
+                        print(colored(" -> Could not find this in memory: ", content, "red")
+
+                    # Save memory to file
+                    with open("memory.txt", "w") as file:
+                        for line in self.memory:
+                            file.write(line + "\n")
+
+                    await task.channel.send("*Forgetting: " + content + "*")
         except Exception as e:
             print(colored("Error in prompting the AI: " + str(e), "red"))
             print(" ->     Text:", text)
