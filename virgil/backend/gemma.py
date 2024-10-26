@@ -32,6 +32,7 @@ class Gemma(Backend):
         """
 
         if quantization is not None:
+            print(f"[Gemma] quantizing the model to {quantization}")
             if quantization == "int8":
                 quantization_config = BitsAndBytesConfig(load_in_8bit=True)
             elif quantization == "int4":
@@ -46,6 +47,7 @@ class Gemma(Backend):
             model_kwargs["quantization_config"] = quantization_config
 
         if use_flash_attention:
+            print("[Gemma] using Flash Attention from Flash-Attn")
             model_kwargs["attn_implementation"] = "flash_attention_2"
         
         print("[Gemma] loading the model...")
