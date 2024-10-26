@@ -21,7 +21,7 @@ from virgil.backend.base import Backend
 
 
 class Gemma(Backend):
-    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int4", use_flash_attention: bool = True) -> None:
+    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int8", use_flash_attention: bool = True) -> None:
         """Initialize the Gemma backend.
 
         Args:
@@ -60,9 +60,9 @@ class Gemma(Backend):
         self.top_p = top_p
         self.do_sample = do_sample
 
-        print("[Gemma] compile the model for speed...")
-        self.pipe.model = torch.compile(self.pipe.model, mode="max-autotune", fullgraph=True)
-        print("...done")
+        # print("[Gemma] compile the model for speed...")
+        # self.pipe.model = torch.compile(self.pipe.model, mode="max-autotune", fullgraph=True)
+        # print("...done")
 
     def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs) -> list:
         """Generate a response to a list of messages.
