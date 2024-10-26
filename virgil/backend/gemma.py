@@ -57,9 +57,6 @@ class Gemma(Backend):
         self.top_p = top_p
         self.do_sample = do_sample
 
-        # Make pipe faster
-        self.pipe.fuse_qkv_projections()
-
     def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs) -> list:
         """Generate a response to a list of messages.
 

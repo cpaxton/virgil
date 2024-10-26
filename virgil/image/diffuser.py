@@ -71,17 +71,33 @@ class DiffuserImageGenerator(ImageGenerator):
             self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
 
         # Load the model
-        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name, torch_dtype=torch.float32, variant="fp16", use_safetensors=True)
+        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name,
+                                                                  torch_dtype=torch.float32,
+                                                                  variant="fp16",
+                                                                  use_safetensors=True)
 
         # Place the model on the GPU if available
+        print("[Diffuser] Placing model on GPU if available...")
         self.pipeline = self.pipeline.to("cuda" if torch.cuda.is_available() else "cpu")
+        print("...done.")
 
         # Change to channels-last format for speed
+        print("[Diffuser] Converting models to channels-last format for speed...")
         self.pipeline.unet.to(memory_format=torch.channels_last)
         self.pipeline.vae.to(memory_format=torch.channels_last)
+        print("...done.")
 
         # Fuse the QKV projections for memory efficiency
+        print("[Diffuser] Fusing QKV projections for memory efficiency...")
         self.pipeline.fuse_qkv_projections()
+        print("...done.")
+
+        # Compile the models
+        print("[Diffuser] Compiling models for speed...")
+        self.pipeline.unet = torch.compile(pipe.unet, mode="max-autotune", fullgraph=True)
+        self.pipeline.vae.decode = torch.compile(pipe.vae.decode, mode="max-autotune", fullgraph=True)
+        print("...done.")
+
 
         # Convert the model to float16 for memory efficiency
         # self.pipeline = self.pipeline.to(torch.float16)
