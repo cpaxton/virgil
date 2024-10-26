@@ -15,6 +15,7 @@
 # (c) 2024 by Chris Paxton
 
 import click
+import os
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
