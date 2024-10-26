@@ -57,6 +57,10 @@ class Gemma(Backend):
         self.top_p = top_p
         self.do_sample = do_sample
 
+        print("[Gemma] compile the model for speed...")
+        self.pipe.model = torch.compile(self.pipe.model, mode="max-autotune", fullgraph=True)
+        print("...done")
+
     def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs) -> list:
         """Generate a response to a list of messages.
 
@@ -74,6 +78,7 @@ class Gemma(Backend):
                 temperature=self.temperature,
                 top_p=self.top_p,
                 do_sample=self.do_sample,
+
             )
 
 
