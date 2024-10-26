@@ -95,8 +95,8 @@ class DiffuserImageGenerator(ImageGenerator):
 
         # Compile the models
         print("[Diffuser] Compiling models for speed...")
-        self.pipeline.unet = torch.compile(pipe.unet, mode="max-autotune", fullgraph=True)
-        self.pipeline.vae.decode = torch.compile(pipe.vae.decode, mode="max-autotune", fullgraph=True)
+        self.pipeline.unet = torch.compile(self.pipeline.unet, mode="max-autotune", fullgraph=True)
+        self.pipeline.vae.decode = torch.compile(self.pipeline.vae.decode, mode="max-autotune", fullgraph=True)
         print("...done.")
 
 
@@ -110,7 +110,9 @@ class DiffuserImageGenerator(ImageGenerator):
 
         # Optional: Enable memory efficient attention
         if xformers:
+            print("[Diffuser] Enabling memory efficient attention via xformers...")
             self.pipeline.enable_xformers_memory_efficient_attention()
+            print("...done.")
 
     def generate(self, prompt: str, negative_prompt: str = "blurry, bad quality, duplicated") -> Image.Image:
         """
