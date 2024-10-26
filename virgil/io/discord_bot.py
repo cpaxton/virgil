@@ -175,7 +175,7 @@ class DiscordBot:
             print("Next task:", self.task_queue.queue[0].message, self.task_queue.queue[0].channel.name)
 
             # While the channel is the same and content is None...
-            while (self.task_queue.qsize() > 0 and self.task_queue.queue[0].channel == task.channel and self.task_queue.queue[0].content is None):
+            while self.task_queue.qsize() > 0 and self.task_queue.queue[0].channel == task.channel and self.task_queue.queue[0].content is None:
                 # Pop the next task
                 task = self.task_queue.get_nowait()
                 print("Popped task:", task.message, task.channel.name)

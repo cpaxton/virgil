@@ -71,10 +71,7 @@ class DiffuserImageGenerator(ImageGenerator):
             self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
 
         # Load the model
-        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name,
-                                                                  torch_dtype=torch.float32,
-                                                                  variant="fp16",
-                                                                  use_safetensors=True)
+        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name, torch_dtype=torch.float32, variant="fp16", use_safetensors=True)
 
         # Place the model on the GPU if available
         self.pipeline = self.pipeline.to("cuda" if torch.cuda.is_available() else "cpu")
@@ -83,9 +80,9 @@ class DiffuserImageGenerator(ImageGenerator):
         # self.pipeline = self.pipeline.to(torch.float16)
 
         # Ensure all model components are in FP16
-        #self.pipeline.unet = self.pipeline.unet.to(torch.float16)
-        #self.pipeline.text_encoder = self.pipeline.text_encoder.to(torch.float16)
-        #self.pipeline.vae = self.pipeline.vae.to(torch.float16)
+        # self.pipeline.unet = self.pipeline.unet.to(torch.float16)
+        # self.pipeline.text_encoder = self.pipeline.text_encoder.to(torch.float16)
+        # self.pipeline.vae = self.pipeline.vae.to(torch.float16)
 
         # Optional: Enable memory efficient attention
         if xformers:
@@ -104,18 +101,13 @@ class DiffuserImageGenerator(ImageGenerator):
         """
         with torch.no_grad():
             # with torch.cuda.amp.autocast(dtype=torch.float16):
-            result = self.pipeline(prompt=prompt,
-                                   negative_prompt=negative_prompt,
-                                   height=self.height,
-                                   width=self.width,
-                                   num_inference_steps=self.num_inference_steps,
-                                   guidance_scale=self.guidance_scale)
+            result = self.pipeline(prompt=prompt, negative_prompt=negative_prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, guidance_scale=self.guidance_scale)
         return result.images[0]
 
 
 if __name__ == "__main__":
-
     import torch
+
     print("CuDNN version:", torch.backends.cudnn.version())
 
     # generator = DiffuserImageGenerator()

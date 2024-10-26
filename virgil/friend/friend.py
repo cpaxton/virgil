@@ -87,11 +87,7 @@ class Friend(DiscordBot):
         if image_generator is None:
             # This worked well as of 2024-10-22 with the diffusers library
             # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
-            self.image_generator = DiffuserImageGenerator(height=512, width=512,
-                                                          num_inference_steps=4,
-                                                          guidance_scale=0.0,
-                                                          model="turbo",
-                                                          xformers=True)
+            self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=True)
         else:
             self.image_generator = image_generator
 
@@ -209,7 +205,7 @@ class Friend(DiscordBot):
                     try:
                         self.memory.remove(content)
                     except ValueError:
-                        print(colored(" -> Could not find this in memory: ", content, "red")
+                        print(colored(" -> Could not find this in memory: ", content, "red"))
 
                     # Save memory to file
                     with open("memory.txt", "w") as file:
