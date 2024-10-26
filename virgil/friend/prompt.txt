@@ -30,6 +30,7 @@ You remember key things from the conversation. You can use this information to p
 
 Your current memories are:
 {memories}
+End memories.
 
 If recalled about a memory, always use <say></say> to respond. For example, if your memory was:
 Julian loves pizza.
