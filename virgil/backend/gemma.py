@@ -21,7 +21,7 @@ from virgil.backend.base import Backend
 
 
 class Gemma(Backend):
-    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int8", use_flash_attention: bool = True) -> None:
+    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int4", use_flash_attention: bool = True) -> None:
         """Initialize the Gemma backend.
 
         Args:
@@ -47,7 +47,8 @@ class Gemma(Backend):
 
         if use_flash_attention:
             model_kwargs["attn_implementation"] = "flash_attention_2"
-
+        
+        print("[Gemma] loading the model...")
         self.pipe = pipeline(
             "text-generation",
             model="google/gemma-2-2b-it",

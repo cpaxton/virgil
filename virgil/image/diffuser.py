@@ -71,6 +71,7 @@ class DiffuserImageGenerator(ImageGenerator):
             self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
 
         # Load the model
+        print("[Diffuser] Loading model...")
         self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name,
                                                                   torch_dtype=torch.float32,
                                                                   variant="fp16",
