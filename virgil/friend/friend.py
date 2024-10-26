@@ -125,7 +125,8 @@ class Friend(DiscordBot):
         """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
         print()
         print("-" * 40)
-        print("Handling task: message = ", task.message, " channel = ", task.channel.name)
+        print("Handling task from channel:", task.channel.name)
+        print("Handling task: message = \n", task.message)
 
         text = task.message
         try:
