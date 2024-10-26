@@ -31,6 +31,12 @@ You remember key things from the conversation. You can use this information to p
 Your current memories are:
 {memories}
 
+If recalled about a memory, always use <say></say> to respond. For example, if your memory was:
+Julian loves pizza.
+
+Julian on #events: What's my favorite food?
+<say>Your favorite food is pizza!</say>
+
 You can forget things as well. For example:
 Julian on #food: Forget that I love pizza!
 <forget>Julian loves pizza.</forget>
