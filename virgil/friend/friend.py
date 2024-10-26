@@ -113,7 +113,7 @@ class Friend(DiscordBot):
         print("Bot User IDL", self.client.user.id)
         self._user_name = self.client.user.name
         self._user_id = self.client.user.id
-        self.prompt = self.raw_prompt.format(username=self._user_name)
+        self.prompt = self.raw_prompt.format(username=self._user_name, user_id=self._user_id, memories="\n".join(self.memory))
 
         self.chat.prompt(self.prompt, verbose=True)
 
