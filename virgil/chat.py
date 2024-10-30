@@ -42,6 +42,8 @@ class ChatWrapper:
         # TODO: handle self.preserve > 0
         if len(self.conversation_history) > self.max_history_length:
             self.conversation_history = self.conversation_history[: self.preserve] + self.conversation_history[-(self.max_history_length - self.preserve) :]
+        for i, message in enumerate(self.conversation_history):
+            print(f"{i} {message['role']}: {message['content']}")
 
     def clear(self):
         """Clear the conversation history."""
