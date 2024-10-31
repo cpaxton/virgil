@@ -69,6 +69,7 @@ class Friend(DiscordBot):
         self.prompt = None
         self._user_name = None
         self._user_id = None
+        self.sent_prompt = False
         super(Friend, self).__init__(token)
 
         # Check to see if memory file exists
@@ -117,7 +118,11 @@ class Friend(DiscordBot):
         self._user_id = self.client.user.id
         self.prompt = self.raw_prompt.format(username=self._user_name, user_id=self._user_id, memories="\n".join(self.memory))
 
-        self.chat.prompt(self.prompt, verbose=True)
+        if self.sent_prompt is False:
+            self.chat.prompt(self.prompt, verbose=True)
+            self.sent_prompt = True
+        else:
+            print(" -> We have already sent the prompt.")
 
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
