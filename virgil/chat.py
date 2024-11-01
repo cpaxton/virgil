@@ -36,12 +36,26 @@ class ChatWrapper:
             role (str): The role of the speaker.
             content (str): The content of the message.
         """
-        self.conversation_history.append({"role": role, "content": content})
 
-        # Trim the conversation history, preserving the first `preserve` messages
-        # TODO: handle self.preserve > 0
-        if len(self.conversation_history) > self.max_history_length:
-            self.conversation_history = self.conversation_history[: self.preserve] + self.conversation_history[-(self.max_history_length - self.preserve) :]
+        # Roles must alternate
+        added = False
+        if len(self.conversation_history) > 0:
+            # Get previous role
+            prev_role = self.conversation_history[-1]["role"]
+            if prev_role == role:
+                # Just concatenate it 
+                self.conversation_history[-1]["content"] += "\n" + content
+                added = True
+
+        if not added:
+            self.conversation_history.append({"role": role, "content": content})
+
+            # Trim the conversation history, preserving the first `preserve` messages
+            # TODO: handle self.preserve > 0
+            if len(self.conversation_history) > self.max_history_length:
+                self.conversation_history = self.conversation_history[: self.preserve] + self.conversation_history[-(self.max_history_length - self.preserve) :]
+
+        print("Conversation history:")
         for i, message in enumerate(self.conversation_history):
             print(f"{i} {message['role']}: {message['content']}")
 
