@@ -29,7 +29,7 @@ class ChatWrapper:
             raise ValueError(f"Preserve must be less than or equal to max_history_length. Got preserve={self.preserve} and max_history_length={self.max_history_length}")
         self.conversation_history = []
 
-    def add_conversation_history(self, role: str, content: str):
+    def add_conversation_history(self, role: str, content: str, verbose: bool = False):
         """Add a message to the conversation history.
 
         Args:
@@ -55,9 +55,10 @@ class ChatWrapper:
             if len(self.conversation_history) > self.max_history_length:
                 self.conversation_history = self.conversation_history[: self.preserve] + self.conversation_history[-(self.max_history_length - self.preserve) :]
 
-        print("Conversation history:")
-        for i, message in enumerate(self.conversation_history):
-            print(f"{i} {message['role']}: {message['content']}")
+        if verbose:
+            print("Conversation history:")
+            for i, message in enumerate(self.conversation_history):
+                print(f"{i} {message['role']}: {message['content']}")
 
     def clear(self):
         """Clear the conversation history."""
