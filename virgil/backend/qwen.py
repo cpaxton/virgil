@@ -42,7 +42,7 @@ class Qwen(Backend):
             model_name = "Qwen/Qwen2.5-{size}-{specialization}"
 
         if quantization is not None:
-            quantization = quantization.lower()
+            quantization = quantization.upper()
             # Note: there were supposed to be other options but this is the only one that worked this way
             if quantization in ["AWQ"]:
                 if quantization == "AWQ":
