@@ -8,7 +8,7 @@ setup(
     version="0.1.0",
     author="Chris Paxton",
     author_email="chris.paxton.cs@gmail.com",
-    description="A short description of the virgil project",
+    description="A library for creating and using AI-powered chatbots and AI-powered storytelling.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/virgil",
@@ -58,5 +58,5 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
 )
