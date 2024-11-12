@@ -9,9 +9,11 @@ It's named after the AI from Mass Effect. Or maybe the Roman poet.
 Optionally create a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for this project:
 
 ```bash
-conda create -n virgil python=3.8
+conda create -n virgil python=3.10
 conda activate virgil
 ```
+
+Install pytorch and torchvision. You can find the right command for your system [here](https://pytorch.org/get-started/locally/).
 
 Just basic pip usage should do it:
 
@@ -19,12 +21,20 @@ Just basic pip usage should do it:
 python -m pip install -e .
 ```
 
-You'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
+To use Gemma, you'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
 
+
+### Optional: xformers
 You may want to use [xformers](https://github.com/facebookresearch/xformers) for better memory efficiency. You can install it with:
 
 ```bash
 pip install --pre -U xformers
+```
+
+Or if you followed the conda instructions above:
+
+```bash
+conda install xformers -c xformers
 ```
 
 ## Usage
