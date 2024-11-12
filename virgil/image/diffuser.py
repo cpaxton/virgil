@@ -70,6 +70,13 @@ class DiffuserImageGenerator(ImageGenerator):
             self.num_inference_steps = min(4, num_inference_steps)
             self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
 
+        if xformers:
+            try:
+                import xformers
+            except ImportError:
+                print("Tried to use Xformers but it is not installed. Please install it following instructions at: https://github.com/facebookresearch/xformers")
+                xformers = False
+
         # Load the model
         print("[Diffuser] Loading model...")
         self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name,
@@ -83,15 +90,15 @@ class DiffuserImageGenerator(ImageGenerator):
         print("...done.")
 
         # Change to channels-last format for speed
-        print("[Diffuser] Converting models to channels-last format for speed...")
-        self.pipeline.unet.to(memory_format=torch.channels_last)
-        self.pipeline.vae.to(memory_format=torch.channels_last)
-        print("...done.")
+        # print("[Diffuser] Converting models to channels-last format for speed...")
+        # self.pipeline.unet.to(memory_format=torch.channels_last)
+        # self.pipeline.vae.to(memory_format=torch.channels_last)
+        # print("...done.")
 
         # Fuse the QKV projections for memory efficiency
-        print("[Diffuser] Fusing QKV projections for memory efficiency...")
-        self.pipeline.fuse_qkv_projections()
-        print("...done.")
+        # print("[Diffuser] Fusing QKV projections for memory efficiency...")
+        # self.pipeline.fuse_qkv_projections()
+        # print("...done.")
 
         # Compile the models
         print("[Diffuser] Compiling models for speed...")
