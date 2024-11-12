@@ -15,7 +15,7 @@ setup(
     packages=["virgil"],
     package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"]},
     install_requires=[
-        "torch",
+        "torch>=2.5.1",
         "torchvision",
         "torchaudio",
         "transformers",
