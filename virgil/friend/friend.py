@@ -52,7 +52,7 @@ def load_prompt():
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None) -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False) -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -60,6 +60,7 @@ class Friend(DiscordBot):
             backend (str): The backend to use for the chat. Defaults to "gemma".
             attention_window_seconds (float): The number of seconds to pay attention to a channel. Defaults to 600.0.
             image_generator (Optional[DiffuserImageGenerator]): The image generator to use. Defaults to None.
+            join_at_random (bool): Whether to join channels at random. Defaults to False.
         """
 
         self.backend = get_backend(backend)
@@ -70,6 +71,7 @@ class Friend(DiscordBot):
         self._user_name = None
         self._user_id = None
         self.sent_prompt = False
+        self.join_at_random = join_at_random
         super(Friend, self).__init__(token)
 
         # Check to see if memory file exists
@@ -282,15 +284,17 @@ class Friend(DiscordBot):
                     # Remove from whitelist
                     del self.whitelist[channel_name]
                     print(f" -> Removed {channel_name} from whitelist")
+    
 
-            # Random number generator - 1 in 1000 chance
-            random_number = random.randint(1, 100)
-            print("Random number:", random_number)
-            if random_number < 2:
-                # Add to whitelist
-                self.add_to_whitelist(channel_name)
-                ok = True
-                print(f" -> Added {channel_name} to whitelist")
+            if self.join_at_random:
+                # Random number generator - 1 in 1000 chance
+                random_number = random.randint(1, 100)
+                print("Random number:", random_number)
+                if random_number < 2:
+                    # Add to whitelist
+                    self.add_to_whitelist(channel_name)
+                    ok = True
+                    print(f" -> Added {channel_name} to whitelist")
 
             if not ok:
                 return None
