@@ -24,7 +24,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "torch>=2.5.1",
+    # "torch>=2.5.1",
+    "torch",
     "torchvision",
     "torchaudio",
     "transformers",
@@ -39,8 +40,6 @@ dependencies = [
     "python-dotenv",
     "bitsandbytes",
     "termcolor",
-    "accelerate",
-    "flash-attn",
 ]
 
 [project.optional-dependencies]
@@ -53,6 +52,10 @@ dev = [
     "pre-commit",
     "codespell",
     "mdformat",
+]
+ai = [
+    "accelerate",
+    "flash-attn",
 ]
 
 [project.urls]
