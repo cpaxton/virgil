@@ -15,7 +15,8 @@ setup(
     packages=["virgil"],
     package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"]},
     install_requires=[
-        "torch>=2.5.1",
+        # "torch>=2.5.1",
+        "torch",
         "torchvision",
         "torchaudio",
         "transformers",
@@ -30,8 +31,6 @@ setup(
         "python-dotenv",  # For pulling things like API keys and tokens from env
         "bitsandbytes",  # For quantization
         "termcolor",  # For colored terminal output
-        "accelerate",  # For model acceleration
-        "flash-attn",
         # "xformers"
         # "autoawq",  # attention-aware quantization
     ],
@@ -46,6 +45,10 @@ setup(
             "codespell",
             "mdformat",
         ],
+        "ai": [
+            "accelerate",  # For model acceleration
+            "flash-attn",
+        ]
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
