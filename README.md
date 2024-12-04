@@ -6,21 +6,21 @@ It's named after the AI from Mass Effect. Or maybe the Roman poet.
 
 ## Installation
 
-If installing locally, it's highyl recommended to create a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for this project:
+If installing locally, it's highly recommended to create a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for this project:
 
 ```bash
 conda create -n virgil python=3.10
 conda activate virgil
 ```
 
-Install pytorch and torchvision. You can find the right command for your system [here](https://pytorch.org/get-started/locally/).
+Then install pytorch and torchvision. You can find the right command for your system [here](https://pytorch.org/get-started/locally/).
 
 For example:
 ```bash
 conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
 ```
 
-Just basic pip usage should do it:
+After that, just a basic pip usage should do it:
 
 ```bash
 python -m pip install -e .[ai]
