@@ -41,10 +41,12 @@ class Qwen(Backend):
         if model_name is None:
             model_name = "Qwen/Qwen2.5-{size}-{specialization}"
 
+        model_kwargs = {"torch_dtype": "auto"}
         if quantization is not None:
             quantization = quantization.upper()
             # Note: there were supposed to be other options but this is the only one that worked this way
             if quantization in ["AWQ"]:
+                model_kwargs["torch_dtype"] = torch.float16
                 try:
                     import awq
                 except ImportError:
@@ -56,7 +58,7 @@ class Qwen(Backend):
             else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
 
-        self.pipe = pipeline("text-generation", model=model_name, torch_dtype="auto", device_map="auto")
+        self.pipe = pipeline("text-generation", model=model_name, device_map="auto", **model_kwargs)
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample

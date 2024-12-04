@@ -12,3 +12,4 @@ maze:
 
 # LLM setup - configures the LLM to use and its parameters
 backend: "gemma-2b-it"
+
