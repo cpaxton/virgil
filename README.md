@@ -23,8 +23,10 @@ conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvi
 Just basic pip usage should do it:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e .[ai]
 ```
+
+The `[ai]` flag will install some acceleration tools for AI models, like [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes), which may cause issues on some systems. If you have trouble, you can remove it.
 
 To use Gemma, you'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
 
@@ -97,7 +99,7 @@ But you'll need to replace the `client_id` with your own:
 https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 ```
 
-where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page.
+where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page. Then you need to set permissions for the bot properly and create an install link. For more detailed instructions, see the [Discord setup guide](docs/discord.md).
 
 ### Storyteller
 

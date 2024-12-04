@@ -28,8 +28,9 @@ setup(
         "matplotlib",
         "discord.py",  # Install discord library for discord-using robots
         "python-dotenv",  # For pulling things like API keys and tokens from env
-        "bitsandbytes",  # For quantization
         "termcolor",  # For colored terminal output
+        "hydra-core", # For configuration management
+        "omegaconf", # For configuration management
     ],
     extras_require={
         "dev": [
@@ -42,7 +43,8 @@ setup(
             "codespell",
             "mdformat",
         ],
-        "ai" : [
+        "ai": [
+            "bitsandbytes",  # For quantization
             "accelerate",  # For model acceleration
             "flash-attn",
             # "xformers"
