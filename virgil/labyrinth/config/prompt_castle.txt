@@ -6,6 +6,10 @@ We will describe each room in turn. Describe only the room, and nothing else. Do
 
 Never use the room number, instead use a descriptive name. For exammple, room (1, 1) could be an entrance chamber, a gatehouse, or a courtyard. The room names should be unique and descriptive. A room that has only one entrance and one exit might be a forest path, or a hallway, or a corridor. A room that has multiple exits might be a crossroads, a junction, or a clearing.
 
+Answers should be in the form of 1-2 paragraphs of text. Be descriptive and creative. Do not use bullet points.
+
+Answer the question and nothing else.
+
 Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
 
 Room (1, 1):
