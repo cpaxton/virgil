@@ -113,7 +113,7 @@ def main(max_history_length: int, preserve: int, verbose: bool, backend: str):
 
     print("Chatting with the assistant. Leave empty to exit.")
     while True:
-        user_input = click.prompt("You: ")
+        user_input = input("You: ")
         if not user_input:
             break
         res = chat.prompt(user_input, verbose=verbose)
