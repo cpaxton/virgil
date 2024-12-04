@@ -1,5 +1,6 @@
-We're going to describe a maze, room by room, in detail, starting with the first room. The maze as a whole is a {height} x {width} set of rooms. The beginning of the maze is room (1, 1); the final room and the goal of the maze is room (5, 5).
+We're going to describe a maze, room by room, in detail, starting with the first room. The maze as a whole is a {height} x {width} set of rooms. The beginning of the maze is room (1, 1); the final room and the goal of the maze is room (5, 5). Rooms are all locations in {location}.
 
 The goal of the maze, in (5, 5), contains: {goal}.
 
 We will describe each room in turn. Describe only the room, and nothing else. Do not ever give the room number, only a description of the room, and how it appears. Describe the room as if you were standing in the center of it, looking around. Describe the connection to the next room or rooms, but do not describe the next room or rooms themselves.
+
