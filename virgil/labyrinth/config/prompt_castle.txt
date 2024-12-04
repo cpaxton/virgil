@@ -8,8 +8,14 @@ Never use the room number, instead use a descriptive name. For exammple, room (1
 
 Answers should be in the form of 1-2 paragraphs of text. Be descriptive and creative. Do not use bullet points.
 
-Answer the question and nothing else.
+Answer the question and nothing else. Never include (1, 1) in your answer. Do not describe the room as a room in a maze, but as a location in an ancient, crumbling castle. Do not describe the maze as a maze, but as a series of connected rooms in an ancient, crumbling castle.
 
+For example:
+Location: A dark forest
 Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
+Room (1,1):
+The meadow gives way to a dark forest path ahead. You can hear birds calling in the distance, and the rustle of leaves in the wind. The path is overgrown with brambles and thorns, and the trees are so thick that the sunlight barely filters through. The air is cool and damp, and the smell of earth and moss is strong. The path is narrow and winding, and you can't see very far ahead. The forest is quiet and still, and you feel a sense of unease as you step into the shadows.
 
+Location: an ancient, crumbling castle
+Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
 Room (1, 1):
