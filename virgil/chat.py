@@ -113,11 +113,11 @@ def main(max_history_length: int, preserve: int, verbose: bool, backend: str):
 
     print("Chatting with the assistant. Leave empty to exit.")
     while True:
-        user_input = input("You: ")
+        user_input = input(colored("You: ", "green"))
         if not user_input:
             break
         res = chat.prompt(user_input, verbose=verbose)
-        print(f"Assistant: {res}")
+        print(colored("Assistant:", "blue"), res)
 
 
 if __name__ == "__main__":
