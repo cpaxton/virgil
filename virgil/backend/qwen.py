@@ -45,6 +45,10 @@ class Qwen(Backend):
             quantization = quantization.upper()
             # Note: there were supposed to be other options but this is the only one that worked this way
             if quantization in ["AWQ"]:
+                try:
+                    import awq
+                except ImportError:
+                    raise ImportError("To use quantization, please install the auto-awq package.")
                 if quantization == "AWQ":
                     model_name += "-AWQ"
                 else:
