@@ -4,3 +4,5 @@ maze:
   height: 5
   width: 10
 
+# LLM setup
+backend: "gemma-2b-it"
