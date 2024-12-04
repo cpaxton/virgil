@@ -49,7 +49,7 @@ setup(
             "flash-attn",
             # "xformers"
             # "autoawq",  # attention-aware quantization
-            ],
+        ]
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
