@@ -5,10 +5,13 @@ from collections import deque
 
 
 class Maze:
-    def __init__(self, height, width):
+    def __init__(self, height, width, seed=None):
         self.height = height
         self.width = width
         self.maze = None
+        if seed is not None:
+            random.seed(seed)
+            np.random.seed(seed)
         self.generate_maze()
 
     def generate_maze_old(self):
@@ -132,7 +135,7 @@ class Maze:
         plt.axis('off')
         plt.show()
 
-# Example usage:
-maze = Maze(5, 10)  # Create a 20x30 maze
-maze.draw_maze_with_graph()     # Draw the maze using matplotlib
 
+if __name__ == "__main__":
+    maze = Maze(5, 10)
+    maze.draw_maze_with_graph()
