@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "virgil"
+version = "0.1.0"
+description = "A library for creating and using AI-powered chatbots and AI-powered storytelling."
+authors = [
+    {name = "Chris Paxton", email = "chris.paxton.cs@gmail.com"},
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+dependencies = [
+    # "torch>=2.5.1",
+    "torch",
+    "torchvision",
+    "torchaudio",
+    "transformers",
+    "diffusers",
+    "sentencepiece",
+    "Pillow",
+    "protobuf",
+    "numpy",
+    "click",
+    "matplotlib",
+    "discord.py",
+    "python-dotenv",
+    "bitsandbytes",
+    "termcolor",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "flake8",
+    "black",
+    "isort",
+    "mypy",
+    "pre-commit",
+    "codespell",
+    "mdformat",
+]
+ai = [
+    "accelerate",
+    "flash-attn",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/virgil"
+
+[tool.setuptools.packages.find]
+include = ["virgil"]
+
+[tool.setuptools.package-data]
+"virgil.quiz" = ["quiz.html", "example_quiz.html"]
+"virgil.meme" = ["prompt.txt"]
+"virgil.friend" = ["prompt.txt"]
+
