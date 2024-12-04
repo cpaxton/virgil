@@ -1,4 +1,3 @@
-# Copyright 2024 Chris Paxton
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +13,7 @@
 
 # (c) 2024 by Chris Paxton
 
+import click
 import timeit
 from termcolor import colored
 
@@ -99,3 +99,37 @@ class ChatWrapper:
             print("----------------")
 
         return assistant_response
+
+
+@click.command()
+@click.option("--max-history-length", default=50, help="The maximum length of the conversation history.")
+@click.option("--preserve", default=2, help="The number of messages to preserve in the conversation history.")
+@click.option("--verbose", is_flag=True, help="Print verbose output.")
+@click.option("--backend", default="gemma-2b-it", help="The backend to use.")
+@click.option("--prompt", default="", help="The prompt (as a text file) to start the conversation with.")
+def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str) -> None:
+    from virgil.backend import get_backend
+    backend = get_backend(backend)
+    chat = ChatWrapper(backend=backend, max_history_length=max_history_length, preserve=preserve)
+
+    prompt_text = None
+    if len(prompt) > 0:
+        with open(prompt, "r") as f:
+            prompt_text = f.read()
+
+    print("Chatting with the assistant. Leave empty to exit.")
+    while True:
+        if prompt_text is not None:
+            user_input = prompt_text
+            prompt_text = None
+            print(colored("Prompt: ", "green"), user_input)
+        else:
+            user_input = input(colored("You: ", "green"))
+        if not user_input:
+            break
+        res = chat.prompt(user_input, verbose=verbose)
+        print(colored("Assistant:", "blue"), res)
+
+
+if __name__ == "__main__":
+    main()

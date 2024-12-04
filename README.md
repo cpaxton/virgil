@@ -46,13 +46,38 @@ conda install xformers -c xformers
 
 ## Usage
 
+- [Chat](#chat): A simple chatbot test with no prompt. The raw LLM experience, useful for development.
 - [The Infinite Quiz Machine](#the-infinite-quiz-machine): Generates a quiz based on a prompt.
-- [Friend](#friend): A simple chatbot which works with Discord
+- [Friend](#friend): A chatbot which works with Discord, can use different LLM backends, generate images, and has a (somewhat) persistent memory.
 - [Storyteller](#storyteller): A work-in-progress of a single scene at the "beginning" of a cosmic horror story.
 
 The Infinite Quiz Machine requires about 12GB of GPU memory; I ran it on an NVIDIA RTX 4080 on my laptop and it worked fine. If that isn't available, you may need to do some tuning to get it to work on a smaller GPU.
 
 Bots like Friend can run on a smaller GPU, but you may need to adjust the batch size to get it to work; they'll die if they run out of memory, and so you may want to restart them. Nothing clever is being done here to keep them to a certain memory limit.
+
+### Chat
+
+Simple chatbot test, useful for playing around with different LLMs ("backends") in a chat setting before deploying them in more complex projects.
+
+After installing `virgil`:
+
+```bash
+python -m virgil.chat
+```
+
+You can also provide a backend, e.g.
+
+```bash
+python -m virgil.chat --backend qwen-1.5B
+```
+
+This application is useful for development. You can provide a prompt as a text file in order to see how it works, e.g.:
+
+```bash
+python virgil/chat.py --backend qwen-1.5B --prompt virgil/labyrinth/config/prompt_castle.txt
+```
+
+will load the initial prompt from [Labyrinth](#labyrinth) and use the Qwen 1.5B model to generate text. You can then continue to interrogate it in dialogue.
 
 ### The Infinite Quiz Machine
 
@@ -101,6 +126,14 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page. Then you need to set permissions for the bot properly and create an install link. For more detailed instructions, see the [Discord setup guide](docs/discord.md).
 
+### Labyrinth
+
+Generate a maze you can explore with associated text and images. This is a work-in-progress.
+
+Inputs:
+  - the "quest" you're on -- this is a prompt which will be used to generate the maze. It also determines the end goal of the maze.
+  - the  location you're in -- a castle, a forest, etc. Something about what kind of world you want to generate.
+
 ### Storyteller
 
 After installing `virgil`:
@@ -113,4 +146,6 @@ This is a work-in-progress of a single scene at the "beginning" of a cosmic horr
 
 ## License
 
-If you somehow find this and want to use it, please give me credit; everything here is by [Chris Paxton](https://cpaxton.github.io/).
+If you somehow find this and want to use it, please give me credit; Virgil is a project by [Chris Paxton](https://cpaxton.github.io/).
+
+The code is covered by an [Apache 2.0 license](LICENSE), but the models and data are covered by their own licenses.

@@ -1,0 +1,15 @@
+# Default config file for labyrinth
+
+# General parameters
+# Set the random seed for reproducibility
+random_seed: 0
+
+# Maze parameters - configures how big the maze is and whether to visualize it
+maze:
+  height: 5
+  width: 5
+  visualize: True
+
+# LLM setup - configures the LLM to use and its parameters
+backend: "gemma-2b-it"
+

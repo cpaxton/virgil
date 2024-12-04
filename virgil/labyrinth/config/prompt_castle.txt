@@ -1,0 +1,25 @@
+We're going to describe a maze, room by room, in detail, starting with the first room. The maze as a whole is a 5 x 5 set of rooms. The beginning of the maze is room (1, 1); the final room and the goal of the maze is room (5, 5). Rooms are all locations in an ancient, crumbling castle.
+
+The goal of the maze, in (5, 5), contains: a treasure chest containing a magical artifact that can lift the curse on the kingdom.
+
+We will describe each room in turn. Describe only the room, and nothing else. Do not ever give the room number, only a description of the room, and how it appears. Describe the room as if you were standing in the center of it, looking around. Describe the connection to the next room or rooms, but do not describe the next room or rooms themselves.
+
+Never use the room number, instead use a descriptive name. For exammple, room (1, 1) could be an entrance chamber, a gatehouse, or a courtyard. The room names should be unique and descriptive. A room that has only one entrance and one exit might be a forest path, or a hallway, or a corridor. A room that has multiple exits might be a crossroads, a junction, or a clearing.
+
+Answers should be in the form of 1-2 paragraphs of text. Be descriptive and creative. Do not use bullet points.
+
+Answer the question and nothing else. Never include (1, 1) in your answer. Do not describe the room as a room in a maze, but as a location in an ancient, crumbling castle. Do not describe the maze as a maze, but as a series of connected rooms in an ancient, crumbling castle.
+
+For example:
+Location: a dark forest
+Goal: a magical spring, the water of which which can cure your mother's illness
+Distance into a dark forest: 0
+Room (1,1) connects to room (2, 1).
+Room (1,1):
+The meadow gives way to a dark forest path ahead. You can hear birds calling in the distance, and the rustle of leaves in the wind. The path is overgrown with brambles and thorns, and the trees are so thick that the sunlight barely filters through. The air is cool and damp, and the smell of earth and moss is strong. The path is narrow and winding, and you can't see very far ahead. The forest is quiet and still, and you feel a sense of unease as you step into the shadows.
+
+Location: an ancient, crumbling castle
+Goal: a treasure chest containing a magical artifact that can lift the curse on the kingdom
+Distance into an ancient, crumbling castle: 0
+Room (1,1) connects to room (2, 1).
+Room (1, 1):

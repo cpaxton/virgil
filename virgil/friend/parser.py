@@ -63,7 +63,17 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
                 content = content.replace(f"<{tag}>", "").strip()
             # remove </end> from content
             content = content.replace("</end>", "")
+
+            # always remove dangling tags in content
+            content = re.sub(r"<[^>]+>", "", content)
             result.append((tag, content))
+
+    # if nothing at all was parsed, just say whatever was in the text
+    if len(result) == 0:
+        # remove any dangling tags
+        text = re.sub(r"<[^>]+>", "", text)
+
+        result.append(("say", text.strip()))
 
     return result
 
