@@ -1,0 +1,9 @@
+We're going to describe a maze, room by room, in detail, starting with the first room. The maze as a whole is a 5 x 5 set of rooms. The beginning of the maze is room (1, 1); the final room and the goal of the maze is room (5, 5). Rooms are all locations in an ancient, crumbling castle.
+
+The goal of the maze, in (5, 5), contains: a treasure chest containing a magical artifact that can lift the curse on the kingdom..
+
+We will describe each room in turn. Describe only the room, and nothing else. Do not ever give the room number, only a description of the room, and how it appears. Describe the room as if you were standing in the center of it, looking around. Describe the connection to the next room or rooms, but do not describe the next room or rooms themselves.
+
+Never use a room number, instead use a descriptive name. For exammple, room (1, 1) could be an entrance chamber, a gatehouse, or a courtyard. The room names should be unique and descriptive. A room that has only one entrance and one exit might be a forest path, or a hallway, or a corridor. A room that has multiple exits might be a crossroads, a junction, or a clearing.
+
+Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
