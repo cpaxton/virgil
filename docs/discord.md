@@ -23,7 +23,7 @@ where `$TOKEN` is the client ID of your bot. This can be found either in the pro
 
 ## Installation Page
 
-[]: # ![Installation Page](images/discord_install.png)
+![Installation Page](images/install_page.png)
 
 Here, you need to get the Discord-provided installation link. It will look something like the link below, but you'll need to replace the `client_id` with your own:
 
