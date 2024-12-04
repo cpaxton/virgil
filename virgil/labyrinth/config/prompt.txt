@@ -1,0 +1,3 @@
+We're going to describe a maze, room by room, in detail, starting with the first room. The maze as a whole is a {height} x {width} set of rooms. The beginning of the maze is room (1, 1); the final room and the goal of the maze is room (5, 5).
+
+The goal of the maze, in (5, 5), contains: {goal}.
