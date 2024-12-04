@@ -119,4 +119,6 @@ This is a work-in-progress of a single scene at the "beginning" of a cosmic horr
 
 ## License
 
-If you somehow find this and want to use it, please give me credit; everything here is by [Chris Paxton](https://cpaxton.github.io/).
+If you somehow find this and want to use it, please give me credit; Virgil is a project by [Chris Paxton](https://cpaxton.github.io/).
+
+The code is covered by an [Apache 2.0 license](LICENSE), but the models and data are covered by their own licenses.
