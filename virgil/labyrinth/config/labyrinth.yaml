@@ -2,7 +2,8 @@
 random_seed: 0
 maze:
   height: 5
-  width: 10
+  width: 5
+  visualize: True
 
 # LLM setup
 backend: "gemma-2b-it"

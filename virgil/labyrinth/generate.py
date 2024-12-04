@@ -15,7 +15,16 @@ def main(cfg: DictConfig):
 
     # Create the maze to explore
     maze = Maze(cfg.maze.height, cfg.maze.width, seed=cfg.random_seed)
+    graph = maze.extract_graph()
+
+    if cfg.maze.visualize:
+        maze.draw_maze_with_graph()
+
+    print(graph)
+
     backend = get_backend(cfg.backend)
+
+
 
 if __name__ == "__main__":
     main()
