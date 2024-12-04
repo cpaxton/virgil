@@ -99,6 +99,14 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page.
 
+### Labyrinth
+
+Generate a maze you can explore with associated text and images. This is a work-in-progress.
+
+Inputs:
+  - the "quest" you're on -- this is a prompt which will be used to generate the maze. It also determines the end goal of the maze.
+  - the  location you're in -- a castle, a forest, etc. Something about what kind of world you want to generate.
+
 ### Storyteller
 
 After installing `virgil`:
