@@ -18,8 +18,10 @@ Install pytorch and torchvision. You can find the right command for your system 
 Just basic pip usage should do it:
 
 ```bash
-python -m pip install -e .
+python -m pip install -e .[ai]
 ```
+
+The `[ai]` flag will install some acceleration tools for AI models, like [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes), which may cause issues on some systems. If you have trouble, you can remove it.
 
 To use Gemma, you'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
 
