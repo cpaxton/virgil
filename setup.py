@@ -29,6 +29,8 @@ setup(
         "discord.py",  # Install discord library for discord-using robots
         "python-dotenv",  # For pulling things like API keys and tokens from env
         "termcolor",  # For colored terminal output
+        "hydra-core", # For configuration management
+        "omegaconf", # For configuration management
     ],
     extras_require={
         "dev": [
