@@ -44,13 +44,30 @@ conda install xformers -c xformers
 
 ## Usage
 
+- [Chat](#chat): A simple chatbot test with no prompt. The raw LLM experience, useful for development.
 - [The Infinite Quiz Machine](#the-infinite-quiz-machine): Generates a quiz based on a prompt.
-- [Friend](#friend): A simple chatbot which works with Discord
+- [Friend](#friend): A chatbot which works with Discord, can use different LLM backends, generate images, and has a (somewhat) persistent memory.
 - [Storyteller](#storyteller): A work-in-progress of a single scene at the "beginning" of a cosmic horror story.
 
 The Infinite Quiz Machine requires about 12GB of GPU memory; I ran it on an NVIDIA RTX 4080 on my laptop and it worked fine. If that isn't available, you may need to do some tuning to get it to work on a smaller GPU.
 
 Bots like Friend can run on a smaller GPU, but you may need to adjust the batch size to get it to work; they'll die if they run out of memory, and so you may want to restart them. Nothing clever is being done here to keep them to a certain memory limit.
+
+### Chat
+
+Simple chatbot test, useful for playing around with different LLMs ("backends") in a chat setting before deploying them in more complex projects.
+
+After installing `virgil`:
+
+```bash
+python -m virgil.chat
+```
+
+You can also provide a backend, e.g.
+
+```bash
+python -m virgil.chat --backend qwen-1.5B
+```
 
 ### The Infinite Quiz Machine
 
@@ -65,20 +82,6 @@ Replace "What kind of crustacean are you?" with whatever prompt you want to use.
 It will generate a quiz with 10 questions and answers, in a folder with the same name. It will also generate images using [diffusers](https://huggingface.co/docs/diffusers/en/index), with [SIGLip](https://huggingface.co/docs/transformers/en/model_doc/siglip) used to filter out lower-quality images.
 
 Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all of them are winners, but plenty of them are fun. As it's an important and related topic, I also have some [thoughts on AI art](https://itcanthink.substack.com/p/off-topic-what-role-for-ai-in-the) -- which is basically that I think it's a neat thing in its own right and not competitive with human art.
-
-### Chat
-
-After installing `virgil`:
-
-```bash
-python -m virgil.chat
-```
-
-You can provide a backend, e.g.
-
-```bash
-python -m virgil.chat --backend qwen-1.5B
-```
 
 ### Friend
 
