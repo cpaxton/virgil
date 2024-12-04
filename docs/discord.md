@@ -1,5 +1,5 @@
 
-# Discord Setup Gudie
+# Discord Setup Guide
 
 So you want to create a Discord chatbot in python? You've come to the right place, perhaps to use the Virgil chatbot ("friend"). This guide will walk you through the process of creating a Discord bot and getting it set up to run on your server.
 
@@ -54,3 +54,22 @@ Finally, you'll get a URL you can copy into Discord and use to install your bot 
 ![Install Example](images/add_bot_example.png)
 
 It should look something like this (depending on your bot's name).
+
+## Running the Bot
+
+Now you should be able to interact with your bot as long as it's running.
+
+Friend is a simple chatbot which can use various backends to generate text on Discord. After installing `virgil`:
+
+```bash
+python -m virgil.friend.friend
+
+# You can use various backends
+# Gemma 2B is the default, small and fast, but not the fastest
+python -m virgil.friend.friend --backend gemma
+
+# Qwen 1.5B is a small model and should work on a laptop GPU
+python -m virgil.friend.friend --backend qwen-1.5B
+```
+
+By default it will listen on the `#ask-a-robot` channel. You can also ping your bot to summon it to any channel it can access on your server.
