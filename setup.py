@@ -13,7 +13,7 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/virgil",
     packages=["virgil"],
-    package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"]},
+    package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"], "": ["config/*", "config/*/*"]},
     install_requires=[
         "torch>=2.5.1",
         "torchvision",
@@ -30,6 +30,8 @@ setup(
         "python-dotenv",  # For pulling things like API keys and tokens from env
         "bitsandbytes",  # For quantization
         "termcolor",  # For colored terminal output
+        "hydra-core", # For configuration management
+        "omegaconf", # For configuration management
     ],
     extras_require={
         "dev": [
