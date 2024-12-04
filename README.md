@@ -72,7 +72,7 @@ python -m virgil.chat --backend qwen-1.5B
 This application is useful for development. You can provide a prompt as a text file in order to see how it works, e.g.:
 
 ```bash
-python virgil/chat.py --backend qwen-1.5B --prompt virgil/labyrinth/config/prompt.txt
+python virgil/chat.py --backend qwen-1.5B --prompt virgil/labyrinth/config/prompt_castle.txt
 ```
 
 will load the initial prompt from [Labyrinth](#labyrinth) and use the Qwen 1.5B model to generate text. You can then continue to interrogate it in dialogue.
