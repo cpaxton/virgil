@@ -51,9 +51,47 @@ world4:
   writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
   image_style: "baroque, gothic, detailed sci-fi art. high quality sci fi art."
 
-world:
+world5:
+  # This is Amy's world
   # location: "Lake Erie"
   location: "The city of Erie, Pennsylvania"
   goal: "a lost flip-flop"
   writing_style: "funny, engaging, clever."
   image_style: "beautiful watercolor painting; high-quality, original art."
+
+world6:
+  location: "candyland, a magical world made entirely of candy"
+  goal: "the candy castle, where the candy king resides"
+  writing_style: "whimsical, playful, and colorful; inspired by Roald Dahl."
+  image_style: "colorful, whimsical, and imaginative. high-quality children's book illustration."
+
+world:
+  location: "a haunted mansion filled with ghosts and ghouls"
+  goal: "a cursed amulet that grants eternal life"
+  writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
+  image_style: "dark, gothic, and atmospheric. high-quality horror art."
+
+world8:
+  location: "a magical forest filled with talking animals and ancient ruins"
+  goal: "a powerful artifact hidden deep within the forest"
+  writing_style: "whimsical, enchanting, and mysterious; inspired by C.S. Lewis."
+  image_style: "whimsical, colorful, and imaginative. high-quality fantasy art."
+
+world9:
+  location: "a futuristic city on Mars"
+  goal: "a mysterious alien artifact hidden in the city"
+  writing_style: "futuristic, detailed, and descriptive; inspired by Isaac Asimov."
+  image_style: "futuristic, detailed, and imaginative. high-quality sci-fi art."
+
+world10:
+  location: "a pirate ship sailing the high seas"
+  goal: "a legendary treasure map leading to untold riches"
+  writing_style: "swashbuckling, adventurous, and thrilling; inspired by Robert Louis Stevenson."
+  image_style: "oil painting, detailed, and atmospheric. high-quality art."
+
+# Bas-Lag world
+world11:
+  location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
+  goal: "a powerful magical artifact hidden deep within the city"
+  writing_style: "dark, gritty, and detailed; inspired by China Mieville."
+  image_style: "dark, gothic, and detailed. high-quality fantasy art."
