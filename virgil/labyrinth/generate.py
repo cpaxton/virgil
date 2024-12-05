@@ -77,7 +77,9 @@ class LabyrinthGenerator:
         
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
+        print("Distances:", distances)
         graph = maze.extract_graph()
+        print("Graph:", graph)
 
         for node, distance in distances.items():
             next_nodes = graph[node]
