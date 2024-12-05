@@ -23,10 +23,7 @@ class LabyrinthGenerator:
                                 preserve=self.cfg.chat.messages_to_preserve)
 
         # Load the prompt
-        self.initial_prompt = self.load_prompt(cfg.prompt.initial_prompt)
-
-        res = self.chat.prompt(self.initial_prompt, verbose=True)
-        assert res == "acknowledge", "Failed to acknowledge the initial prompt."
+        self.initial_prompt_template = self.load_prompt(cfg.prompt.initial_prompt)
 
     def load_prompt(self, prompt: str) -> str:
         """Load a prompt from a file or string."""
@@ -60,8 +57,23 @@ class LabyrinthGenerator:
 
         return maze
 
-    def generate(self):
-        pass
+    def generate(self, location: Optional[str] = None, goal: Optional[str] = None, writing_style: Optional[str] = None) -> None:
+        self.chat.clear()
+
+        if goal is None:
+            goal = self.cfg.world.goal
+        if location is None:
+            location = self.cfg.world.location
+        if writing_style is None:
+            writing_style = self.cfg.world.writing_style
+
+        initial_prompt = self.initial_prompt_template.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width)
+
+        res = self.chat.prompt(initial_prompt, verbose=True)
+        assert "acknowledge" in res.lower(), "Failed to acknowledge the initial prompt."
+    
+        # Generate a random maze
+        maze = self.create_maze()
 
 
 @hydra.main(version_base=None, config_path="config", config_name="labyrinth")
@@ -72,6 +84,8 @@ def main(cfg: DictConfig):
     # Create a LabyrinthGenerator
     labyrinth_generator = LabyrinthGenerator(cfg)
 
+    # Generate the default labyrinth
+    labyrinth_generator.generate()
 
 if __name__ == "__main__":
     main()

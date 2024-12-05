@@ -24,3 +24,8 @@ chat:
   max_history_length: 100  # Maximum number of messages to keep in chat history
   messages_to_preserve: 2  # Keep the first 2 messages in chat history
 
+
+world:
+  goal: "a treasure chest containing an ancient relic that grants eternal youth"
+  location: "a crumbling, ruined castle filled with traps and monsters"
+  writing_style: "poetic, evocative, and mysterious; inspired by the works of Edgar Allan Poe"
