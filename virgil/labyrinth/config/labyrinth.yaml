@@ -50,3 +50,9 @@ world4:
   goal: "your rocket ship, to get back to orbit"
   writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
   image_style: "baroque, gothic, detailed sci-fi art. high quality sci fi art."
+
+world5:
+  location: "Lake Erie"
+  goal: "a lost flip-flop"
+  writing_style: "funny, engaging, clever."
+  image_style: "beautiful watercolor painting; high-quality, original art."
