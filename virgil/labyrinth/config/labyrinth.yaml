@@ -13,9 +13,9 @@ prompt:
 
 # Maze parameters - configures how big the maze is and whether to visualize it
 maze:
-  height: 2
-  width: 2
-  visualize: False
+  height: 5
+  width: 5
+  visualize: True
 
 # LLM setup - configures the LLM to use and its parameters
 # backend: "gemma-2b-it"
@@ -39,9 +39,9 @@ world2:
   writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
   image_style: "50's sci-fi art; retro-futuristic, colorful, and imaginative. high-quality sci-fi art."
 
-world3:
-  goal: "a witch's cabin deep in the forest"
+world:
   location: "a dark, misty forest filled with strange creatures and ancient magic"
+  goal: "a witch's cabin deep in the forest"
   writing_style: "eerie, strange, fairy-tale-like; inspired by the works of Neil Gaiman"
   image_style: "dark fantasy art; eerie, mysterious, and magical. high-quality fantasy art."
 
@@ -65,7 +65,7 @@ world6:
   writing_style: "whimsical, playful, and colorful; inspired by Roald Dahl."
   image_style: "colorful, whimsical, and imaginative. high-quality children's book illustration."
 
-world:
+world7:
   location: "a haunted mansion filled with ghosts and ghouls"
   goal: "a cursed amulet that grants eternal life"
   writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
