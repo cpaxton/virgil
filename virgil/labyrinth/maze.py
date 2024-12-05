@@ -16,7 +16,7 @@ class Maze:
             np.random.seed(seed)
         self.generate_maze()
 
-    def generate_maze_old(self):
+    def generate_maze(self):
         # Initialize the maze with walls
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
         
@@ -41,7 +41,16 @@ class Maze:
                 self.maze[(x + nx) // 2, (y + ny) // 2] = 0
                 walls.append((nx, ny))
 
-    def generate_maze(self):
+        self.generate_maze_dfs(self.get_goal_point())
+
+        # Dropout some random internal walls
+        drop = np.random.rand(*self.maze.shape) < 0.2
+        # Outside edges never drop
+        drop[0, :] = drop[-1, :] = drop[:, 0] = drop[:, -1] = False
+        # Apply the dropout
+        self.maze[drop] = 0
+
+    def generate_maze_dfs(self, node: Tuple[int, int]):
         # Initialize the maze with walls
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
         
@@ -57,7 +66,7 @@ class Maze:
                     dfs(nx, ny)
 
         # Start DFS from (1, 1)
-        dfs(1, 1)
+        dfs(node[0], node[1])
 
         # Ensure path to goal
         goal_y, goal_x = self.height * 2 - 1, self.width * 2 - 1

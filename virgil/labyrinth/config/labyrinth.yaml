@@ -13,8 +13,8 @@ prompt:
 
 # Maze parameters - configures how big the maze is and whether to visualize it
 maze:
-  height: 2
-  width: 2
+  height: 4
+  width: 4
   visualize: True
 
 # LLM setup - configures the LLM to use and its parameters
