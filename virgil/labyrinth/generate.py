@@ -128,6 +128,9 @@ class LabyrinthGenerator:
             descriptions[key]["distance"] = distance
             descriptions[key]["is_start"] = node == maze.get_start_point()
             descriptions[key]["is_goal"] = node == maze.get_goal_point()
+            descriptions[key]["is_dead_end"] = len(next_nodes) == 1
+            descriptions[key]["is_junction"] = len(next_nodes) > 2
+            descriptions[key]["is_corner"] = len(next_nodes) == 2
 
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
