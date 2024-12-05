@@ -25,73 +25,54 @@ chat:
   max_history_length: 25  # Maximum number of messages to keep in chat history
   messages_to_preserve: 4  # Keep the first 2 messages in chat history
 
-
-world1:
-  # The world that the player will explore
-  goal: "a treasure chest containing an ancient relic that grants eternal youth"
-  location: "a crumbling, ruined castle filled with traps and monsters"
-  writing_style: "poetic, evocative, and mysterious; inspired by Edgar Allan Poe."
-  image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
-
-world2: 
-  goal: "an AI server containing the secrets of the universe"
-  location: "a futuristic, high-tech research facility"
-  writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
-  image_style: "50's sci-fi art; retro-futuristic, colorful, and imaginative. high-quality sci-fi art."
-
 world:
-  location: "a dark, misty forest filled with strange creatures and ancient magic"
-  goal: "a witch's cabin deep in the forest"
-  writing_style: "eerie, strange, fairy-tale-like; inspired by the works of Neil Gaiman"
-  image_style: "dark fantasy art; eerie, mysterious, and magical. high-quality fantasy art."
-
-world4:
   location: "an alien bazaar located in a floating city in a gas giant's atmosphere"
   goal: "your rocket ship, to get back to orbit"
   writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
   image_style: "baroque, gothic, detailed sci-fi art. Zdzisław Beksiński. High quality sci fi art."
 
-world5:
-  # This is Amy's world
-  # location: "Lake Erie"
-  location: "The city of Erie, Pennsylvania"
-  goal: "a lost flip-flop"
-  writing_style: "funny, engaging, clever."
-  image_style: "beautiful watercolor painting; high-quality, original art."
+worlds:
+  castle:
+    # The world that the player will explore
+    goal: "a treasure chest containing an ancient relic that grants eternal youth"
+    location: "a crumbling, ruined castle filled with traps and monsters"
+    writing_style: "poetic, evocative, and mysterious; inspired by Edgar Allan Poe."
+    image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
 
-world6:
-  location: "candyland, a magical world made entirely of candy"
-  goal: "the candy castle, where the candy king resides"
-  writing_style: "whimsical, playful, and colorful; inspired by Roald Dahl."
-  image_style: "colorful, whimsical, and imaginative. high-quality children's book illustration."
+  research_facility: 
+    goal: "an AI server containing the secrets of the universe"
+    location: "a futuristic, high-tech research facility"
+    writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
+    image_style: "50's sci-fi art; retro-futuristic, colorful, and imaginative. high-quality sci-fi art."
 
-world7:
-  location: "a haunted mansion filled with ghosts and ghouls"
-  goal: "a cursed amulet that grants eternal life"
-  writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
-  image_style: "dark, gothic, and atmospheric. high-quality horror art."
+  dark_forest:
+    location: "a dark, misty forest filled with strange creatures and ancient magic"
+    goal: "a witch's cabin deep in the forest"
+    writing_style: "eerie, strange, fairy-tale-like; inspired by the works of Neil Gaiman"
+    image_style: "dark fantasy art; eerie, mysterious, and magical. high-quality fantasy art."
 
-world8:
-  location: "a magical forest filled with talking animals and ancient ruins"
-  goal: "a powerful artifact hidden deep within the forest"
-  writing_style: "whimsical, enchanting, and mysterious; inspired by C.S. Lewis."
-  image_style: "whimsical, colorful, and imaginative. high-quality fantasy art."
+  erie:
+    # This is Amy's world
+    # location: "Lake Erie"
+    location: "The city of Erie, Pennsylvania"
+    goal: "a lost flip-flop"
+    writing_style: "funny, engaging, clever."
+    image_style: "beautiful watercolor painting; high-quality, original art."
 
-world9:
-  location: "a futuristic city on Mars"
-  goal: "a mysterious alien artifact hidden in the city"
-  writing_style: "futuristic, detailed, and descriptive; inspired by Isaac Asimov."
-  image_style: "futuristic, detailed, and imaginative. high-quality sci-fi art."
+  candyland:
+    location: "candyland, a magical world made entirely of candy"
+    goal: "the candy castle, where the candy king resides"
+    writing_style: "whimsical, playful, and colorful; inspired by Roald Dahl."
+    image_style: "colorful, whimsical, and imaginative. high-quality children's book illustration."
 
-world10:
-  location: "a pirate ship sailing the high seas"
-  goal: "a legendary treasure map leading to untold riches"
-  writing_style: "swashbuckling, adventurous, and thrilling; inspired by Robert Louis Stevenson."
-  image_style: "oil painting, detailed, and atmospheric. high-quality art."
+  haunted_mansion:
+    location: "a haunted mansion filled with ghosts and ghouls"
+    goal: "a cursed amulet that grants eternal life"
+    writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
+    image_style: "dark, gothic, and atmospheric. high-quality horror art."
 
-# Bas-Lag world
-world11:
-  location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
-  goal: "a powerful magical artifact hidden deep within the city"
-  writing_style: "dark, gritty, and detailed; inspired by China Mieville."
-  image_style: "dark, gothic, and detailed. high-quality fantasy art."
+  bas_lag:
+    location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
+    goal: "a powerful magical artifact hidden deep within the city"
+    writing_style: "dark, gritty, and detailed; inspired by China Mieville."
+    image_style: "dark, gothic, and detailed. John Blanche inspired. high-quality fantasy art."
