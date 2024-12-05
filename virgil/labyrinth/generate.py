@@ -194,7 +194,7 @@ class LabyrinthGenerator:
             for n in next_nodes:
                 action_n = self.chat.prompt(f'Describe how to get to {n} from {node} in one short imperative sentence of < 8 words, without saying either {n} or {node}, e.g. "Climb the stairs.":', verbose=False)
                 print(" - ", action_n, "to", n)
-                descriptions[key]["actions"][f"{n[0]}_{n[1]}"] = action_plan
+                descriptions[key]["actions"][f"{n[0]}_{n[1]}"] = action_n
 
             # Generate the image prompt
             image_prompt = self.image_prompt.format(location=location, description=description)

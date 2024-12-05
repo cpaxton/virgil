@@ -51,8 +51,9 @@ world4:
   writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
   image_style: "baroque, gothic, detailed sci-fi art. high quality sci fi art."
 
-world5:
-  location: "Lake Erie"
+world:
+  # location: "Lake Erie"
+  location: "The city of Erie, Pennsylvania"
   goal: "a lost flip-flop"
   writing_style: "funny, engaging, clever."
   image_style: "beautiful watercolor painting; high-quality, original art."
