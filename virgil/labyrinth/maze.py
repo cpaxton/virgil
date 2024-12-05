@@ -100,7 +100,7 @@ class Maze:
             Dict[Tuple[int, int], int]: A dictionary mapping each point to its distance from the start point.
         """
         graph = self.extract_graph()
-        start = (1, 1)
+        start = self.get_start_point()
         distances = {start: 0}
         queue = deque([start])
 
@@ -120,7 +120,7 @@ class Maze:
             Dict[Tuple[int, int], int]: A dictionary mapping each point to its distance from the goal point.
         """
         graph = self.extract_graph()
-        goal = (self.width * 2 - 1, self.height * 2 - 1)
+        goal = self.get_goal_point()
         distances = {goal: 0}
         queue = deque([goal])
 
