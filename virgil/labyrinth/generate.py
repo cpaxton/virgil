@@ -4,6 +4,7 @@ import os
 from omegaconf import DictConfig, OmegaConf
 from typing import Optional
 import numpy as np
+import shutil
 
 from virgil.labyrinth.maze import Maze
 from virgil.backend import get_backend
@@ -190,6 +191,11 @@ class LabyrinthGenerator:
             description = self.chat.prompt(per_room_prompt, verbose=True)
             descriptions[key]["text"] = description
 
+            # Set the title
+            room_title = self.chat.prompt('Name this room. Name should be concise, < 5 words, and descriptive, e.g. "The Great Hall," "Secluded Clearing." It should not contain {node}. Name:', verbose=False)
+            print("Room title:", room_title)
+            descriptions[key]["title"] = room_title
+
             descriptions[key]["actions"] = {}
             for n in next_nodes:
                 action_n = self.chat.prompt(f'Describe how to get to {n} from {node} in one short imperative sentence of < 8 words, without saying either {n} or {node}, e.g. "Climb the stairs.":', verbose=False)
@@ -211,6 +217,10 @@ class LabyrinthGenerator:
         # Create yaml dump of the descriptions
         with open(os.path.join(folder_name, "descriptions.yaml"), "w") as f:
             OmegaConf.save(descriptions, f)
+
+        # Copy index.html and labyrinth.js to the folder
+        shutil.copy("index.html", folder_name)
+        shutil.copy("labyrinth.js", folder_name)
 
         # Generate images for each room
         for node, description in descriptions.items():

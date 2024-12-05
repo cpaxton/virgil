@@ -13,8 +13,8 @@ prompt:
 
 # Maze parameters - configures how big the maze is and whether to visualize it
 maze:
-  height: 5
-  width: 5
+  height: 2
+  width: 2
   visualize: True
 
 # LLM setup - configures the LLM to use and its parameters
@@ -22,8 +22,8 @@ maze:
 backend: "qwen-3B"
 
 chat:
-  max_history_length: 100  # Maximum number of messages to keep in chat history
-  messages_to_preserve: 2  # Keep the first 2 messages in chat history
+  max_history_length: 25  # Maximum number of messages to keep in chat history
+  messages_to_preserve: 4  # Keep the first 2 messages in chat history
 
 
 world1:

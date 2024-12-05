@@ -4,6 +4,10 @@ function generateRoomHTML(roomData) {
     const room = document.createElement('div');
     room.className = 'room';
 
+    const title = document.createElement('h2');
+    title.textContent = roomData.title || 'Untitled Room';
+    room.appendChild(title);
+
     const image = document.createElement('img');
     image.src = roomData.image_filename;
     image.alt = roomData.image;
@@ -39,6 +43,8 @@ function displayRoom(roomId) {
     if (roomsData[roomId]) {
         const roomHTML = generateRoomHTML(roomsData[roomId]);
         container.appendChild(roomHTML);
+        // Update the page title with the room title
+        document.title = `${roomsData[roomId].title || 'Untitled Room'} - Room Explorer`;
     } else {
         container.textContent = 'Room not found';
     }
@@ -49,7 +55,7 @@ function loadRoomData() {
         .then(response => response.text())
         .then(yamlText => {
             roomsData = jsyaml.load(yamlText);
-            // Start with the first room (assuming '2_1' is the starting room)
+            // Start with the first room (assuming '1_1' is the starting room)
             displayRoom('1_1');
         })
         .catch(error => console.error('Error loading room data:', error));
