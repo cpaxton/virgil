@@ -5,4 +5,4 @@ Answer with ONLY the prompt, nothing else. Do not include the original descripti
 Location: {location}
 Prompt: {description}
 
-Extract only the key visual details from the prompt:
+Extract only the key visual details from the prompt, responding with at MOST 3 sentences:
