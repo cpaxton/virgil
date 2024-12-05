@@ -13,8 +13,8 @@ prompt:
 
 # Maze parameters - configures how big the maze is and whether to visualize it
 maze:
-  height: 3
-  width: 3
+  height: 2
+  width: 2
   visualize: False
 
 # LLM setup - configures the LLM to use and its parameters
@@ -33,7 +33,7 @@ world1:
   writing_style: "poetic, evocative, and mysterious; inspired by Edgar Allan Poe."
   image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
 
-world: 
+world2: 
   goal: "an AI server containing the secrets of the universe"
   location: "a futuristic, high-tech research facility"
   writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
