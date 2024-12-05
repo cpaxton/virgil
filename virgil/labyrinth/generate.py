@@ -254,9 +254,16 @@ class LabyrinthGenerator:
             if node == "world":
                 continue
             image_filename = os.path.join(folder_name, description["image_filename"])
-            self.generate_image(description["image"], image_filename)
+            self.generate_image(image_style, description["image"], image_filename)
 
-    def generate_image(self, image_description: str, image_filename: str) -> None:
+    def generate_image(self, image_style: str, image_description: str, image_filename: str) -> None:
+        """Generate an image based on the given description.
+
+        Args:
+            image_style: The style of the image to generate.
+            image_description: The description of the image to generate.
+            image_filename: The filename to save the image to.
+        """
 
         # Generate the image
         image = self.image_generator.generate(image_style + " " + image_description)
