@@ -139,6 +139,14 @@ class LabyrinthGenerator:
             descriptions[key]["is_dead_end"] = len(next_nodes) == 1
             descriptions[key]["is_junction"] = len(next_nodes) > 2
 
+            # Start and goal are not dead ends
+            if node[0] == start_node[0] and node[1] == start_node[1]:
+                descriptions[key]["is_start"] = True
+                descriptions[key]["is_dead_end"] = False
+            if node[0] == goal_node[0] and node[1] == goal_node[1]:
+                descriptions[key]["is_goal"] = True
+                descriptions[key]["is_dead_end"] = False
+
             # Inject some extra variation into the world
             if not descriptions[key]["is_start"] and not descriptions[key]["is_goal"]:
                 r = np.random.rand()

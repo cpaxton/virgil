@@ -26,14 +26,14 @@ chat:
   messages_to_preserve: 2  # Keep the first 2 messages in chat history
 
 
-world:
+world1:
   # The world that the player will explore
   goal: "a treasure chest containing an ancient relic that grants eternal youth"
   location: "a crumbling, ruined castle filled with traps and monsters"
   writing_style: "poetic, evocative, and mysterious; inspired by Edgar Allan Poe."
   image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
 
-world2: 
+world: 
   goal: "an AI server containing the secrets of the universe"
   location: "a futuristic, high-tech research facility"
   writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
