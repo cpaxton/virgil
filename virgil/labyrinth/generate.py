@@ -88,7 +88,16 @@ class LabyrinthGenerator:
 
         return maze
 
-    def generate(self, location: Optional[str] = None, goal: Optional[str] = None, writing_style: Optional[str] = None) -> None:
+    def generate(self, location: Optional[str] = None, goal: Optional[str] = None, writing_style: Optional[str] = None, image_style: Optional[str] = None) -> None:
+        """
+        Generate a labyrinth based on the given parameters.
+
+        Args:
+            location: The location of the labyrinth.
+            goal: The goal of the labyrinth.
+            writing_style: The writing style to use.
+            image_style: The image style to use.
+        """
         self.chat.clear()
 
         if goal is None:
@@ -97,6 +106,8 @@ class LabyrinthGenerator:
             location = self.cfg.world.location
         if writing_style is None:
             writing_style = self.cfg.world.writing_style
+        if image_style is None:
+            image_style = self.cfg.world.image_style
 
         initial_prompt = self.initial_prompt_template.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width)
 
@@ -169,7 +180,6 @@ class LabyrinthGenerator:
                     descriptions[key]["has_challenges"] = True
                 elif r3 > 0.5:
                     descriptions[key]["is_unusual"] = True
-            else:
 
             extra_info = ""
             if descriptions[key]["is_start"]:
@@ -249,7 +259,7 @@ class LabyrinthGenerator:
     def generate_image(self, image_description: str, image_filename: str) -> None:
 
         # Generate the image
-        image = self.image_generator.generate(self.cfg.world.image_style + " " + image_description)
+        image = self.image_generator.generate(image_style + " " + image_description)
         image.save(image_filename)
 
         print(f"Saved image to {image_filename}")
@@ -264,7 +274,11 @@ def main(cfg: DictConfig):
     labyrinth_generator = LabyrinthGenerator(cfg)
 
     # Generate the default labyrinth
-    labyrinth_generator.generate()
+    # labyrinth_generator.generate()
+    for world in cfg.worlds:
+        print("Generating world:", world)
+        world = cfg.worlds[world]
+        labyrinth_generator.generate(location=world.location, goal=world.goal, writing_style=world.writing_style, image_style=world.image_style)
 
 if __name__ == "__main__":
     main()

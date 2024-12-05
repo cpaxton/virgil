@@ -2,7 +2,7 @@
 
 # General parameters
 # Set the random seed for reproducibility
-random_seed: 1
+random_seed: 0
 
 prompt:
   # The first prompt that we will give to the model
@@ -26,6 +26,14 @@ chat:
   messages_to_preserve: 4  # Keep the first 2 messages in chat history
 
 worlds:
+
+  labyrinth:
+    # The default world that the player will explore
+    location: "the dark, twisting labyrinth of Minos"
+    goal: "the Minotaur"
+    writing_style: "heroic, dark, poetic; inspired by Homer, Virgil, and Dante."
+    image_style: "baroque, dark, and detailed. High-quality mythic fantasy painting."
+
   castle:
     # The world that the player will explore
     goal: "a treasure chest containing an ancient relic that grants eternal youth"
@@ -37,7 +45,7 @@ worlds:
     location: "an alien bazaar located in a floating city in a gas giant's atmosphere"
     goal: "your rocket ship, to get back to orbit"
     writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
-    image_style: "baroque, gothic, detailed sci-fi art. Zdzisław Beksiński. High quality sci fi art."
+    image_style: "baroque, gothic, detailed sci-fi art. Colorful and evocative. High quality sci fi art."
 
   research_facility: 
     goal: "an AI server containing the secrets of the universe"
@@ -71,8 +79,8 @@ worlds:
     writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
     image_style: "dark, gothic, and atmospheric. high-quality horror art."
 
-world: # bas_lag:
-  location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
-  goal: "a powerful magical artifact hidden deep within the city"
-  writing_style: "dark, gritty, and detailed; inspired by China Mieville."
-  image_style: "dark, gothic, and detailed. In the style of Zdzisław Beksiński. high-quality fantasy art."
+  bas_lag:
+    location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
+    goal: "a powerful magical artifact hidden deep within the city"
+    writing_style: "dark, gritty, and detailed; inspired by China Mieville."
+    image_style: "dark, gothic, and detailed. In the style of Zdzisław Beksiński. high-quality fantasy art."
