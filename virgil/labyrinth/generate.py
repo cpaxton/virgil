@@ -190,9 +190,16 @@ class LabyrinthGenerator:
             description = self.chat.prompt(per_room_prompt, verbose=True)
             descriptions[key]["text"] = description
 
+            descriptions[key]["actions"] = {}
+            for n in next_nodes:
+                action_n = self.chat.prompt(f'Describe how to get to {n} from {node} in one short imperative sentence of < 8 words, without saying either {n} or {node}, e.g. "Climb the stairs.":', verbose=False)
+                print(" - ", action_n, "to", n)
+                descriptions[key]["actions"][f"{n[0]}_{n[1]}"] = action_plan
+
             # Generate the image prompt
             image_prompt = self.image_prompt.format(location=location, description=description)
-            image_description = self.image_promt_generator.prompt(image_prompt, verbose=True)
+            image_description = self.image_promt_generator.prompt(image_prompt, verbose=False)
+            print("Image description:", image_description)
             descriptions[key]["image"] = image_description
             
             descriptions[key]["image_filename"] = f"{node[0]}_{node[1]}.png"
