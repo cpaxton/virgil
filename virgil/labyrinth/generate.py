@@ -24,6 +24,7 @@ class LabyrinthGenerator:
 
         # Load the prompt
         self.initial_prompt_template = self.load_prompt(cfg.prompt.initial_prompt)
+        self.per_room_prompt = self.load_prompt(cfg.prompt.per_room_prompt)
 
     def load_prompt(self, prompt: str) -> str:
         """Load a prompt from a file or string."""
@@ -74,6 +75,9 @@ class LabyrinthGenerator:
     
         # Generate a random maze
         maze = self.create_maze()
+
+        # Hold all the prompts
+        descriptions = {}
         
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
@@ -87,6 +91,11 @@ class LabyrinthGenerator:
             else:
                 next_nodes = graph[node]
             print(node, "distance =", distance, "next nodes =", next_nodes)
+
+            # Per room prompt filled out
+            per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
+            description = self.chat.prompt(per_room_prompt, verbose=True)
+            descriptions[node] = description
 
         print("Start point:", maze.get_start_point())
         print("Goal point:", maze.get_goal_point())
