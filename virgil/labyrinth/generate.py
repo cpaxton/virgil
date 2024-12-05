@@ -21,10 +21,14 @@ class LabyrinthGenerator:
         self.chat = ChatWrapper(backend=self.backend,
                                 max_history_length=self.cfg.chat.max_history_length,
                                 preserve=self.cfg.chat.messages_to_preserve)
+        self.image_promt_generator = ChatWrapper(backend=self.backend,
+                                                 max_history_length=self.cfg.chat.max_history_length,
+                                                 preserve=self.cfg.chat.messages_to_preserve)
 
         # Load the prompt
         self.initial_prompt_template = self.load_prompt(cfg.prompt.initial_prompt)
         self.per_room_prompt = self.load_prompt(cfg.prompt.per_room_prompt)
+        self.image_prompt = self.load_prompt(cfg.prompt.image_prompt)
 
     def load_prompt(self, prompt: str) -> str:
         """Load a prompt from a file or string."""
@@ -78,6 +82,7 @@ class LabyrinthGenerator:
 
         # Hold all the prompts
         descriptions = {}
+        image_prompts = {}
         
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
@@ -96,6 +101,11 @@ class LabyrinthGenerator:
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
             description = self.chat.prompt(per_room_prompt, verbose=True)
             descriptions[node] = description
+
+            # Generate the image prompt
+            image_prompt = self.image_prompt.format(location=location, description=description)
+            image_description = self.image_promt_generator.prompt(image_prompt, verbose=True)
+            image_prompts[node] = image_description
 
         print("Start point:", maze.get_start_point())
         print("Goal point:", maze.get_goal_point())

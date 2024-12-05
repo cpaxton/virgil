@@ -9,12 +9,13 @@ prompt:
   prompt_dir: "virgil/labyrinth/config"
   initial_prompt: "prompt.txt"
   per_room_prompt: "per_room_prompt.txt"
+  image_prompt: "image_prompt.txt"
 
 # Maze parameters - configures how big the maze is and whether to visualize it
 maze:
-  height: 5
-  width: 5
-  visualize: True
+  height: 2
+  width: 2
+  visualize: False
 
 # LLM setup - configures the LLM to use and its parameters
 # backend: "gemma-2b-it"
