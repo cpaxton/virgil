@@ -132,8 +132,20 @@ class LabyrinthGenerator:
             descriptions[key]["is_junction"] = len(next_nodes) > 2
             descriptions[key]["is_corner"] = len(next_nodes) == 2
 
+            extra_info = ""
+            if descriptions[key]["is_start"]:
+                extra_info = "This is the start room.\n"
+            if descriptions[key]["is_goal"]:
+                extra_info = f"This is the goal room, containing {goal}\n"
+            if descriptions[key]["is_dead_end"]:
+                extra_info = "This is a dead end. You must turn back.\n"
+            if descriptions[key]["is_junction"]:
+                extra_info = "This is a junction. Multiple paths meet here.\n"
+            if descriptions[key]["is_corner"]:
+                extra_info = "This is a corner. The path turns ahead.\n"
+
             # Per room prompt filled out
-            per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
+            per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes, info=extra_info)
             description = self.chat.prompt(per_room_prompt, verbose=True)
             descriptions[key]["text"] = description
 
