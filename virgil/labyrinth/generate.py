@@ -3,6 +3,7 @@ from hydra import utils
 import os
 from omegaconf import DictConfig, OmegaConf
 from typing import Optional
+import numpy as np
 
 from virgil.labyrinth.maze import Maze
 from virgil.backend import get_backend
@@ -111,6 +112,15 @@ class LabyrinthGenerator:
         goal_node = maze.get_goal_point()
         print("Goal point:", goal_node)
 
+        descriptions["world"] = {}
+        descriptions["world"]["location"] = location
+        descriptions["world"]["goal"] = goal
+        descriptions["world"]["writing_style"] = writing_style
+        descriptions["world"]["height"] = self.cfg.maze.height
+        descriptions["world"]["width"] = self.cfg.maze.width
+        descriptions["world"]["start"] = start_node
+        descriptions["world"]["goal"] = goal_node
+
         for node, distance in distances.items():
             if node not in graph:
                 next_nodes = []
@@ -121,18 +131,34 @@ class LabyrinthGenerator:
             key = f"{node[0]}_{node[1]}"
             descriptions[key] = {}
 
-            descriptions[key]["location"] = location
-            descriptions[key]["goal"] = goal
-            descriptions[key]["writing_style"] = writing_style
-            descriptions[key]["height"] = self.cfg.maze.height
-            descriptions[key]["width"] = self.cfg.maze.width
             descriptions[key]["neighbors"] = [f"{n[0]}_{n[1]}" for n in next_nodes]
             descriptions[key]["distance"] = distance
             descriptions[key]["is_start"] = node[0] == start_node[0] and node[1] == start_node[1]
             descriptions[key]["is_goal"] = node[0] == goal_node[0] and node[1] == goal_node[1]
             descriptions[key]["is_dead_end"] = len(next_nodes) == 1
             descriptions[key]["is_junction"] = len(next_nodes) > 2
-            # descriptions[key]["is_corner"] = len(next_nodes) == 2
+
+            # Inject some extra variation into the world
+            if not descriptions[key]["is_start"] and not descriptions[key]["is_goal"]:
+                r = np.random.rand()
+                if r > 0.8:
+                    descriptions[key]["has_npc"] = True
+                else:
+                    descriptions[key]["has_npc"] = False
+                r = np.random.rand()
+                if r > 0.8:
+                    descriptions[key]["has_challenges"] = True
+                else:
+                    descriptions[key]["has_challenges"] = False
+                r = np.random.rand()
+                if r > 0.8:
+                    descriptions[key]["is_unusual"] = True
+                else:
+                    descriptions[key]["is_unusual"] = False
+            else:
+                descriptions[key]["has_npc"] = False
+                descriptions[key]["has_challenges"] = False
+                descriptions[key]["is_unusual"] = False
 
             extra_info = ""
             if descriptions[key]["is_start"]:
@@ -143,8 +169,12 @@ class LabyrinthGenerator:
                 extra_info = "This is a dead end. You must turn back.\n"
             if descriptions[key]["is_junction"]:
                 extra_info = "This is a junction. Multiple paths meet here.\n"
-            #if descriptions[key]["is_corner"]:
-            #    extra_info = "This is a corner. The path turns ahead.\n"
+            if descriptions[key]["has_npc"]:
+                extra_info = "There is a non-player character here. They seem to be waiting for you. Describe them first.\n"
+            if descriptions[key]["has_challenges"]:
+                extra_info = "There is a challenge here. It will be hard to overcome.\n"
+            if descriptions[key]["is_unusual"]:
+                extra_info = "This place is unusual. It is not like the others. Perhaps it serves some purpose.\n"
 
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes, info=extra_info)
@@ -168,6 +198,8 @@ class LabyrinthGenerator:
 
         # Generate images for each room
         for node, description in descriptions.items():
+            if node == "world":
+                continue
             image_filename = os.path.join(folder_name, description["image_filename"])
             self.generate_image(description["image"], image_filename)
 

@@ -26,9 +26,21 @@ chat:
   messages_to_preserve: 2  # Keep the first 2 messages in chat history
 
 
-world:
+world1:
   # The world that the player will explore
   goal: "a treasure chest containing an ancient relic that grants eternal youth"
   location: "a crumbling, ruined castle filled with traps and monsters"
   writing_style: "poetic, evocative, and mysterious; inspired by the works of Edgar Allan Poe"
   image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
+
+world2: 
+  goal: "an AI server containing the secrets of the universe"
+  location: "a futuristic, high-tech research facility"
+  writing_style: "scientific, technical, and futuristic; inspired by the works of Isaac Asimov"
+  image_style: "futuristic digital art; sleek, clean, and high-tech. high-quality digital art."
+
+world:
+  goal: "a witch's cabin deep in the forest"
+  location: "a dark, misty forest filled with strange creatures and ancient magic"
+  writing_style: "eerie, strange, fairy-tale-like; inspired by the works of Neil Gaiman"
+  image_style: "dark fantasy art; eerie, mysterious, and magical. high-quality fantasy art."
