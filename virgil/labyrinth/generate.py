@@ -82,8 +82,14 @@ class LabyrinthGenerator:
         print("Graph:", graph)
 
         for node, distance in distances.items():
-            next_nodes = graph[node]
+            if node not in graph:
+                next_nodes = []
+            else:
+                next_nodes = graph[node]
             print(node, "distance =", distance, "next nodes =", next_nodes)
+
+        print("Start point:", maze.get_start_point())
+        print("Goal point:", maze.get_goal_point())
 
 
 @hydra.main(version_base=None, config_path="config", config_name="labyrinth")

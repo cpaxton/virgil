@@ -68,33 +68,28 @@ class Maze:
             else:
                 self.maze[goal_y, goal_x - 1] = 0
 
-    def extract_graph(self):
+    def extract_graph(self) -> Dict[Tuple[int, int], Tuple[int, int]]:
+        """Extract the graph representation of the maze. The graph is represented as a dictionary where each key is a point.
+
+        Returns:
+            Dict[Tuple[int, int], Tuple[int, int]]: A dictionary representing the graph of the maze.
+        """
         start = (1, 1)
         graph = {}
         visited = set()
-        queue = deque([(start, start)])
+        queue = deque()
+        queue.append(start)
 
         while queue:
-            current, parent = queue.popleft()
+            current = queue.popleft()
             if current in visited:
                 continue
-
-            visited.add(current)
-            if current != parent:
-                if parent not in graph:
-                    graph[parent] = []
-                graph[parent].append(current)
-
             neighbors = self.get_neighbors(current)
-            junction_found = False
-
             for neighbor in neighbors:
                 if neighbor not in visited:
-                    if not junction_found:
-                        queue.append((neighbor, current))
-                        junction_found = True
-                    else:
-                        queue.append((neighbor, neighbor))
+                    queue.append(neighbor)
+            graph[current] = neighbors
+            visited.add(current)
 
         return graph
 
@@ -157,7 +152,16 @@ class Maze:
         plt.axis('off')
         plt.show()
 
+    def get_start_point(self):
+        return 1, 1
+
+    def get_goal_point(self):
+        return self.width * 2 - 1, self.height * 2 - 1
+
 
 if __name__ == "__main__":
     maze = Maze(5, 10)
+    distances = maze.compute_distances_from_start()
+    print(distances)
     maze.draw_maze_with_graph()
+
