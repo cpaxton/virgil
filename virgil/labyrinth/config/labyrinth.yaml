@@ -2,7 +2,7 @@
 
 # General parameters
 # Set the random seed for reproducibility
-random_seed: 0
+random_seed: 1
 
 prompt:
   # The first prompt that we will give to the model
@@ -15,7 +15,7 @@ prompt:
 maze:
   height: 4
   width: 4
-  visualize: True
+  visualize: False
 
 # LLM setup - configures the LLM to use and its parameters
 # backend: "gemma-2b-it"
@@ -25,12 +25,6 @@ chat:
   max_history_length: 25  # Maximum number of messages to keep in chat history
   messages_to_preserve: 4  # Keep the first 2 messages in chat history
 
-world:
-  location: "an alien bazaar located in a floating city in a gas giant's atmosphere"
-  goal: "your rocket ship, to get back to orbit"
-  writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
-  image_style: "baroque, gothic, detailed sci-fi art. Zdzisław Beksiński. High quality sci fi art."
-
 worlds:
   castle:
     # The world that the player will explore
@@ -38,6 +32,12 @@ worlds:
     location: "a crumbling, ruined castle filled with traps and monsters"
     writing_style: "poetic, evocative, and mysterious; inspired by Edgar Allan Poe."
     image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
+
+  bazaar:
+    location: "an alien bazaar located in a floating city in a gas giant's atmosphere"
+    goal: "your rocket ship, to get back to orbit"
+    writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
+    image_style: "baroque, gothic, detailed sci-fi art. Zdzisław Beksiński. High quality sci fi art."
 
   research_facility: 
     goal: "an AI server containing the secrets of the universe"
@@ -71,8 +71,8 @@ worlds:
     writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
     image_style: "dark, gothic, and atmospheric. high-quality horror art."
 
-  bas_lag:
-    location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
-    goal: "a powerful magical artifact hidden deep within the city"
-    writing_style: "dark, gritty, and detailed; inspired by China Mieville."
-    image_style: "dark, gothic, and detailed. John Blanche inspired. high-quality fantasy art."
+world: # bas_lag:
+  location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
+  goal: "a powerful magical artifact hidden deep within the city"
+  writing_style: "dark, gritty, and detailed; inspired by China Mieville."
+  image_style: "dark, gothic, and detailed. In the style of Zdzisław Beksiński. high-quality fantasy art."

@@ -95,6 +95,17 @@ Generate a maze you can explore with associated text and images. This is a work-
 Inputs:
   - the "quest" you're on -- this is a prompt which will be used to generate the maze. It also determines the end goal of the maze.
   - the  location you're in -- a castle, a forest, etc. Something about what kind of world you want to generate.
+  - the writing style - specific hints for the tone and style of the writing that you want.
+  - image generation style - the same but for creating accompanying images.
+
+After installing `virgil`:
+
+```bash
+python -m virgil.labyrinth.generate
+```
+
+Will load the config file from [virgil/labryinth/config](virgil/labyrinth/config/labyrinth.yaml) and generate a maze based on the settings there.
+
 
 ### Storyteller
 
