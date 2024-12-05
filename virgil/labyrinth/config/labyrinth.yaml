@@ -4,12 +4,83 @@
 # Set the random seed for reproducibility
 random_seed: 0
 
+prompt:
+  # The first prompt that we will give to the model
+  prompt_dir: "virgil/labyrinth/config"
+  initial_prompt: "prompt.txt"
+  per_room_prompt: "per_room_prompt.txt"
+  image_prompt: "image_prompt.txt"
+
 # Maze parameters - configures how big the maze is and whether to visualize it
 maze:
-  height: 5
-  width: 5
-  visualize: True
+  height: 4
+  width: 4
+  visualize: False
 
 # LLM setup - configures the LLM to use and its parameters
-backend: "gemma-2b-it"
+# backend: "gemma-2b-it"
+backend: "qwen-3B"
 
+chat:
+  max_history_length: 25  # Maximum number of messages to keep in chat history
+  messages_to_preserve: 4  # Keep the first 2 messages in chat history
+
+worlds:
+
+  labyrinth:
+    # The default world that the player will explore
+    location: "the dark, twisting labyrinth of Minos"
+    goal: "the Minotaur"
+    writing_style: "heroic, dark, poetic; inspired by Homer, Virgil, and Dante."
+    image_style: "baroque, dark, and detailed. High-quality mythic fantasy painting."
+
+  castle:
+    # The world that the player will explore
+    goal: "a treasure chest containing an ancient relic that grants eternal youth"
+    location: "a crumbling, ruined castle filled with traps and monsters"
+    writing_style: "poetic, evocative, and mysterious; inspired by Edgar Allan Poe."
+    image_style: "baroque oil painting; beautiful, sinister, and mysterious. high-quality painting."
+
+  bazaar:
+    location: "an alien bazaar located in a floating city in a gas giant's atmosphere"
+    goal: "your rocket ship, to get back to orbit"
+    writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
+    image_style: "baroque, gothic, detailed sci-fi art. Colorful and evocative. High quality sci fi art."
+
+  research_facility: 
+    goal: "an AI server containing the secrets of the universe"
+    location: "a futuristic, high-tech research facility"
+    writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
+    image_style: "50's sci-fi art; retro-futuristic, colorful, and imaginative. high-quality sci-fi art."
+
+  dark_forest:
+    location: "a dark, misty forest filled with strange creatures and ancient magic"
+    goal: "a witch's cabin deep in the forest"
+    writing_style: "eerie, strange, fairy-tale-like; inspired by the works of Neil Gaiman"
+    image_style: "dark fantasy art; eerie, mysterious, and magical. high-quality fantasy art."
+
+  erie:
+    # This is Amy's world
+    # location: "Lake Erie"
+    location: "The city of Erie, Pennsylvania"
+    goal: "a lost flip-flop"
+    writing_style: "funny, engaging, clever."
+    image_style: "beautiful watercolor painting; high-quality, original art."
+
+  candyland:
+    location: "candyland, a magical world made entirely of candy"
+    goal: "the candy castle, where the candy king resides"
+    writing_style: "whimsical, playful, and colorful; inspired by Roald Dahl."
+    image_style: "colorful, whimsical, and imaginative. high-quality children's book illustration."
+
+  haunted_mansion:
+    location: "a haunted mansion filled with ghosts and ghouls"
+    goal: "a cursed amulet that grants eternal life"
+    writing_style: "spooky, eerie, and mysterious; inspired by H.P. Lovecraft."
+    image_style: "dark, gothic, and atmospheric. high-quality horror art."
+
+  bas_lag:
+    location: "a strange, gothic industrial city filled with magic and strange creatures, inspired by the works of China Mieville"
+    goal: "a powerful magical artifact hidden deep within the city"
+    writing_style: "dark, gritty, and detailed; inspired by China Mieville."
+    image_style: "dark, gothic, and detailed. In the style of Zdzisław Beksiński. high-quality fantasy art."

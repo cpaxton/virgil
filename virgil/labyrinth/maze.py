@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import deque
 
+from typing import Dict, Tuple
+
 
 class Maze:
-    def __init__(self, height, width, seed=None):
+    def __init__(self, height: int, width: int, seed=None):
         self.height = height
         self.width = width
         self.maze = None
@@ -14,7 +16,7 @@ class Maze:
             np.random.seed(seed)
         self.generate_maze()
 
-    def generate_maze_old(self):
+    def generate_maze(self):
         # Initialize the maze with walls
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
         
@@ -39,7 +41,16 @@ class Maze:
                 self.maze[(x + nx) // 2, (y + ny) // 2] = 0
                 walls.append((nx, ny))
 
-    def generate_maze(self):
+        self.generate_maze_dfs(self.get_goal_point())
+
+        # Dropout some random internal walls
+        drop = np.random.rand(*self.maze.shape) < 0.2
+        # Outside edges never drop
+        drop[0, :] = drop[-1, :] = drop[:, 0] = drop[:, -1] = False
+        # Apply the dropout
+        self.maze[drop] = 0
+
+    def generate_maze_dfs(self, node: Tuple[int, int]):
         # Initialize the maze with walls
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
         
@@ -55,7 +66,7 @@ class Maze:
                     dfs(nx, ny)
 
         # Start DFS from (1, 1)
-        dfs(1, 1)
+        dfs(node[0], node[1])
 
         # Ensure path to goal
         goal_y, goal_x = self.height * 2 - 1, self.width * 2 - 1
@@ -66,35 +77,70 @@ class Maze:
             else:
                 self.maze[goal_y, goal_x - 1] = 0
 
-    def extract_graph(self):
+    def extract_graph(self) -> Dict[Tuple[int, int], Tuple[int, int]]:
+        """Extract the graph representation of the maze. The graph is represented as a dictionary where each key is a point.
+
+        Returns:
+            Dict[Tuple[int, int], Tuple[int, int]]: A dictionary representing the graph of the maze.
+        """
         start = (1, 1)
         graph = {}
         visited = set()
-        queue = deque([(start, start)])
+        queue = deque()
+        queue.append(start)
 
         while queue:
-            current, parent = queue.popleft()
+            current = queue.popleft()
             if current in visited:
                 continue
-
-            visited.add(current)
-            if current != parent:
-                if parent not in graph:
-                    graph[parent] = []
-                graph[parent].append(current)
-
             neighbors = self.get_neighbors(current)
-            junction_found = False
-
             for neighbor in neighbors:
                 if neighbor not in visited:
-                    if not junction_found:
-                        queue.append((neighbor, current))
-                        junction_found = True
-                    else:
-                        queue.append((neighbor, neighbor))
+                    queue.append(neighbor)
+            graph[current] = neighbors
+            visited.add(current)
 
         return graph
+
+    def compute_distances_from_start(self) -> Dict[Tuple[int, int], int]:
+        """Compute the distances from the start point to all other points in the maze.
+
+        Returns:
+            Dict[Tuple[int, int], int]: A dictionary mapping each point to its distance from the start point.
+        """
+        graph = self.extract_graph()
+        start = self.get_start_point()
+        distances = {start: 0}
+        queue = deque([start])
+
+        while queue:
+            current = queue.popleft()
+            for neighbor in graph.get(current, []):
+                if neighbor not in distances:
+                    distances[neighbor] = distances[current] + 1
+                    queue.append(neighbor)
+
+        return distances
+
+    def compute_distances_from_goal(self) -> Dict[Tuple[int, int], int]:
+        """Compute the distances from the goal point to all other points in the maze.
+
+        Returns:
+            Dict[Tuple[int, int], int]: A dictionary mapping each point to its distance from the goal point.
+        """
+        graph = self.extract_graph()
+        goal = self.get_goal_point()
+        distances = {goal: 0}
+        queue = deque([goal])
+
+        while queue:
+            current = queue.popleft()
+            for neighbor in graph.get(current, []):
+                if neighbor not in distances:
+                    distances[neighbor] = distances[current] + 1
+                    queue.append(neighbor)
+
+        return distances
 
     def get_neighbors(self, pos):
         x, y = pos
@@ -135,7 +181,16 @@ class Maze:
         plt.axis('off')
         plt.show()
 
+    def get_start_point(self):
+        return 1, 1
+
+    def get_goal_point(self):
+        return self.width * 2 - 1, self.height * 2 - 1
+
 
 if __name__ == "__main__":
     maze = Maze(5, 10)
+    distances = maze.compute_distances_from_start()
+    print(distances)
     maze.draw_maze_with_graph()
+

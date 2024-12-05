@@ -1,24 +1,34 @@
 We're going to describe a maze, room by room, in detail, starting with the first room. The maze as a whole is a {height} x {width} set of rooms. The beginning of the maze is room (1, 1); the final room and the goal of the maze is room ({height}, {width}). Rooms are all locations in {location}.
 
-The goal of the maze, in ({height}, {width}), contains: {treasure}
+The goal of the maze, in ({height}, {width}), contains: {goal}
 
-We will describe each room in turn. Describe only the room, and nothing else. Do not ever give the room number, only a description of the room, and how it appears. Describe the room as if you were standing in the center of it, looking around. Describe the connection to the next room or rooms, but do not describe the next room or rooms themselves.
+You will describe each room in turn. Describe only the room, and nothing else. Do not ever give the room number, only a description of the room, and how it appears. Describe the room as if you were standing in the center of it, looking around. Describe the connection to the next room or rooms, but do not describe the next room or rooms themselves. Your writing style should be {writing_style}.
 
 Never use the room number, instead use a descriptive name. For exammple, room (1, 1) could be an entrance chamber, a gatehouse, or a courtyard. The room names should be unique and descriptive. A room that has only one entrance and one exit might be a forest path, or a hallway, or a corridor. A room that has multiple exits might be a crossroads, a junction, or a clearing.
 
 Answers should be in the form of 1-2 paragraphs of text. Be descriptive and creative. Do not use bullet points.
 
-Answer the question and nothing else. Never include (1, 1) in your answer. Do not describe the room as a room in a maze, but as a location in {location}. Do not describe the maze as a maze, but as a series of connected rooms in {location}.
+Answer the question and nothing else. Never include (1, 1) in your answer. Do not describe the room as a room in a maze, but as a location in {location}. Do not describe the maze as a maze, but as a series of connected rooms in {location}. Your writing style should be {writing_style}.
+
 
 For example:
 Location: a dark forest
 Goal: a magical spring, the water of which which can cure your mother's illness
+
 Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
 Room (1,1):
 The meadow gives way to a dark forest path ahead. You can hear birds calling in the distance, and the rustle of leaves in the wind. The path is overgrown with brambles and thorns, and the trees are so thick that the sunlight barely filters through. The air is cool and damp, and the smell of earth and moss is strong. The path is narrow and winding, and you can't see very far ahead. The forest is quiet and still, and you feel a sense of unease as you step into the shadows.
 
-Location: {location}
-Goal: {goal}
-Distance into {location}: {distance}
-Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
-Room (1, 1):
+Write descriptions in second person, i.e. "You see..." or "You hear..." or "You feel...". Do not use first person, i.e. "I see..." or "I hear..." or "I feel...".
+
+# Location: {location}
+# Goal: {goal}
+# Distance into {location}: {distance}
+# Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
+# Room (1, 1):
+
+As distance increases, things should get more dramatic. Distance starts at 0 at the entrace.
+
+You will receive a prompt like Room (1, 1). You are to complete the description of the room in the format provided. Provide ONLY the description of the room. Do not include the room number, the goal, or the location in your response. Do not include any other information about different rooms.
+
+Respond "acknowledge" to signal that you are ready to continue.

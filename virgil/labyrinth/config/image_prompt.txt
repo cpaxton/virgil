@@ -1,0 +1,8 @@
+Convert this description into a short prompt suitable for an image generator. The prompt should be only a couple sentences long and include only visual details, no sounds or actions. It should be clear and concise.
+
+Answer with ONLY the prompt, nothing else. Do not include the original description.
+
+Location: {location}
+Prompt: {description}
+
+Extract only the key visual details from the prompt, responding with at MOST 2 sentences:

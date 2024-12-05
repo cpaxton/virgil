@@ -1,48 +1,10 @@
-# Virgil
+# Virgil AI
 
 A simple set of tools and scripts for generating fun and compelling AI-generated content.
 
 It's named after the AI from Mass Effect. Or maybe the Roman poet.
 
-## Installation
-
-If installing locally, it's highyl recommended to create a [conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html) for this project:
-
-```bash
-conda create -n virgil python=3.10
-conda activate virgil
-```
-
-Install pytorch and torchvision. You can find the right command for your system [here](https://pytorch.org/get-started/locally/).
-
-For example:
-```bash
-conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
-```
-
-Just basic pip usage should do it:
-
-```bash
-python -m pip install -e .[ai]
-```
-
-The `[ai]` flag will install some acceleration tools for AI models, like [bitsandbytes](https://github.com/bitsandbytes-foundation/bitsandbytes), which may cause issues on some systems. If you have trouble, you can remove it.
-
-To use Gemma, you'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
-
-
-### Optional: xformers
-You may want to use [xformers](https://github.com/facebookresearch/xformers) for better memory efficiency. You can install it with:
-
-```bash
-pip install --pre -U xformers
-```
-
-Or if you followed the conda instructions above:
-
-```bash
-conda install xformers -c xformers
-```
+[Check the installation guide](docs/install.md) for more information on how to install and use Virgil.
 
 ## Usage
 
@@ -126,6 +88,7 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page. Then you need to set permissions for the bot properly and create an install link. For more detailed instructions, see the [Discord setup guide](docs/discord.md).
 
+
 ### Labyrinth
 
 Generate a maze you can explore with associated text and images. This is a work-in-progress.
@@ -133,6 +96,17 @@ Generate a maze you can explore with associated text and images. This is a work-
 Inputs:
   - the "quest" you're on -- this is a prompt which will be used to generate the maze. It also determines the end goal of the maze.
   - the  location you're in -- a castle, a forest, etc. Something about what kind of world you want to generate.
+  - the writing style - specific hints for the tone and style of the writing that you want.
+  - image generation style - the same but for creating accompanying images.
+
+After installing `virgil`:
+
+```bash
+python -m virgil.labyrinth.generate
+```
+
+Will load the config file from [virgil/labryinth/config](virgil/labyrinth/config/labyrinth.yaml) and generate a maze based on the settings there.
+
 
 ### Storyteller
 
