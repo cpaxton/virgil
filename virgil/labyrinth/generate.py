@@ -156,26 +156,20 @@ class LabyrinthGenerator:
                 descriptions[key]["is_dead_end"] = False
 
             # Inject some extra variation into the world
+            descriptions[key]["has_npc"] = False
+            descriptions[key]["has_challenges"] = False
+            descriptions[key]["is_unusual"] = False
             if not descriptions[key]["is_start"] and not descriptions[key]["is_goal"]:
-                r = np.random.rand()
-                if r > 0.5:
+                r1 = np.random.rand()
+                r2 = np.random.rand()
+                r3 = np.random.rand()
+                if r1 > 0.5:
                     descriptions[key]["has_npc"] = True
-                else:
-                    descriptions[key]["has_npc"] = False
-                r = np.random.rand()
-                if r > 0.5:
+                elif r2 > 0.5:
                     descriptions[key]["has_challenges"] = True
-                else:
-                    descriptions[key]["has_challenges"] = False
-                r = np.random.rand()
-                if r > 0.5:
+                elif r3 > 0.5:
                     descriptions[key]["is_unusual"] = True
-                else:
-                    descriptions[key]["is_unusual"] = False
             else:
-                descriptions[key]["has_npc"] = False
-                descriptions[key]["has_challenges"] = False
-                descriptions[key]["is_unusual"] = False
 
             extra_info = ""
             if descriptions[key]["is_start"]:
@@ -208,6 +202,16 @@ class LabyrinthGenerator:
                 print("NPC description:", npc_description)
                 descriptions[key]["npc"] = npc_description
                 descriptions[key]["text"] += f"\n\n{npc_description}"
+            elif descriptions[key]["has_challenges"]:
+                challenge_description = self.chat.prompt(f'Describe the challenge in this room. The challenge should be something that the player must overcome to progress. Do not use the term challenge. Describe it in a few sentences, starting with the challenge.')
+                print("Challenge description:", challenge_description)
+                descriptions[key]["challenge"] = challenge_description
+                descriptions[key]["text"] += f"\n\n{challenge_description}"
+            elif descriptions[key]["is_unusual"]:
+                unusual_description = self.chat.prompt(f'Describe what makes this room unusual in more detail. This room should be different from the others in some way. Describe it in a few sentences, starting with the unusual aspect.')
+                print("Unusual description:", unusual_description)
+                descriptions[key]["unusual"] = unusual_description
+                descriptions[key]["text"] += f"\n\n{unusual_description}"
 
             descriptions[key]["actions"] = {}
             for n in next_nodes:
