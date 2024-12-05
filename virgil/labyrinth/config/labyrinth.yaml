@@ -19,7 +19,7 @@ maze:
 
 # LLM setup - configures the LLM to use and its parameters
 # backend: "gemma-2b-it"
-backend: "qwen-1.5B"
+backend: "qwen-3B"
 
 chat:
   max_history_length: 100  # Maximum number of messages to keep in chat history
