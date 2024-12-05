@@ -24,6 +24,8 @@ The meadow gives way to a dark forest path ahead. You can hear birds calling in 
 # Room (1,1) connects to room (2, 1). Describe room (1, 1) now.
 # Room (1, 1):
 
+As distance increases, things should get more dramatic. Distance starts at 0 at the entrace.
+
 You will receive a prompt like Room (1, 1). You are to complete the description of the room in the format provided. Provide ONLY the description of the room. Do not include the room number, the goal, or the location in your response. Do not include any other information about different rooms.
 
 Respond "acknowledge" to signal that you are ready to continue.
