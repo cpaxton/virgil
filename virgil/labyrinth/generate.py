@@ -162,19 +162,19 @@ class LabyrinthGenerator:
 
             extra_info = ""
             if descriptions[key]["is_start"]:
-                extra_info = "This is the start room.\n"
+                extra_info = " - This is the start room.\n"
             if descriptions[key]["is_goal"]:
-                extra_info = f"This is the goal room, containing {goal}\n"
+                extra_info = f" - This is the goal room, containing {goal}\n"
             if descriptions[key]["is_dead_end"]:
-                extra_info = "This is a dead end. You must turn back.\n"
+                extra_info = " - This is a dead end. You must turn back.\n"
             if descriptions[key]["is_junction"]:
-                extra_info = "This is a junction. Multiple paths meet here.\n"
+                extra_info = " - This is a junction. Multiple paths meet here.\n"
             if descriptions[key]["has_npc"]:
-                extra_info = "There is a non-player character here. They seem to be waiting for you. Describe them first.\n"
+                extra_info = " - There is a non-player character here. They seem to be waiting for you. Describe them.\n"
             if descriptions[key]["has_challenges"]:
-                extra_info = "There is a challenge here. It will be hard to overcome.\n"
+                extra_info = " - There is a challenge here. It will be hard to overcome. Describe it.\n"
             if descriptions[key]["is_unusual"]:
-                extra_info = "This place is unusual. It is not like the others. Perhaps it serves some purpose.\n"
+                extra_info = " - This place is unusual. It is not like the others. Describe why.\n"
 
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes, info=extra_info)
