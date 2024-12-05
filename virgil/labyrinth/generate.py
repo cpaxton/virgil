@@ -8,10 +8,13 @@ from virgil.labyrinth.maze import Maze
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
 
+from virgil.image.diffuser import DiffuserImageGenerator
+
+
 class LabyrinthGenerator:
     """Load an LLM and use it to generate a labyrinth."""
 
-    def __init__(self, cfg: DictConfig):
+    def __init__(self, cfg: DictConfig, image_generator: Optional[DiffuserImageGenerator] = None) -> None:
         self.cfg = cfg
 
         # Create the backend
@@ -29,6 +32,11 @@ class LabyrinthGenerator:
         self.initial_prompt_template = self.load_prompt(cfg.prompt.initial_prompt)
         self.per_room_prompt = self.load_prompt(cfg.prompt.per_room_prompt)
         self.image_prompt = self.load_prompt(cfg.prompt.image_prompt)
+
+        if image_generator is None:
+            self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=False)
+        else:
+            self.image_generator = image_generator
 
     def load_prompt(self, prompt: str) -> str:
         """Load a prompt from a file or string."""
@@ -110,10 +118,29 @@ class LabyrinthGenerator:
             image_prompt = self.image_prompt.format(location=location, description=description)
             image_description = self.image_promt_generator.prompt(image_prompt, verbose=True)
             descriptions[node]["image"] = image_description
+            
+            descriptions[node]["image_filename"] = f"{node[0]}_{node[1]}.png"
 
-        # Name it
-        name = self.chat.prompt("Name this scenario.", verbose=True)
-        print("Labyrinth name:", name)
+        # Create folder based on location nmae
+        folder_name = location.replace(" ", "_").lower()
+        os.makedirs(folder_name, exist_ok=True)
+
+        # Create yaml dump of the descriptions
+        with open(os.path.join(folder_name, "descriptions.yaml"), "w") as f:
+            OmegaConf.save(descriptions, f)
+
+        # Generate images for each room
+        for node, description in descriptions.items():
+            image_filename = os.path.join(folder_name, description["image_filename"])
+            self.generate_image(description["image"], image_filename)
+
+    def generate_image(self, image_description: str, image_filename: str) -> None:
+
+        # Generate the image
+        image = self.image_generator.generate_image(self.cfg.world.image_style + " " + image_description)
+        image.save(image_filename)
+
+        print(f"Saved image to {image_filename}")
 
 
 @hydra.main(version_base=None, config_path="config", config_name="labyrinth")
