@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import deque
 
+from typing import Dict, Tuple
+
 
 class Maze:
-    def __init__(self, height, width, seed=None):
+    def __init__(self, height: int, width: int, seed=None):
         self.height = height
         self.width = width
         self.maze = None
@@ -95,6 +97,26 @@ class Maze:
                         queue.append((neighbor, neighbor))
 
         return graph
+
+    def compute_distances_from_start(self) -> Dict[Tuple[int, int], int]:
+        """Compute the distances from the start point to all other points in the maze.
+
+        Returns:
+            Dict[Tuple[int, int], int]: A dictionary mapping each point to its distance from the start point.
+        """
+        graph = self.extract_graph()
+        start = (1, 1)
+        distances = {start: 0}
+        queue = deque([start])
+
+        while queue:
+            current = queue.popleft()
+            for neighbor in graph.get(current, []):
+                if neighbor not in distances:
+                    distances[neighbor] = distances[current] + 1
+                    queue.append(neighbor)
+
+        return distances
 
     def get_neighbors(self, pos):
         x, y = pos

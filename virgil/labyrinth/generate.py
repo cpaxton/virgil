@@ -74,6 +74,14 @@ class LabyrinthGenerator:
     
         # Generate a random maze
         maze = self.create_maze()
+        
+        # compute distances from start for everything
+        distances = maze.compute_distances_from_start()
+        graph = maze.extract_graph()
+
+        for node, distance in distances.items():
+            next_nodes = graph[node]
+            print(node, "distance =", distance, "next nodes =", next_nodes)
 
 
 @hydra.main(version_base=None, config_path="config", config_name="labyrinth")
