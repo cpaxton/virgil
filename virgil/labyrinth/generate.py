@@ -106,8 +106,10 @@ class LabyrinthGenerator:
         graph = maze.extract_graph()
         print("Graph:", graph)
 
-        print("Start point:", maze.get_start_point())
-        print("Goal point:", maze.get_goal_point())
+        start_node = maze.get_start_point()
+        print("Start point:", start_node)
+        goal_node = maze.get_goal_point()
+        print("Goal point:", goal_node)
 
         for node, distance in distances.items():
             if node not in graph:
@@ -126,11 +128,11 @@ class LabyrinthGenerator:
             descriptions[key]["width"] = self.cfg.maze.width
             descriptions[key]["neighbors"] = [f"{n[0]}_{n[1]}" for n in next_nodes]
             descriptions[key]["distance"] = distance
-            descriptions[key]["is_start"] = node == maze.get_start_point()
-            descriptions[key]["is_goal"] = node == maze.get_goal_point()
+            descriptions[key]["is_start"] = node[0] == start_node[0] and node[1] == start_node[1]
+            descriptions[key]["is_goal"] = node[0] == goal_node[0] and node[1] == goal_node[1]
             descriptions[key]["is_dead_end"] = len(next_nodes) == 1
             descriptions[key]["is_junction"] = len(next_nodes) > 2
-            descriptions[key]["is_corner"] = len(next_nodes) == 2
+            # descriptions[key]["is_corner"] = len(next_nodes) == 2
 
             extra_info = ""
             if descriptions[key]["is_start"]:
@@ -141,8 +143,8 @@ class LabyrinthGenerator:
                 extra_info = "This is a dead end. You must turn back.\n"
             if descriptions[key]["is_junction"]:
                 extra_info = "This is a junction. Multiple paths meet here.\n"
-            if descriptions[key]["is_corner"]:
-                extra_info = "This is a corner. The path turns ahead.\n"
+            #if descriptions[key]["is_corner"]:
+            #    extra_info = "This is a corner. The path turns ahead.\n"
 
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes, info=extra_info)
