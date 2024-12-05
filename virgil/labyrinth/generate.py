@@ -17,6 +17,15 @@ class LabyrinthGenerator:
     def __init__(self, cfg: DictConfig, image_generator: Optional[DiffuserImageGenerator] = None) -> None:
         self.cfg = cfg
 
+        # Set random seed
+        if cfg.random_seed is not None:
+            import random
+            random.seed(cfg.random_seed)
+            import numpy as np
+            np.random.seed(cfg.random_seed)
+            import torch
+            torch.manual_seed(cfg.random_seed)
+
         # Create the backend
         self.backend = get_backend(self.cfg.backend)
         
@@ -116,6 +125,9 @@ class LabyrinthGenerator:
             descriptions[key]["height"] = self.cfg.maze.height
             descriptions[key]["width"] = self.cfg.maze.width
             descriptions[key]["neighbors"] = [f"{n[0]}_{n[1]}" for n in next_nodes]
+            descriptions[key]["distance"] = distance
+            descriptions[key]["is_start"] = node == maze.get_start_point()
+            descriptions[key]["is_goal"] = node == maze.get_goal_point()
 
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
@@ -145,7 +157,7 @@ class LabyrinthGenerator:
     def generate_image(self, image_description: str, image_filename: str) -> None:
 
         # Generate the image
-        image = self.image_generator.generate_image(self.cfg.world.image_style + " " + image_description)
+        image = self.image_generator.generate(self.cfg.world.image_style + " " + image_description)
         image.save(image_filename)
 
         print(f"Saved image to {image_filename}")
