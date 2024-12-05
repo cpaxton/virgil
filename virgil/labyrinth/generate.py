@@ -103,6 +103,7 @@ class LabyrinthGenerator:
         
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
+        distances_to_goal = maze.compute_distances_from_goal()
         print("Distances:", distances)
         graph = maze.extract_graph()
         print("Graph:", graph)

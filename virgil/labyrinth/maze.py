@@ -113,6 +113,26 @@ class Maze:
 
         return distances
 
+    def compute_distances_from_goal(self) -> Dict[Tuple[int, int], int]:
+        """Compute the distances from the goal point to all other points in the maze.
+
+        Returns:
+            Dict[Tuple[int, int], int]: A dictionary mapping each point to its distance from the goal point.
+        """
+        graph = self.extract_graph()
+        goal = (self.width * 2 - 1, self.height * 2 - 1)
+        distances = {goal: 0}
+        queue = deque([goal])
+
+        while queue:
+            current = queue.popleft()
+            for neighbor in graph.get(current, []):
+                if neighbor not in distances:
+                    distances[neighbor] = distances[current] + 1
+                    queue.append(neighbor)
+
+        return distances
+
     def get_neighbors(self, pos):
         x, y = pos
         neighbors = []
