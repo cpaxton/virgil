@@ -1,5 +1,4 @@
 import hydra
-from hydra import utils
 import os
 from omegaconf import DictConfig, OmegaConf
 from typing import Optional
@@ -11,6 +10,14 @@ from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
 
 from virgil.image.diffuser import DiffuserImageGenerator
+
+
+# Get the path to config/index.html
+def get_index_html_path() -> str:
+    return os.path.join(os.path.dirname(__file__), "config", "index.html")
+
+def get_labyrinth_js_path() -> str:
+    return os.path.join(os.path.dirname(__file__), "config", "labyrinth.js")
 
 
 class LabyrinthGenerator:
@@ -219,8 +226,8 @@ class LabyrinthGenerator:
             OmegaConf.save(descriptions, f)
 
         # Copy index.html and labyrinth.js to the folder
-        shutil.copy("index.html", folder_name)
-        shutil.copy("labyrinth.js", folder_name)
+        shutil.copy(get_index_html_path(), folder_name)
+        shutil.copy(get_labyrinth_js_path(), folder_name)
 
         # Generate images for each room
         for node, description in descriptions.items():
