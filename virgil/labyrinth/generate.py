@@ -82,13 +82,15 @@ class LabyrinthGenerator:
 
         # Hold all the prompts
         descriptions = {}
-        image_prompts = {}
         
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
         print("Distances:", distances)
         graph = maze.extract_graph()
         print("Graph:", graph)
+
+        print("Start point:", maze.get_start_point())
+        print("Goal point:", maze.get_goal_point())
 
         for node, distance in distances.items():
             if node not in graph:
@@ -97,18 +99,21 @@ class LabyrinthGenerator:
                 next_nodes = graph[node]
             print(node, "distance =", distance, "next nodes =", next_nodes)
 
+            descriptions[node] = {}
+
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
             description = self.chat.prompt(per_room_prompt, verbose=True)
-            descriptions[node] = description
+            descriptions[node]["text"] = description
 
             # Generate the image prompt
             image_prompt = self.image_prompt.format(location=location, description=description)
             image_description = self.image_promt_generator.prompt(image_prompt, verbose=True)
-            image_prompts[node] = image_description
+            descriptions[node]["image"] = image_description
 
-        print("Start point:", maze.get_start_point())
-        print("Goal point:", maze.get_goal_point())
+        # Name it
+        name = self.chat.prompt("Name this scenario.", verbose=True)
+        print("Labyrinth name:", name)
 
 
 @hydra.main(version_base=None, config_path="config", config_name="labyrinth")
