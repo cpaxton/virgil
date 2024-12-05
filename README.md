@@ -88,6 +88,7 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page. Then you need to set permissions for the bot properly and create an install link. For more detailed instructions, see the [Discord setup guide](docs/discord.md).
 
+
 ### Labyrinth
 
 Generate a maze you can explore with associated text and images. This is a work-in-progress.

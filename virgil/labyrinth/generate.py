@@ -158,17 +158,17 @@ class LabyrinthGenerator:
             # Inject some extra variation into the world
             if not descriptions[key]["is_start"] and not descriptions[key]["is_goal"]:
                 r = np.random.rand()
-                if r > 0.8:
+                if r > 0.5:
                     descriptions[key]["has_npc"] = True
                 else:
                     descriptions[key]["has_npc"] = False
                 r = np.random.rand()
-                if r > 0.8:
+                if r > 0.5:
                     descriptions[key]["has_challenges"] = True
                 else:
                     descriptions[key]["has_challenges"] = False
                 r = np.random.rand()
-                if r > 0.8:
+                if r > 0.5:
                     descriptions[key]["is_unusual"] = True
                 else:
                     descriptions[key]["is_unusual"] = False
@@ -185,7 +185,7 @@ class LabyrinthGenerator:
             if descriptions[key]["is_dead_end"]:
                 extra_info = " - This is a dead end. Describe it.\n"
             if descriptions[key]["is_junction"]:
-                extra_info = " - This is a junction. Multiple paths meet here. Describe them.\n"
+                extra_info = " - Multiple paths meet here. Describe them.\n"
             if descriptions[key]["has_npc"]:
                 extra_info = " - There is someone here, waiting for you. Describe them.\n"
             if descriptions[key]["has_challenges"]:
@@ -202,6 +202,12 @@ class LabyrinthGenerator:
             room_title = self.chat.prompt('Name this room. Name should be concise, < 5 words, and descriptive, e.g. "The Great Hall," "Secluded Clearing." It should not contain {node}. Name:', verbose=False)
             print("Room title:", room_title)
             descriptions[key]["title"] = room_title
+
+            if descriptions[key]["has_npc"]:
+                npc_description = self.chat.prompt(f'Describe appearance of the the NPC in this room. The NPC should be a character that the player can interact with. Do not use the term NPC. Describe them in a few sentences, starting with their appearance.')
+                print("NPC description:", npc_description)
+                descriptions[key]["npc"] = npc_description
+                descriptions[key]["text"] += f"\n\n{npc_description}"
 
             descriptions[key]["actions"] = {}
             for n in next_nodes:
