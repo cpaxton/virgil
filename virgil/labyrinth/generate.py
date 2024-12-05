@@ -107,19 +107,27 @@ class LabyrinthGenerator:
                 next_nodes = graph[node]
             print(node, "distance =", distance, "next nodes =", next_nodes)
 
-            descriptions[node] = {}
+            key = f"{node[0]}_{node[1]}"
+            descriptions[key] = {}
+
+            descriptions[key]["location"] = location
+            descriptions[key]["goal"] = goal
+            descriptions[key]["writing_style"] = writing_style
+            descriptions[key]["height"] = self.cfg.maze.height
+            descriptions[key]["width"] = self.cfg.maze.width
+            descriptions[key]["neighbors"] = [f"{n[0]}_{n[1]}" for n in next_nodes]
 
             # Per room prompt filled out
             per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes)
             description = self.chat.prompt(per_room_prompt, verbose=True)
-            descriptions[node]["text"] = description
+            descriptions[key]["text"] = description
 
             # Generate the image prompt
             image_prompt = self.image_prompt.format(location=location, description=description)
             image_description = self.image_promt_generator.prompt(image_prompt, verbose=True)
-            descriptions[node]["image"] = image_description
+            descriptions[key]["image"] = image_description
             
-            descriptions[node]["image_filename"] = f"{node[0]}_{node[1]}.png"
+            descriptions[key]["image_filename"] = f"{node[0]}_{node[1]}.png"
 
         # Create folder based on location nmae
         folder_name = location.replace(" ", "_").lower()
