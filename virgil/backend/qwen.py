@@ -28,7 +28,7 @@ qwen_specializations = ["Instruct", "Coder", "Math"]
 class Qwen(Backend):
     """Use the Qwen model to generate responses to messages."""
 
-    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "AWQ") -> None:
+    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "awq") -> None:
         if size is None:
             size = "1.5B"
         size = size.upper()
@@ -43,22 +43,30 @@ class Qwen(Backend):
             model_name = "Qwen/Qwen2.5-{size}-{specialization}"
 
         model_kwargs = {"torch_dtype": "auto"}
+        quantization_config = None
         if quantization is not None:
-            quantization = quantization.upper()
+            quantization = quantization.lower()
             # Note: there were supposed to be other options but this is the only one that worked this way
-            if quantization in ["AWQ"]:
+            if quantization == "awq":
                 model_kwargs["torch_dtype"] = torch.float16
                 try:
                     import awq
                 except ImportError:
                     logger.error("To use quantization, please install the auto-awq package.")
                     quantization = ""
-                if quantization == "AWQ":
+                if quantization == "awq":
                     model_name += "-AWQ"
                 elif len(quantization) > 0:
                     raise ValueError(f"Unknown quantization method: {quantization}")
-            else:
+            elif quantization == "int8":
+                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
+            elif quantization == "int4":
+                quantization_config = BitsAndBytesConfig(load_in_4bit=True)
+            elif len(quantization) > 0:
                 raise ValueError(f"Unknown quantization method: {quantization}")
+
+        if quantization_config is not None:
+            model_kwargs["quantization_config"] = quantization_config
 
         self.pipe = pipeline("text-generation", model=model_name, device_map="auto", **model_kwargs)
         self.temperature = temperature
