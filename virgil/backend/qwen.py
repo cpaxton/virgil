@@ -19,6 +19,7 @@ from transformers import pipeline, BitsAndBytesConfig
 from typing import Optional
 
 from virgil.backend.base import Backend
+import virgil.utils.log as logger
 
 qwen_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
 qwen_specializations = ["Instruct", "Coder", "Math"]
@@ -50,10 +51,11 @@ class Qwen(Backend):
                 try:
                     import awq
                 except ImportError:
-                    raise ImportError("To use quantization, please install the auto-awq package.")
+                    logger.error("To use quantization, please install the auto-awq package.")
+                    quantization = ""
                 if quantization == "AWQ":
                     model_name += "-AWQ"
-                else:
+                elif len(quantization) > 0:
                     raise ValueError(f"Unknown quantization method: {quantization}")
             else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
