@@ -7,6 +7,9 @@ If installing locally, it's highly recommended to create a [conda environment](h
 ```bash
 conda create -n virgil python=3.10
 conda activate virgil
+
+# On an NVIDIA jetson it might be easier to istall on an earlier version of python
+conda create -n virgil python=3.8
 ```
 
 Then install pytorch and torchvision. You can find the right command for your system [here](https://pytorch.org/get-started/locally/).

@@ -15,9 +15,6 @@ setup(
     packages=["virgil"],
     package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"], "": ["config/*", "config/*/*"], "virgil.labyrinth": ["config/*"]},
     install_requires=[
-        "torch>=2.5.1",
-        "torchvision",
-        "torchaudio",
         "transformers",
         "diffusers",
         "sentencepiece",
@@ -33,6 +30,11 @@ setup(
         "omegaconf", # For configuration management
     ],
     extras_require={
+        "torch": [
+            "torch>=2.5.1",
+            "torchvision",
+            "torchaudio",
+            ],
         "dev": [
             "pytest",
             "flake8",
@@ -44,6 +46,8 @@ setup(
             "mdformat",
         ],
         "ai": [
+            "torch>=2.5.1",
+            "torchvision",
             "bitsandbytes",  # For quantization
             "accelerate",  # For model acceleration
             "flash-attn",
