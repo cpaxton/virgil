@@ -187,6 +187,7 @@ class DiscordBot:
             if task.t + self.timeout < timeit.default_timer():
                 print("Dropping task due to timeout: ", task.message, task.channel.name)
                 return
+
             print("Handling task from queue:", task)
             await self.handle_task(task)
         except queue.Empty:

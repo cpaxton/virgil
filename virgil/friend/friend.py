@@ -121,7 +121,8 @@ class Friend(DiscordBot):
         self.prompt = self.raw_prompt.format(username=self._user_name, user_id=self._user_id, memories="\n".join(self.memory))
 
         if self.sent_prompt is False:
-            self.chat.prompt(self.prompt, verbose=True)
+            res = self.chat.prompt(self.prompt, verbose=True)
+            print("Chat result:", res)
             self.sent_prompt = True
         else:
             print(" -> We have already sent the prompt.")
