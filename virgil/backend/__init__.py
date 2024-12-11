@@ -44,7 +44,7 @@ backend_list = [
 ]
 
 
-def get_backend(name: str) -> Backend:
+def get_backend(name: str, use_flash_attention: bool = False) -> Backend:
     """Get a backend by name.
 
     Args:
@@ -55,7 +55,7 @@ def get_backend(name: str) -> Backend:
     """
     name = name.lower()
     if name == "gemma" or name == "gemma2b" or name == "gemma-2b-it":
-        return Gemma()
+        return Gemma(use_flash_attention=use_flash_attention)
     elif name == "llama" or name == "llama-3.2-1B":
         return Llama(model_name="meta-llama/Llama-3.2-1B")
     elif name.startswith("qwen"):
