@@ -51,7 +51,7 @@ def load_prompt():
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False) -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25) -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -60,10 +60,11 @@ class Friend(DiscordBot):
             attention_window_seconds (float): The number of seconds to pay attention to a channel. Defaults to 600.0.
             image_generator (Optional[DiffuserImageGenerator]): The image generator to use. Defaults to None.
             join_at_random (bool): Whether to join channels at random. Defaults to False.
+            max_history_length (int): The maximum length of the chat history. Defaults to 25.
         """
 
         self.backend = get_backend(backend)
-        self.chat = ChatWrapper(self.backend, max_history_length=25, preserve=2)
+        self.chat = ChatWrapper(self.backend, max_history_length=max_history_length, preserve=2)
         self.attention_window_seconds = attention_window_seconds
         self.raw_prompt = load_prompt()
         self.prompt = None
@@ -311,8 +312,9 @@ class Friend(DiscordBot):
 @click.command()
 @click.option("--token", default=None, help="The token for the discord bot.")
 @click.option("--backend", default="gemma", help="The backend to use for the chat.")
-def main(token, backend):
-    bot = Friend(token=token, backend=backend)
+@click.option("--max-history-length", default=25, help="The maximum length of the chat history.")
+def main(token, backend, max_history_length):
+    bot = Friend(token=token, backend=backend, max_history_length=max_history_length)
     client = bot.client
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")
