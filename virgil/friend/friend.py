@@ -20,7 +20,6 @@ from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
 from typing import Optional
-import pkg_resources
 import timeit
 import random
 import threading
@@ -40,7 +39,7 @@ from virgil.image.diffuser import DiffuserImageGenerator
 
 def load_prompt():
     # Get the path to the quiz.html file
-    file_path = pkg_resources.resource_filename("virgil.friend", "prompt.txt")
+    file_path = os.path.join(os.path.dirname(__file__), "prompt.txt")
 
     # Read the contents of the file
     with open(file_path, "r", encoding="utf-8") as file:
