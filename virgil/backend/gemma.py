@@ -29,6 +29,7 @@ class Gemma(Backend):
             top_p (float): Top-p sampling parameter.
             do_sample (bool): Whether to sample or not.
             quantization (Optional[str]): Optional quantization method.
+            use_flash_attention (bool): Whether to use Flash Attention.
         """
 
         if quantization is not None:
@@ -49,12 +50,17 @@ class Gemma(Backend):
         if use_flash_attention:
             print("[Gemma] using Flash Attention from Flash-Attn")
             model_kwargs["attn_implementation"] = "flash_attention_2"
-        
+
+        pipeline_kwargs = {}
+        if torch.backends.mps.is_available():
+            pipeline_kwargs["device"] = torch.device("mps")
+
         print("[Gemma] loading the model...")
         self.pipe = pipeline(
             "text-generation",
             model="google/gemma-2-2b-it",
             model_kwargs=model_kwargs,
+            **pipeline_kwargs
         )
         self.temperature = temperature
         self.top_p = top_p
