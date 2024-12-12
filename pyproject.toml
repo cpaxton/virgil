@@ -38,6 +38,7 @@ dependencies = [
     "discord.py",
     "python-dotenv",
     "termcolor",
+    "setuptools>=75.3.0",
 ]
 
 [project.optional-dependencies]
