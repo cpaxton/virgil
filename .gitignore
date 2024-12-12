@@ -17,3 +17,6 @@ virgil/__pycache__
 
 # Friend memory
 memory.txt
+
+# Friend image
+generated_image.png
