@@ -47,7 +47,7 @@ class Gemma(Backend):
         if quantization_config is not None:
             model_kwargs["quantization_config"] = quantization_config
 
-        if use_flash_attention:
+        if supports_flash_attention() and use_flash_attention:
             print("[Gemma] using Flash Attention from Flash-Attn")
             model_kwargs["attn_implementation"] = "flash_attention_2"
 
@@ -94,3 +94,14 @@ class Gemma(Backend):
 if __name__ == "__main__":
     gemma = Gemma()
     print(gemma("The meaning of life is:"))
+
+def supports_flash_attention() -> bool:
+    """Check if the current device supports Flash Attention.
+
+    Returns:
+        bool: Whether Flash Attention is supported.
+    """
+    if torch.cuda.is_available():
+        major, minor = torch.cuda.get_device_capability()
+        return major >= 8
+    return False
