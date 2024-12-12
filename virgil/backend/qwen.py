@@ -64,11 +64,16 @@ class Qwen(Backend):
                 quantization_config = BitsAndBytesConfig(load_in_4bit=True)
             elif len(quantization) > 0:
                 raise ValueError(f"Unknown quantization method: {quantization}")
+        if torch.cuda.is_available():
+            model_kwargs["device_map"] = "auto"
+        if torch.backends.mps.is_available:
+            model_kwargs["device"] = "mps" # Metal Performance Shaders for Apple GPUas
 
+        # Set up optional quantization
         if quantization_config is not None:
             model_kwargs["quantization_config"] = quantization_config
 
-        self.pipe = pipeline("text-generation", model=model_name, device_map="auto", **model_kwargs)
+        self.pipe = pipeline("text-generation", model=model_name, **model_kwargs)
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample

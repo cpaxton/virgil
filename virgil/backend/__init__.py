@@ -14,6 +14,9 @@
 
 # (c) 2024 by Chris Paxton
 
+from typing import Optional
+
+import torch
 from .gemma import Gemma
 from .base import Backend
 from .llama import Llama
@@ -55,7 +58,10 @@ def get_backend(name: str, use_flash_attention: bool = False) -> Backend:
     """
     name = name.lower()
     if name == "gemma" or name == "gemma2b" or name == "gemma-2b-it":
-        return Gemma(use_flash_attention=use_flash_attention)
+        gemma_kwargs = {}
+        gemma_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
+        gemma_kwargs["use_flash_attention"] = True if torch.cuda.is_available() else False
+        return Gemma(**gemma_kwargs)
     elif name == "llama" or name == "llama-3.2-1B":
         return Llama(model_name="meta-llama/Llama-3.2-1B")
     elif name.startswith("qwen"):
@@ -88,6 +94,8 @@ def get_backend(name: str, use_flash_attention: bool = False) -> Backend:
             size = "1.5B"
             specialization = "Instruct"
 
-        return Qwen(model_name=f"Qwen/Qwen2.5-{size}-{specialization}")
+        qwen_kwargs = {}
+        qwen_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
+        return Qwen(model_name=f"Qwen/Qwen2.5-{size}-{specialization}", **qwen_kwargs)
     else:
         raise ValueError(f"Unknown backend: {name}")

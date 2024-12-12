@@ -24,7 +24,6 @@ classifiers = [
 ]
 
 dependencies = [
-    # "torch>=2.5.1",
     "torch",
     "torchvision",
     "torchaudio",
@@ -38,7 +37,6 @@ dependencies = [
     "matplotlib",
     "discord.py",
     "python-dotenv",
-    "bitsandbytes",
     "termcolor",
 ]
 
@@ -53,8 +51,9 @@ dev = [
     "codespell",
     "mdformat",
 ]
-ai = [
+cuda = [
     "accelerate",
+    "bitsandbytes",
     "flash-attn",
 ]
 
@@ -68,4 +67,3 @@ include = ["virgil"]
 "virgil.quiz" = ["quiz.html", "example_quiz.html"]
 "virgil.meme" = ["prompt.txt"]
 "virgil.friend" = ["prompt.txt"]
-
