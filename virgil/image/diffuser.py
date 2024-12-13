@@ -86,7 +86,12 @@ class DiffuserImageGenerator(ImageGenerator):
 
         # Place the model on the GPU if available
         print("[Diffuser] Placing model on GPU if available...")
-        self.pipeline = self.pipeline.to("cuda" if torch.cuda.is_available() else "cpu")
+        if torch.cuda.is_available():
+            self.pipeline = self.pipeline.to("cuda")
+        elif torch.backends.mps.is_available():
+            self.pipeline = self.pipeline.to("mps")
+        else:
+            self.pipeline = self.pipeline.to("cpu")
         print("...done.")
 
         # Change to channels-last format for speed
