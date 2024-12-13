@@ -1,0 +1,10 @@
+Location: {location}
+Goal: {goal}
+Writing style: {writing_style}
+Distance into {location}: {distance}
+Additional info about {current_room}:
+{info}
+
+{current_room} connects to: {next_rooms}. Describe {current_room} now; description should be: {writing_style}.
+
+{current_room}:
