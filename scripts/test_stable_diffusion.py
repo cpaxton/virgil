@@ -9,7 +9,7 @@ pipeline = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch
 # Move the pipeline to GPU if available - also supports Apple mps
 if torch.cuda.is_available():
     device = "cuda"
-elif torch.backends.mps.is_available:
+elif torch.backends.mps.is_available():
     device = "mps"
 else:
     device = "cpu"
