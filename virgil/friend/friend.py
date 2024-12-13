@@ -37,9 +37,12 @@ from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
 
 
-def load_prompt():
+def load_prompt(prompt_filename: str = "prompt.txt") -> str:
     # Get the path to the quiz.html file
-    file_path = os.path.join(os.path.dirname(__file__), "prompt.txt")
+    if prompt_filename[0] != "/":
+        file_path = os.path.join(os.path.dirname(__file__), prompt_filename)
+    else:
+        file_path = prompt_filename
 
     # Read the contents of the file
     with open(file_path, "r", encoding="utf-8") as file:
@@ -51,7 +54,7 @@ def load_prompt():
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25) -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25, prompt_filename: str = "prompt.txt") -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -314,8 +317,9 @@ class Friend(DiscordBot):
 @click.option("--token", default=None, help="The token for the discord bot.")
 @click.option("--backend", default="gemma", help="The backend to use for the chat.")
 @click.option("--max-history-length", default=25, help="The maximum length of the chat history.")
-def main(token, backend, max_history_length):
-    bot = Friend(token=token, backend=backend, max_history_length=max_history_length)
+@click.option("--prompt_filename", default="prompt.txt", help="The filename for the prompt.")
+def main(token, backend, max_history_length, prompt_filename):
+    bot = Friend(token=token, backend=backend, max_history_length=max_history_length, prompt_filename=prompt_filename)
     client = bot.client
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")
