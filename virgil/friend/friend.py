@@ -36,20 +36,24 @@ torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
+from virgil.utils import load_prompt
 
 
 def load_prompt(prompt_filename: str = "prompt.txt") -> str:
-    # Get the path to the quiz.html file
+    """Load the prompt from the given filename.
+
+    Args:
+        prompt_filename (str): The filename for the prompt. Defaults to "prompt.txt".
+
+    Returns:
+        str: The prompt as a string.
+    """
     if prompt_filename[0] != "/":
         file_path = os.path.join(os.path.dirname(__file__), prompt_filename)
     else:
         file_path = prompt_filename
 
-    # Read the contents of the file
-    with open(file_path, "r", encoding="utf-8") as file:
-        content = file.read()
-
-    return content
+    return load_prompt(file_path)
 
 
 class Friend(DiscordBot):

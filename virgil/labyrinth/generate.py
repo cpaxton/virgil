@@ -22,6 +22,7 @@ import shutil
 from virgil.labyrinth.maze import Maze
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
+from virgil.utils import load_prompt
 
 from virgil.image.diffuser import DiffuserImageGenerator
 
@@ -73,20 +74,7 @@ class LabyrinthGenerator:
     def load_prompt(self, prompt: str) -> str:
         """Load a prompt from a file or string."""
         prompt_filename = os.path.join(self.cfg.prompt.prompt_dir, prompt)
-        if os.path.isfile(prompt_filename):
-            with open(prompt_filename, "r") as f:
-                text = f.read()
-                parsed_text = ""
-                for line in text.splitlines():
-                    if line is None:
-                        continue
-                    elif len(line) == 0:
-                        parsed_text += "\n"
-                    elif len(line) > 0 and line.strip()[0] != "#":
-                        parsed_text += line + "\n"
-                return parsed_text
-        else:
-            return prompt
+        return load_prompt(prompt_filename)
 
     def create_maze(self) -> Maze:
         # Create the maze to explore

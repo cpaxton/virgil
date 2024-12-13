@@ -13,3 +13,4 @@
 # limitations under the License.
 
 from .config import load_config
+from .prompt import load_prompt
