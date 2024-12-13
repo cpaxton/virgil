@@ -121,7 +121,8 @@ class Friend(DiscordBot):
         self.prompt = self.raw_prompt.format(username=self._user_name, user_id=self._user_id, memories="\n".join(self.memory))
 
         if self.sent_prompt is False:
-            self.chat.prompt(self.prompt, verbose=True)
+            res = self.chat.prompt(self.prompt, verbose=True)
+            print("Chat result:", res)
             self.sent_prompt = True
         else:
             print(" -> We have already sent the prompt.")
@@ -166,70 +167,70 @@ class Friend(DiscordBot):
             print(colored("Error in handling task: " + str(e), "red"))
 
         response = None
-        try:
-            # Now actually prompt the AI
-            with self._chat_lock:
-                response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
-            action_plan = self.parser.parse(response)
-            print()
-            print("Action plan:", action_plan)
-            for action, content in action_plan:
-                print(f"Action: {action}, Content: {content}")  # Handle actions here
-                if action == "say":
-                    await task.channel.send(content)
-                elif action == "imagine":
-                    await task.channel.send("*Imagining: " + content + "...*")
-                    time.sleep(0.1)  # Wait for message to be sent
-                    print("Generating image for prompt:", content)
-                    with self._chat_lock:
-                        image = self.image_generator.generate(content)
-                    image.save("generated_image.png")
+        # try:
+        # Now actually prompt the AI
+        with self._chat_lock:
+            response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+        action_plan = self.parser.parse(response)
+        print()
+        print("Action plan:", action_plan)
+        for action, content in action_plan:
+            print(f"Action: {action}, Content: {content}")  # Handle actions here
+            if action == "say":
+                await task.channel.send(content)
+            elif action == "imagine":
+                await task.channel.send("*Imagining: " + content + "...*")
+                time.sleep(0.1)  # Wait for message to be sent
+                print("Generating image for prompt:", content)
+                with self._chat_lock:
+                    image = self.image_generator.generate(content)
+                image.save("generated_image.png")
 
-                    # Send an image
-                    print(" - Sending content:", image)
-                    # This should be a Discord file
-                    # Create a BytesIO object
-                    byte_arr = io.BytesIO()
+                # Send an image
+                print(" - Sending content:", image)
+                # This should be a Discord file
+                # Create a BytesIO object
+                byte_arr = io.BytesIO()
 
-                    # Save the image to the BytesIO object
-                    image.save(byte_arr, format="PNG")  # Save as PNG
-                    print(" - Image saved to byte array")
+                # Save the image to the BytesIO object
+                image.save(byte_arr, format="PNG")  # Save as PNG
+                print(" - Image saved to byte array")
 
-                    # Move the cursor to the beginning of the BytesIO object
-                    byte_arr.seek(0)
+                # Move the cursor to the beginning of the BytesIO object
+                byte_arr.seek(0)
 
-                    file = discord.File(byte_arr, filename="image.png")
-                    await task.channel.send(file=file)
-                elif action == "remember":
-                    print("Remembering:", content)
-                    # Add this to memory
-                    self.memory.append(content)
+                file = discord.File(byte_arr, filename="image.png")
+                await task.channel.send(file=file)
+            elif action == "remember":
+                print("Remembering:", content)
+                # Add this to memory
+                self.memory.append(content)
 
-                    # Save memory to file
-                    with open("memory.txt", "w") as file:
-                        for line in self.memory:
-                            file.write(line + "\n")
+                # Save memory to file
+                with open("memory.txt", "w") as file:
+                    for line in self.memory:
+                        file.write(line + "\n")
 
-                    await task.channel.send("*Remembering: " + content + "*")
-                elif action == "forget":
-                    print("Forgetting:", content)
+                await task.channel.send("*Remembering: " + content + "*")
+            elif action == "forget":
+                print("Forgetting:", content)
 
-                    # Remove this from memory
-                    try:
-                        self.memory.remove(content)
-                    except ValueError:
-                        print(colored(" -> Could not find this in memory: ", content, "red"))
+                # Remove this from memory
+                try:
+                    self.memory.remove(content)
+                except ValueError:
+                    print(colored(" -> Could not find this in memory: ", content, "red"))
 
-                    # Save memory to file
-                    with open("memory.txt", "w") as file:
-                        for line in self.memory:
-                            file.write(line + "\n")
+                # Save memory to file
+                with open("memory.txt", "w") as file:
+                    for line in self.memory:
+                        file.write(line + "\n")
 
-                    await task.channel.send("*Forgetting: " + content + "*")
-        except Exception as e:
-            print(colored("Error in prompting the AI: " + str(e), "red"))
-            print(" ->     Text:", text)
-            print(" -> Response:", response)
+                await task.channel.send("*Forgetting: " + content + "*")
+        #except Exception as e:
+        #    print(colored("Error in prompting the AI: " + str(e), "red"))
+        #    print(" ->     Text:", text)
+        #    print(" -> Response:", response)
 
     def on_message(self, message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""

@@ -47,7 +47,7 @@ backend_list = [
 ]
 
 
-def get_backend(name: str) -> Backend:
+def get_backend(name: str, use_flash_attention: bool = False) -> Backend:
     """Get a backend by name.
 
     Args:

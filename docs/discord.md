@@ -33,6 +33,13 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page.
 
+In your `~/.bashrc` you will want to export the token:
+```bash
+export DISCORD_TOKEN=$TOKEN
+```
+
+where, of course, you've replaced `$TOKEN` with your token from the developer portal.
+
 ## Set Permissions in OAuth2 and Create an Install Link
 
 Then you need to set permissions for the bot properly and create an install link. For more detailed instructions, see the [Discord setup guide](docs/discord.md).
