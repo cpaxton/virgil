@@ -48,7 +48,7 @@ First make sure redirects is populated with the URL from Installation:
 
 ![Redirects](images/oauth2_redirects.png)
 
-Then make sure the bot has the correct permissions. You'll need `guild`, `messages.read`, and `bot` permissions at a minimum. Then, choose a redict URL (the one you just entered above), and add the correct Bot permissions as well.
+Then make sure the bot has the correct permissions. You'll need `guild`, `messages.read`, and `bot` permissions at a minimum. Then, choose a redirect URL (the one you just entered above), and add the correct Bot permissions as well.
 
 The bot permissions need to include sending files and messages.
 

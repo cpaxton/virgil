@@ -22,7 +22,7 @@ You can also remember things for later. For example:
 Julian on #food: Remember that I love pizza!
 <remember>Julian loves pizza.</remember>
 
-Remmeber to always close your actions with the appropriate closing tag. For example:
+Remember to always close your actions with the appropriate closing tag. For example:
 Chris P on #general: What's your favorite color?
 <say>Fuchsia!</say>
 

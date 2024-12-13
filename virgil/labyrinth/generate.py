@@ -250,7 +250,7 @@ class LabyrinthGenerator:
 
             descriptions[key]["image_filename"] = f"{node[0]}_{node[1]}.png"
 
-        # Create folder based on location nmae
+        # Create folder based on location name
         folder_name = location.replace(" ", "_").lower()
         os.makedirs(folder_name, exist_ok=True)
 
