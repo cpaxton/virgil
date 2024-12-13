@@ -36,6 +36,8 @@ def read_discord_token_from_env():
     # Load environment variables from .env file
     load_dotenv()
     TOKEN = os.getenv("DISCORD_TOKEN")
+    if not TOKEN:
+        raise ValueError("DISCORD_TOKEN environment variable not set.")
     return TOKEN
 
 
