@@ -15,6 +15,7 @@ conda create -n virgil python=3.8
 Then install pytorch and torchvision. You can find the right command for your system [here](https://pytorch.org/get-started/locally/).
 
 For example:
+
 ```bash
 conda install pytorch torchvision torchaudio pytorch-cuda=12.4 -c pytorch -c nvidia
 ```
@@ -29,8 +30,8 @@ The `[ai]` flag will install some acceleration tools for AI models, like [bitsan
 
 To use Gemma, you'll need to accept the [Gemma license](https://huggingface.co/google/gemma-2b). Virgil is designed to let you do text synethesis locally for weird and fun art projects, and Gemma is a great model for that since it can fit easily on a laptop GPU.
 
-
 ### Optional: xformers
+
 You may want to use [xformers](https://github.com/facebookresearch/xformers) for better memory efficiency. You can install it with:
 
 ```bash

@@ -1,3 +1,17 @@
+# Copyright 2024 Chris Paxton
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import random
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,7 +33,7 @@ class Maze:
     def generate_maze(self):
         # Initialize the maze with walls
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
-        
+
         # Create a list of all possible walls
         walls = [(x, y) for x in range(1, self.height * 2, 2) for y in range(1, self.width * 2, 2)]
         random.shuffle(walls)
@@ -30,11 +44,10 @@ class Maze:
 
         while walls:
             x, y = walls.pop()
-            neighbors = [(x + dx, y + dy) for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]
-                         if 0 < x + dx < self.height * 2 and 0 < y + dy < self.width * 2]
-            
+            neighbors = [(x + dx, y + dy) for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)] if 0 < x + dx < self.height * 2 and 0 < y + dy < self.width * 2]
+
             unvisited = [n for n in neighbors if self.maze[n] == 1]
-            
+
             if unvisited:
                 nx, ny = random.choice(unvisited)
                 self.maze[nx, ny] = 0
@@ -53,12 +66,12 @@ class Maze:
     def generate_maze_dfs(self, node: Tuple[int, int]):
         # Initialize the maze with walls
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
-        
+
         def dfs(x, y):
             self.maze[y, x] = 0
             directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]
             random.shuffle(directions)
-            
+
             for dx, dy in directions:
                 nx, ny = x + dx * 2, y + dy * 2
                 if 0 <= nx < self.width * 2 + 1 and 0 <= ny < self.height * 2 + 1 and self.maze[ny, nx] == 1:
@@ -156,14 +169,14 @@ class Maze:
 
     def draw_maze(self):
         plt.figure(figsize=(10, 10))
-        plt.imshow(self.maze, cmap='binary')
+        plt.imshow(self.maze, cmap="binary")
         plt.title(f"Maze ({self.height}x{self.width})")
-        plt.axis('off')
+        plt.axis("off")
         plt.show()
 
     def draw_maze_with_graph(self, draw_graph: bool = True):
         plt.figure(figsize=(12, 12))
-        plt.imshow(self.maze, cmap='binary')
+        plt.imshow(self.maze, cmap="binary")
         plt.title(f"Maze ({self.height}x{self.width})")
 
         if draw_graph:
@@ -172,13 +185,13 @@ class Maze:
                 y, x = node
                 for neighbor in neighbors:
                     ny, nx = neighbor
-                    plt.plot([x, nx], [y, ny], 'r-', linewidth=2, alpha=0.7)
+                    plt.plot([x, nx], [y, ny], "r-", linewidth=2, alpha=0.7)
 
             # Highlight start and end points
-            plt.plot(1, 1, 'go', markersize=10)  # Start point
-            plt.plot(self.width*2-1, self.height*2-1, 'bo', markersize=10)  # End point
+            plt.plot(1, 1, "go", markersize=10)  # Start point
+            plt.plot(self.width * 2 - 1, self.height * 2 - 1, "bo", markersize=10)  # End point
 
-        plt.axis('off')
+        plt.axis("off")
         plt.show()
 
     def get_start_point(self):
@@ -193,4 +206,3 @@ if __name__ == "__main__":
     distances = maze.compute_distances_from_start()
     print(distances)
     maze.draw_maze_with_graph()
-

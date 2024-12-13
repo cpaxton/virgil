@@ -30,6 +30,7 @@ import discord
 
 # This only works on Ampere+ GPUs
 import torch
+
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
@@ -230,7 +231,7 @@ class Friend(DiscordBot):
                         file.write(line + "\n")
 
                 await task.channel.send("*Forgetting: " + content + "*")
-        #except Exception as e:
+        # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
@@ -288,7 +289,6 @@ class Friend(DiscordBot):
                     # Remove from whitelist
                     del self.whitelist[channel_name]
                     print(f" -> Removed {channel_name} from whitelist")
-    
 
             if self.join_at_random:
                 # Random number generator - 1 in 1000 chance

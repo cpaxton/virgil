@@ -26,15 +26,15 @@ setup(
         "discord.py",  # Install discord library for discord-using robots
         "python-dotenv",  # For pulling things like API keys and tokens from env
         "termcolor",  # For colored terminal output
-        "hydra-core", # For configuration management
-        "omegaconf", # For configuration management
+        "hydra-core",  # For configuration management
+        "omegaconf",  # For configuration management
     ],
     extras_require={
         "torch": [
             "torch>=2.5.1",
             "torchvision",
             "torchaudio",
-            ],
+        ],
         "dev": [
             "pytest",
             "flake8",
@@ -53,7 +53,7 @@ setup(
             "flash-attn",
             # "xformers"
             # "autoawq",  # attention-aware quantization
-        ]
+        ],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",

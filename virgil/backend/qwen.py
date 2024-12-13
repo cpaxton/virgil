@@ -67,7 +67,7 @@ class Qwen(Backend):
         if torch.cuda.is_available():
             model_kwargs["device_map"] = "auto"
         if torch.backends.mps.is_available:
-            model_kwargs["device"] = "mps" # Metal Performance Shaders for Apple GPUas
+            model_kwargs["device"] = "mps"  # Metal Performance Shaders for Apple GPUas
 
         # Set up optional quantization
         if quantization_config is not None:

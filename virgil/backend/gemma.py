@@ -56,12 +56,7 @@ class Gemma(Backend):
             pipeline_kwargs["device"] = torch.device("mps")
 
         print("[Gemma] loading the model...")
-        self.pipe = pipeline(
-            "text-generation",
-            model="google/gemma-2-2b-it",
-            model_kwargs=model_kwargs,
-            **pipeline_kwargs
-        )
+        self.pipe = pipeline("text-generation", model="google/gemma-2-2b-it", model_kwargs=model_kwargs, **pipeline_kwargs)
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample
@@ -87,13 +82,13 @@ class Gemma(Backend):
                 temperature=self.temperature,
                 top_p=self.top_p,
                 do_sample=self.do_sample,
-
             )
 
 
 if __name__ == "__main__":
     gemma = Gemma()
     print(gemma("The meaning of life is:"))
+
 
 def supports_flash_attention() -> bool:
     """Check if the current device supports Flash Attention.

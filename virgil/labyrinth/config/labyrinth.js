@@ -19,14 +19,14 @@ function generateRoomHTML(roomData) {
 
     const actionContainer = document.createElement('div');
     actionContainer.className = 'actions';
-    
+
     for (const [targetRoom, actionText] of Object.entries(roomData.actions)) {
         const button = document.createElement('button');
         button.textContent = actionText;
         button.onclick = () => navigateToRoom(targetRoom);
         actionContainer.appendChild(button);
     }
-    
+
     room.appendChild(actionContainer);
 
     return room;
@@ -39,7 +39,7 @@ function navigateToRoom(roomId) {
 function displayRoom(roomId) {
     const container = document.getElementById('room-container');
     container.innerHTML = '';
-    
+
     if (roomsData[roomId]) {
         const roomHTML = generateRoomHTML(roomsData[roomId]);
         container.appendChild(roomHTML);
@@ -63,4 +63,3 @@ function loadRoomData() {
 
 // Load room data when the page loads
 window.onload = loadRoomData;
-
