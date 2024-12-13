@@ -6,8 +6,14 @@ from transformers import AutoTokenizer
 model_id = "stabilityai/stable-diffusion-xl-base-1.0"
 pipeline = AutoPipelineForText2Image.from_pretrained(model_id, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
 
-# Move the pipeline to GPU if available
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# Move the pipeline to GPU if available - also supports Apple mps
+if torch.cuda.is_available():
+    device = "cuda"
+elif torch.backends.mps.is_available:
+    device = "mps"
+else:
+    device = "cpu"
+
 pipeline = pipeline.to(device)
 
 # Set up the tokenizer

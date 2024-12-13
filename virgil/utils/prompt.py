@@ -23,4 +23,4 @@ def load_prompt(prompt_filename: str) -> str:
                     parsed_text += line + "\n"
             return parsed_text
     else:
-        return prompt
+        raise FileNotFoundError(f"Prompt file not found: {prompt_filename}")
