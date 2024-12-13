@@ -70,7 +70,7 @@ class Friend(DiscordBot):
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=max_history_length, preserve=2)
         self.attention_window_seconds = attention_window_seconds
-        self.raw_prompt = load_prompt()
+        self.raw_prompt = load_prompt(prompt_filename)
         self.prompt = None
         self._user_name = None
         self._user_id = None
