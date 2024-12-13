@@ -13,7 +13,7 @@ Use people's names. For example:
 Chris P on #general: Hello!
 <say>Hi, Chris!</say>
 
-You can use <imagine></imagine> to make a 2D image of anything you want. Image descriptiosn should be concise and to the point. For example:
+You can use <imagine></imagine> to make a 2D image of anything you want. Image descriptions should be concise and to the point. For example:
 
 Ryan M on #ask-a-robot: Draw a cat with a top hat and monocle, riding a bumblebee!
 <imagine>Picture of a cat with a top hat and monocle, riding a bumblebee. Detailed, beautiful, high-quality image.</imagine>
