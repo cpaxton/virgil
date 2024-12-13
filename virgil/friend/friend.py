@@ -39,7 +39,7 @@ from virgil.image.diffuser import DiffuserImageGenerator
 from virgil.utils import load_prompt
 
 
-def load_prompt(prompt_filename: str = "prompt.txt") -> str:
+def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
     """Load the prompt from the given filename.
 
     Args:
@@ -74,7 +74,7 @@ class Friend(DiscordBot):
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=max_history_length, preserve=2)
         self.attention_window_seconds = attention_window_seconds
-        self.raw_prompt = load_prompt(prompt_filename)
+        self.raw_prompt = load_prompt_helper(prompt_filename)
         self.prompt = None
         self._user_name = None
         self._user_id = None
