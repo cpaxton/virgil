@@ -16,4 +16,4 @@ RUN source "$HOME/.cargo/env"; pip install termcolor 'accelerate>=0.26.0'; PYO3_
 RUN source "$HOME/.cargo/env"; pip install --pre -U xformers;
 RUN export PATH="$HOME/miniconda3/bin:$PATH"; source "$HOME/.cargo/env"; cd /app; conda init bash;
 RUN export PATH="$HOME/miniconda3/bin:$PATH"; source "$HOME/.cargo/env"; cd /app; conda create -n virgil python=3.8; eval "$(conda shell.bash hook)"; conda activate virgil;
-CMD ["python", "-m", "virgil.friend.friend", "--backend", "qwen-1.5B"] 
+CMD ["python", "-m", "virgil.friend.friend", "--backend", "qwen-1.5B"]

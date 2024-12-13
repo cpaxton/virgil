@@ -79,10 +79,7 @@ class DiffuserImageGenerator(ImageGenerator):
 
         # Load the model
         print("[Diffuser] Loading model...")
-        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name,
-                                                                  torch_dtype=torch.float16,
-                                                                  variant="fp16",
-                                                                  use_safetensors=True)
+        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
 
         # Place the model on the GPU if available
         print("[Diffuser] Placing model on GPU if available...")
@@ -110,7 +107,6 @@ class DiffuserImageGenerator(ImageGenerator):
         # self.pipeline.unet = torch.compile(self.pipeline.unet, mode="max-autotune", fullgraph=True)
         # self.pipeline.vae.decode = torch.compile(self.pipeline.vae.decode, mode="max-autotune", fullgraph=True)
         # print("...done.")
-
 
         # Convert the model to float16 for memory efficiency
         # self.pipeline = self.pipeline.to(torch.float16)

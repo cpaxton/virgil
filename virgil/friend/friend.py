@@ -30,28 +30,36 @@ import discord
 
 # This only works on Ampere+ GPUs
 import torch
+
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image.diffuser import DiffuserImageGenerator
+from virgil.utils import load_prompt
 
 
-def load_prompt():
-    # Get the path to the quiz.html file
-    file_path = os.path.join(os.path.dirname(__file__), "prompt.txt")
+def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
+    """Load the prompt from the given filename.
 
-    # Read the contents of the file
-    with open(file_path, "r", encoding="utf-8") as file:
-        content = file.read()
+    Args:
+        prompt_filename (str): The filename for the prompt. Defaults to "prompt.txt".
 
-    return content
+    Returns:
+        str: The prompt as a string.
+    """
+    if prompt_filename[0] != "/":
+        file_path = os.path.join(os.path.dirname(__file__), prompt_filename)
+    else:
+        file_path = prompt_filename
+
+    return load_prompt(file_path)
 
 
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25) -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25, prompt_filename: str = "prompt.txt") -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -66,7 +74,7 @@ class Friend(DiscordBot):
         self.backend = get_backend(backend)
         self.chat = ChatWrapper(self.backend, max_history_length=max_history_length, preserve=2)
         self.attention_window_seconds = attention_window_seconds
-        self.raw_prompt = load_prompt()
+        self.raw_prompt = load_prompt_helper(prompt_filename)
         self.prompt = None
         self._user_name = None
         self._user_id = None
@@ -227,7 +235,7 @@ class Friend(DiscordBot):
                         file.write(line + "\n")
 
                 await task.channel.send("*Forgetting: " + content + "*")
-        #except Exception as e:
+        # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
@@ -285,7 +293,6 @@ class Friend(DiscordBot):
                     # Remove from whitelist
                     del self.whitelist[channel_name]
                     print(f" -> Removed {channel_name} from whitelist")
-    
 
             if self.join_at_random:
                 # Random number generator - 1 in 1000 chance
@@ -314,8 +321,9 @@ class Friend(DiscordBot):
 @click.option("--token", default=None, help="The token for the discord bot.")
 @click.option("--backend", default="gemma", help="The backend to use for the chat.")
 @click.option("--max-history-length", default=25, help="The maximum length of the chat history.")
-def main(token, backend, max_history_length):
-    bot = Friend(token=token, backend=backend, max_history_length=max_history_length)
+@click.option("--prompt", default="prompt.txt", help="The filename for the prompt.")
+def main(token, backend, max_history_length, prompt):
+    bot = Friend(token=token, backend=backend, max_history_length=max_history_length, prompt_filename=prompt)
     client = bot.client
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")

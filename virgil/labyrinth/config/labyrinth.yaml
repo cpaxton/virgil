@@ -47,7 +47,7 @@ worlds:
     writing_style: "detailed, hard sci fi, descriptive; inspired by Alastair Reynolds."
     image_style: "baroque, gothic, detailed sci-fi art. Colorful and evocative. High quality sci fi art."
 
-  research_facility: 
+  research_facility:
     goal: "an AI server containing the secrets of the universe"
     location: "a futuristic, high-tech research facility"
     writing_style: "poetic, dream-like, and philosophical. inspired by Philip K. Dick."
