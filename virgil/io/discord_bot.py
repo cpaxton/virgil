@@ -15,9 +15,10 @@
 # (c) 2024 by Chris Paxton
 # Usefuleight reference: https://builtin.com/software-engineering-perspectives/discord-bot-python
 
+from dataclasses import dataclass
+from itertools import chain
 from typing import Optional, List, Dict
 import os
-import time
 import timeit
 import discord
 from discord.ext import commands, tasks
@@ -41,18 +42,53 @@ def read_discord_token_from_env():
     return TOKEN
 
 
+@dataclass
 class Task:
-    """Holds the fields for: message, channel, and content."""
+    message: discord.Message
+    channel: discord.TextChannel
+    content: str
+    explicit: bool = False
+    t: float = None
 
-    def __init__(self, message, channel, content, explicit: bool = False, t: float = None):
-        self.message = message
-        self.channel = channel
-        self.content = content
-        self.t = t  # This tracks the time the task was created
 
-        # This tracks if we need to parse it or not
-        self.explicit = explicit
+class ChannelList:
+    """Tracks the channels that the bot is allowed to post in."""
 
+    def __init__(self):
+        self.home_channels: List[discord.TextChannel] = []
+        self.visiting_channels: Dict[discord.TextChannel, float] = {} # Maps channel to expiration time
+
+    def add_home(self, channel: discord.TextChannel):
+        """Add a channel to the home list."""
+        self.home_channels.append(channel)
+
+    def remove_home(self, channel: discord.TextChannel):
+        """Remove a channel from the home list."""
+        self.home_channels = [c for c in self.home_channels if c != channel]
+
+    def visit(self, channel: discord.TextChannel, timeout_s: float = 60):
+        """Add a channel to the visiting list."""
+        self.visiting_channels[channel] = timeit.default_timer() + timeout_s
+
+    def is_valid(self, channel: discord.TextChannel):
+        """Check if a channel is valid to post in."""
+        if channel in self.home_channels:
+            return True
+        elif expiration := self.visiting_channels.get(channel):
+            if expiration > timeit.default_timer():
+                return True
+            print(f"Visit to channel has expired. {channel}")
+            del self.visiting_channels[channel]
+        return False
+
+    def __contains__(self, channel: discord.TextChannel):
+        return self.is_valid(channel)
+
+    def __iter__(self):
+        return chain(self.home_channels, (vc.channel for vc in self.visiting_channels.values()))
+
+    def __len__(self):
+        return len(self.home_channels) + len(self.visiting_channels)
 
 class DiscordBot:
     def __init__(self, token: Optional[str] = None, timeout: float = 180):
@@ -84,35 +120,8 @@ class DiscordBot:
 
         self.running = True
         self.task_queue = queue.Queue()
-
-        self.introduced_channels = set()
-
-        # Whitelist of channels we can and will post in
-        self.whitelist: Dict[str, float] = {}
-
-        # Create a thread and lock for the message queue
         self.queue_lock = threading.Lock()
-        # self.queue_thread = threading.Thread(target=self.process_queue)
-
-    def add_to_whitelist(self, channel_id: str, current_time: Optional[float] = None):
-        """Add a channel to the whitelist."""
-        if current_time is None:
-            current_time = timeit.default_timer()
-        self.whitelist[channel_id] = current_time
-
-    def remove_from_whitelist(self, channel_id: str):
-        """Remove a channel from the whitelist."""
-        del self.whitelist[channel_id]
-
-    def channel_is_valid(self, channel, current_time: Optional[float] = None, threshold: float = 60) -> bool:
-        """Check if a channel is valid to post in."""
-        if channel.id in self.whitelist or channel.name in self.whitelist:
-            print(" -> Channel is in the whitelist")
-            last_time = self.whitelist[channel.id] if channel.id in self.whitelist else self.whitelist[channel.name]
-            if current_time is None:
-                current_time = timeit.default_timer()
-            return current_time - last_time < threshold
-        return False
+        self.allowed_channels = ChannelList()
 
     def push_task(self, channel, message: Optional[str] = None, content: Optional[str] = None, explicit: bool = False):
         """Add a message to the queue to send."""
@@ -153,19 +162,13 @@ class DiscordBot:
             # Loop over all channels we have not yet started
             # Add a message for each one
             for channel in self.client.get_all_channels():
-                # print(" -", channel.id, channel.name, channel.type)
                 if channel.type == discord.ChannelType.text:
-                    # print(" -> Text channel")
-                    if channel not in self.introduced_channels:
-                        # print(" -> Not introduced yet")
-                        self.introduced_channels.add(channel)
-                        # print("Check if channel is valid: ", channel.id, channel.name)
-                        if self.channel_is_valid(channel):
-                            print(f"Introducing myself to channel {channel.name}")
-                            try:
-                                self.push_task(channel, message=self.greeting(), content=None, explicit=True)
-                            except Exception as e:
-                                print(colored("Error in introducing myself: " + str(e), "red"))
+                    if channel in self.allowed_channels:
+                        print(f"Introducing myself to channel {channel.name}")
+                        try:
+                            self.push_task(channel, message=self.greeting(), content=None, explicit=True)
+                        except Exception as e:
+                            print(colored("Error in introducing myself: " + str(e), "red"))
             self._started = True
 
         # Print queue length
@@ -201,7 +204,7 @@ class DiscordBot:
         """Return a greeting message."""
         return "Hello everyone!"
 
-    def _setup_hooks(self, client):
+    def _setup_hooks(self, client: discord.Client):
         """Prepare the various hooks to use this Bot object's methods."""
 
         @client.event
@@ -212,7 +215,7 @@ class DiscordBot:
             return self.on_ready()
 
         @client.event
-        async def on_message(message):
+        async def on_message(message: discord.Message):
             # This line is important to allow commands to work
             # await bot.process_commands(message)
 
@@ -223,9 +226,8 @@ class DiscordBot:
             idx2 = message.content.find("<@" + str(self._user_id) + ">")
             if idx1 >= 0 or idx2 >= 0:
                 print(" ->", self._user_name, " was mentioned in channel", message.channel.name, "with content:", message.content)
-                if not self.channel_is_valid(message.channel):
-                    # Add it to the whitelist since we were mentioned
-                    self.add_to_whitelist(message.channel.id)
+                if message.channel not in self.allowed_channels:
+                    self.allowed_channels.visit(message.channel)
 
             print("Message content:", message.content)
             response = self.on_message(message)
