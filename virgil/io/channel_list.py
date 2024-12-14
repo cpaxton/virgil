@@ -1,3 +1,17 @@
+# Copyright 2024 Chris Paxton
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from itertools import chain
 from typing import List, Dict
 import discord
@@ -8,7 +22,7 @@ class ChannelList:
 
     def __init__(self):
         self.home_channels: List[discord.TextChannel] = []
-        self.visiting_channels: Dict[discord.TextChannel, float] = {} # Maps channel to expiration time
+        self.visiting_channels: Dict[discord.TextChannel, float] = {}  # Maps channel to expiration time
 
     def add_home(self, channel: discord.TextChannel):
         """Add a channel to the home list."""
@@ -41,7 +55,6 @@ class ChannelList:
 
     def __len__(self):
         return len(self.home_channels) + len(self.visiting_channels)
-
 
     def __str__(self) -> str:
         return f"Home: {self.home_channels}\nVisiting: {self.visiting_channels.keys()}"

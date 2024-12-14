@@ -285,6 +285,7 @@ class Friend(DiscordBot):
                 self.allowed_channels.visit(channel_id, timeout_s=self.attention_window_seconds)
                 print(f" -> Added {channel_name} to whitelist")
 
+        print(self.allowed_channels)
         if not channel_id in self.allowed_channels:
             print(" -> Not in allowed channels. Skipping.")
             return None
