@@ -59,7 +59,7 @@ def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25, prompt_filename: str = "prompt.txt") -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25, prompt_filename: str = "prompt.txt", home_channel: str = "ask-a-robot") -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -80,6 +80,7 @@ class Friend(DiscordBot):
         self._user_id = None
         self.sent_prompt = False
         self.join_at_random = join_at_random
+        self.home_channel = home_channel
         super(Friend, self).__init__(token)
 
         # Check to see if memory file exists
@@ -131,7 +132,6 @@ class Friend(DiscordBot):
         else:
             print(" -> We have already sent the prompt.")
 
-        home_channel = "ask-a-robot"
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
         for guild in self.client.guilds:
@@ -142,10 +142,12 @@ class Friend(DiscordBot):
             guild_count = guild_count + 1
 
             for channel in guild.text_channels:
-                if channel.name == home_channel:
+                if channel.name == self.home_channel:
                     print(f"Adding home channel {channel} to the allowed channels.")
                     self.allowed_channels.add_home(channel)
                     break
+
+        print(self.allowed_channels)
 
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
         print("This bot is in " + str(guild_count) + " guild(s).")
@@ -284,6 +286,7 @@ class Friend(DiscordBot):
                 print(f" -> Added {channel_name} to whitelist")
 
         if not channel_id in self.allowed_channels:
+            print(" -> Not in allowed channels. Skipping.")
             return None
 
         # Construct the text to prompt the AI
