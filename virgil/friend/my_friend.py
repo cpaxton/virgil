@@ -31,7 +31,7 @@ def main(token, backend, max_history_length):
         print("Summoning the bot.")
         print(" -> Channel name:", ctx.channel.name)
         print(" -> Channel ID:", ctx.channel.id)
-        bot.add_to_whitelist(ctx.channel.id)
+        bot.allowed_channels.visit(ctx.channel)
         await ctx.send("Hello! I am here to help you.")
 
     bot.run()

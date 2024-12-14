@@ -112,10 +112,6 @@ class Friend(DiscordBot):
 
         self._chat_lock = threading.Lock()  # Lock for chat access
 
-        # Add ask-a-robot to the whitelist
-        # This one is always valid
-        self.add_to_whitelist("ask-a-robot", float("Inf"))
-
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
         print(f"{self.client.user} has connected to Discord!")
@@ -135,14 +131,21 @@ class Friend(DiscordBot):
         else:
             print(" -> We have already sent the prompt.")
 
+        home_channel = "ask-a-robot"
         # This is from https://builtin.com/software-engineering-perspectives/discord-bot-python
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
         for guild in self.client.guilds:
             # PRINT THE SERVER'S ID AND NAME.
-            print(f"- {guild.id} (name: {guild.name})")
+            print(f"Joining Server {guild.id} (name: {guild.name})")
 
             # INCREMENTS THE GUILD COUNTER.
             guild_count = guild_count + 1
+
+            for channel in guild.text_channels:
+                if channel.name == home_channel:
+                    print(f"Adding home channel {channel} to the allowed channels.")
+                    self.allowed_channels.add_home(channel)
+                    break
 
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
         print("This bot is in " + str(guild_count) + " guild(s).")
@@ -240,7 +243,7 @@ class Friend(DiscordBot):
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
 
-    def on_message(self, message, verbose: bool = False):
+    def on_message(self, message: discord.Message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
         if verbose:
             # Printing some information to learn about what this actually does
@@ -271,41 +274,17 @@ class Friend(DiscordBot):
         print("Timestamp:", timestamp)
 
         # Check if this channel is in the whitelist
-        if channel_name != "ask-a-robot":
-            # Check name in whitelist
-            ok = False
+        if self.join_at_random and not channel_id in self.allowed_channels:
+            # Random number generator - 1 in 1000 chance
+            random_number = random.randint(1, 100)
+            print("Random number:", random_number)
+            if random_number < 2:
+                # Add to whitelist
+                self.allowed_channels.visit(channel_id, timeout_s=self.attention_window_seconds)
+                print(f" -> Added {channel_name} to whitelist")
 
-            print("Current whitelist channels: ", self.whitelist)
-
-            if channel_name in self.whitelist or channel_id in self.whitelist:
-                # Check if it was within last 10 mins
-                t1 = timeit.default_timer()
-                if channel_name in self.whitelist:
-                    t2 = self.whitelist[channel_name]
-                elif channel_id in self.whitelist:
-                    t2 = self.whitelist[channel_id]
-
-                print(" -> Checked time: ", t1, t2, "delta is", t1 - t2, "vs attention window", self.attention_window_seconds)
-                if t1 - t2 < self.attention_window_seconds:
-                    # This is ok
-                    ok = True
-                else:
-                    # Remove from whitelist
-                    del self.whitelist[channel_name]
-                    print(f" -> Removed {channel_name} from whitelist")
-
-            if self.join_at_random:
-                # Random number generator - 1 in 1000 chance
-                random_number = random.randint(1, 100)
-                print("Random number:", random_number)
-                if random_number < 2:
-                    # Add to whitelist
-                    self.add_to_whitelist(channel_name)
-                    ok = True
-                    print(f" -> Added {channel_name} to whitelist")
-
-            if not ok:
-                return None
+        if not channel_id in self.allowed_channels:
+            return None
 
         # Construct the text to prompt the AI
         text = f"{sender_name} on #{channel_name}: " + message.content
@@ -332,7 +311,7 @@ def main(token, backend, max_history_length, prompt):
         print("Summoning the bot.")
         print(" -> Channel name:", ctx.channel.name)
         print(" -> Channel ID:", ctx.channel.id)
-        bot.add_to_whitelist(ctx.channel.id)
+        bot.allowed_channels.visit(ctx.channel)
         await ctx.send("Hello! I am here to help you.")
 
     bot.run()
