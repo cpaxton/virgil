@@ -286,7 +286,7 @@ class Friend(DiscordBot):
                 print(f" -> Added {channel_name} to whitelist")
 
         print(self.allowed_channels)
-        if not channel_id in self.allowed_channels:
+        if not message.channel in self.allowed_channels:
             print(" -> Not in allowed channels. Skipping.")
             return None
 
