@@ -39,6 +39,7 @@ dependencies = [
     "python-dotenv",
     "termcolor",
     "setuptools>=75.3.0",
+    "accelerate>=1.0.1",
 ]
 
 [project.optional-dependencies]
