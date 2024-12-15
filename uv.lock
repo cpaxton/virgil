@@ -2538,6 +2538,7 @@ name = "virgil"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "accelerate" },
     { name = "click" },
     { name = "diffusers" },
     { name = "discord-py" },
@@ -2575,6 +2576,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "accelerate", specifier = ">=1.0.1" },
     { name = "accelerate", marker = "extra == 'cuda'" },
     { name = "bitsandbytes", marker = "extra == 'cuda'" },
     { name = "black", marker = "extra == 'dev'" },
