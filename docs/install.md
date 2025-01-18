@@ -46,6 +46,11 @@ Install flash-attn2 for faster attention:
 pip install flash-attn --no-build-isolation
 ```
 
+*Note as of 2025-01-18:* There's a compatibility issue between the `flash_attn` package and the latest version of `transformers==4.48`, at least in the Google Gemma LLM. Instead of using the latest version of `transformers`, stick with an older version:
+```bash
+python -m pip install transformers==4.46.3
+```
+
 ### Optional: xformers
 
 You may want to use [xformers](https://github.com/facebookresearch/xformers) for better memory efficiency. You can install it with:
