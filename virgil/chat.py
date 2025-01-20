@@ -121,10 +121,14 @@ class ChatWrapper:
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
 @click.option("--backend", default="gemma-2b-it", help="The backend to use.")
 @click.option("--prompt", default="", help="The prompt (as a text file) to start the conversation with.")
-def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str) -> None:
+@click.option("--path", default="", help="Optional path to model weights.")
+def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str, path: str = "") -> None:
     from virgil.backend import get_backend
-
-    backend = get_backend(backend)
+    
+    kwargs = {}
+    if len(path) > 0:
+        kwargs["model_path"] = path
+    backend = get_backend(backend, **kwargs)
     chat = ChatWrapper(backend=backend, max_history_length=max_history_length, preserve=preserve)
 
     prompt_text = None
