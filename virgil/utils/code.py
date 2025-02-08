@@ -37,12 +37,7 @@ def execute_code_in_string(input_string):
 
 if __name__ == '__main__':
     # Example usage
-    input_string = """
-    <code>
-    print("Hello, World!")
-    print(2 + 2)
-    </code>
-    """
+    input_string = """<code>print("Hello, World!"); print(2 + 2)</code>"""
 
     output = execute_code_in_string(input_string)
     if output:
