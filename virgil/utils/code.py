@@ -34,10 +34,15 @@ def execute_code_in_string(input_string):
     output = mystdout.getvalue()
     return output
 
+test_string = """<code>print("Start:")
+for i in range(5):
+    print(i, i**2, i**3)
+print("End")</code>"""
 
 if __name__ == '__main__':
     # Example usage
-    input_string = """<code>print("Hello, World!"); print(2 + 2)</code>"""
+    # input_string = """<code>print("Hello, World!"); print(2 + 2)</code>"""
+    input_string = test_string
 
     output = execute_code_in_string(input_string)
     if output:
