@@ -15,7 +15,7 @@ setup(
     packages=["virgil"],
     package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"], "": ["config/*", "config/*/*"], "virgil.labyrinth": ["config/*"]},
     install_requires=[
-        "transformers",
+        "transformers==4.46.3",
         "diffusers",
         "sentencepiece",
         "Pillow",
@@ -51,8 +51,8 @@ setup(
             "bitsandbytes",  # For quantization
             "accelerate",  # For model acceleration
             "flash-attn",
+            "autoawq",  # attention-aware quantization
             # "xformers"
-            # "autoawq",  # attention-aware quantization
         ],
     },
     classifiers=[

@@ -190,7 +190,10 @@ class Friend(DiscordBot):
         for action, content in action_plan:
             print(f"Action: {action}, Content: {content}")  # Handle actions here
             if action == "say":
-                await task.channel.send(content)
+                # Split content into <2000 character chunks
+                while len(content) > 0:
+                    await task.channel.send(content[:2000])
+                    content = content[2000:]
             elif action == "imagine":
                 await task.channel.send("*Imagining: " + content + "...*")
                 time.sleep(0.1)  # Wait for message to be sent

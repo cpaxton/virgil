@@ -81,7 +81,7 @@ class ChatWrapper:
     def __len__(self):
         return len(self.conversation_history)
 
-    def prompt(self, msg: str, verbose: bool = False, assistant_history_prefix: str = "") -> str:
+    def prompt(self, msg: str, verbose: bool = False, max_new_tokens: int = 2000, assistant_history_prefix: str = "") -> str:
         """Prompt the LLM with a message.
 
         Args:
@@ -95,7 +95,7 @@ class ChatWrapper:
 
         messages = self.conversation_history.copy()
         t0 = timeit.default_timer()
-        outputs = self.backend(messages, max_new_tokens=256)
+        outputs = self.backend(messages, max_new_tokens=max_new_tokens)
         t1 = timeit.default_timer()
         assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
@@ -121,10 +121,14 @@ class ChatWrapper:
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
 @click.option("--backend", default="gemma-2b-it", help="The backend to use.")
 @click.option("--prompt", default="", help="The prompt (as a text file) to start the conversation with.")
-def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str) -> None:
+@click.option("--path", default="", help="Optional path to model weights.")
+def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str, path: str = "") -> None:
     from virgil.backend import get_backend
-
-    backend = get_backend(backend)
+    
+    kwargs = {}
+    if len(path) > 0:
+        kwargs["model_path"] = path
+    backend = get_backend(backend, **kwargs)
     chat = ChatWrapper(backend=backend, max_history_length=max_history_length, preserve=preserve)
 
     prompt_text = None
