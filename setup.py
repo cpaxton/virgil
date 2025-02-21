@@ -51,8 +51,8 @@ setup(
             "bitsandbytes",  # For quantization
             "accelerate",  # For model acceleration
             "flash-attn",
+            "autoawq",  # attention-aware quantization
             # "xformers"
-            # "autoawq",  # attention-aware quantization
         ],
     },
     classifiers=[

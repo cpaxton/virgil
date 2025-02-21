@@ -28,7 +28,7 @@ qwen_specializations = ["Instruct", "Coder", "Math"]
 class Qwen(Backend):
     """Use the Qwen model to generate responses to messages."""
 
-    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = None, model_path: str = None) -> None:
+    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "awq", model_path: str = None) -> None:
         """Initialize the Qwen backend.
 
         Args:
@@ -69,7 +69,7 @@ class Qwen(Backend):
                 try:
                     import awq
                 except ImportError:
-                    logger.error("To use quantization, please install the auto-awq package.")
+                    logger.error("To use quantization, please install the autoawq package.")
                     quantization = ""
                 if quantization == "awq":
                     model_name += "-AWQ"
