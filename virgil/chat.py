@@ -81,7 +81,7 @@ class ChatWrapper:
     def __len__(self):
         return len(self.conversation_history)
 
-    def prompt(self, msg: str, verbose: bool = False, assistant_history_prefix: str = "") -> str:
+    def prompt(self, msg: str, verbose: bool = False, max_new_tokens: int = 2000, assistant_history_prefix: str = "") -> str:
         """Prompt the LLM with a message.
 
         Args:
@@ -95,7 +95,7 @@ class ChatWrapper:
 
         messages = self.conversation_history.copy()
         t0 = timeit.default_timer()
-        outputs = self.backend(messages, max_new_tokens=256)
+        outputs = self.backend(messages, max_new_tokens=max_new_tokens)
         t1 = timeit.default_timer()
         assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
