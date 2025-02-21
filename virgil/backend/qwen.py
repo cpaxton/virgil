@@ -15,7 +15,7 @@
 # (c) 2024 by Chris Paxton
 
 import torch
-from transformers import pipeline, BitsAndBytesConfig
+from transformers import pipeline, BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer
 from typing import Optional
 
 from virgil.backend.base import Backend
@@ -28,7 +28,7 @@ qwen_specializations = ["Instruct", "Coder", "Math"]
 class Qwen(Backend):
     """Use the Qwen model to generate responses to messages."""
 
-    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "awq", model_path: str = None) -> None:
+    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int4", model_path: str = None) -> None:
         """Initialize the Qwen backend.
 
         Args:
@@ -53,12 +53,14 @@ class Qwen(Backend):
 
         model_kwargs = {"torch_dtype": "auto"}
         if model_path is not None and len(model_path) > 0:
-            model_kwargs["model_path"] = model_path
+            # model_kwargs["model_path"] = model_path
+            model_id = model_path
         else:
             # Check if the model name is valid
             if model_name is None:
                 model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
-            model_kwargs["model"] = model_name
+            # model_kwargs["model"] = model_name
+            model_id = model_name
 
         quantization_config = None
         if quantization is not None:
@@ -75,12 +77,23 @@ class Qwen(Backend):
                     model_name += "-AWQ"
                 elif len(quantization) > 0:
                     raise ValueError(f"Unknown quantization method: {quantization}")
-            elif quantization == "int8":
-                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-            elif quantization == "int4":
-                quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-            elif len(quantization) > 0:
+            elif quantization in ["int8", "int4"]:
+                try:
+                    import bitsandbytes  # noqa: F401
+                except ImportError:
+                    raise ImportError("bitsandbytes required for int4/int8 quantization: pip install bitsandbytes")
+
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=(quantization == "int4"),
+                    load_in_8bit=(quantization == "int8"),
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16
+                )
+                model_kwargs["quantization_config"] = quantization_config
+            else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
+
         if torch.cuda.is_available():
             model_kwargs["device_map"] = "auto"
         if torch.backends.mps.is_available():
@@ -90,7 +103,24 @@ class Qwen(Backend):
         if quantization_config is not None:
             model_kwargs["quantization_config"] = quantization_config
 
-        self.pipe = pipeline("text-generation", **model_kwargs)
+
+        # Load the model and tokenizer with the quantization configuration
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            quantization_config=quantization_config,
+            device_map="auto" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None,
+            torch_dtype=torch.bfloat16 if quantization_config is None else None  # added to avoid errors when no quantization
+        )
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+
+        self.pipe = pipeline(
+            "text-generation",
+            model=self.model,
+            tokenizer=self.tokenizer,
+            model_kwargs=model_kwargs # keep this
+        )
+
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample
@@ -116,5 +146,5 @@ class Qwen(Backend):
 
 
 if __name__ == "__main__":
-    llm = Qwen(model_name=None, size="1B", specialization="Instruct")
+    llm = Qwen(model_name=None, size="7B", specialization="Instruct", quantization="int4")
     print(llm("The key to life is"))
