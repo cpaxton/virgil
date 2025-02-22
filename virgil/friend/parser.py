@@ -20,13 +20,14 @@ from termcolor import colored
 import re
 
 
-def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> List[Tuple[str, str]]:
+def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True, prune_thoughts: bool = True) -> List[Tuple[str, str]]:
     """Extracts specified tags and their content from the given text.
 
     Args:
         text (str): The text to extract tags from.
         tags (List[str]): A list of tags to extract.
         allow_unmatched (bool): Whether to allow unmatched opening tags.
+        prune_thoughts (bool): Whether to ignore all tags before the first </think> tag.
 
     Returns:
         List[Tuple[str, str]]: A list of tuples containing the tag and its content.
@@ -36,6 +37,10 @@ def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True) -> Li
     # Create a pattern that matches any of the given tags
     tag_pattern = "|".join(map(re.escape, tags))
     pattern = f"<({tag_pattern})>(.*?)</\\1>"
+
+    if prune_thoughts:
+        # Remove all content before the first </think> tag
+        text = re.sub(r".*?</think>", "", text, flags=re.DOTALL)
 
     # Find all matches
     matches = re.finditer(pattern, text, re.DOTALL)
@@ -92,7 +97,7 @@ class ChatbotActionParser(Parser):
             Optional[List[str, Any]]: A list of parsed text. Each element is a tuple of (action, content).
         """
         tags_to_extract = ["say", "remember", "imagine", "think"]
-        extracted_tags = extract_tags(text, tags_to_extract)
+        extracted_tags = extract_tags(text, tags_to_extract, prune_thoughts=True)
 
         return extracted_tags
 
