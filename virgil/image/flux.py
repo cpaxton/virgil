@@ -1,6 +1,6 @@
 
 import torch
-from diffusers import FluxProPipeline
+from diffusers import FluxPipeline
 from PIL import Image
 from abc import ABC, abstractmethod
 
@@ -9,10 +9,10 @@ from virgil.image.base import ImageGenerator
 class FluxImageGenerator(ImageGenerator):
     def __init__(self, height: int = 1536, width: int = 1536):
         super().__init__(height, width)
-        self.pipe = FluxProPipeline.from_pretrained(
-            "black-forest-labs/FLUX.1.2-pro-ultra",
+        self.pipe = FluxPipeline.from_pretrained(
+            "black-forest-labs/FLUX.1-schnell",
             torch_dtype=torch.bfloat16,
-            variant="fp16",
+            # variant="fp16",
             use_safetensors=True
         )
         self.pipe = self.pipe.to("cuda" if torch.cuda.is_available() else "cpu")
