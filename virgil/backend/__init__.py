@@ -44,6 +44,10 @@ backend_list = [
     "qwen-14B-Instruct",
     "qwen-14B-Coder",
     "qwen-14B-Math",
+    "qwen-1.5B-Deepseek",
+    "qwen-7B-Deepseek",
+    "qwen-14B-Deepseek",
+    "qwen-32B-Deepseek",
 ]
 
 
@@ -95,8 +99,13 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
             size = "1.5B"
             specialization = "Instruct"
 
+        if specialization == "Deepseek":
+            model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
+        else:
+            model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
+
         qwen_kwargs = kwargs
         # qwen_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
-        return Qwen(model_name=f"Qwen/Qwen2.5-{size}-{specialization}", **qwen_kwargs)
+        return Qwen(model_name=model_name, **qwen_kwargs)
     else:
         raise ValueError(f"Unknown backend: {name}")

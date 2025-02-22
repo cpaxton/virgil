@@ -22,7 +22,7 @@ from virgil.backend.base import Backend
 import virgil.utils.log as logger
 
 qwen_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
-qwen_specializations = ["Instruct", "Coder", "Math"]
+qwen_specializations = ["Instruct", "Coder", "Math", "Deepseek"]
 
 
 class Qwen(Backend):
@@ -58,7 +58,7 @@ class Qwen(Backend):
         else:
             # Check if the model name is valid
             if model_name is None:
-                if specialization == "deepseek":
+                if specialization == "Deepseek":
                     model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
                 else:
                     model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
