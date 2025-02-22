@@ -59,7 +59,10 @@ def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma", attention_window_seconds: float = 600.0, image_generator: Optional[DiffuserImageGenerator] = None, join_at_random: bool = False, max_history_length: int = 25, prompt_filename: str = "prompt.txt", home_channel: str = "ask-a-robot") -> None:
+    def __init__(self, token: Optional[str] = None, backend="gemma",
+                 attention_window_seconds: float = 600.0, image_generator: str = "flux",
+                 join_at_random: bool = False, max_history_length: int = 25,
+                 prompt_filename: str = "prompt.txt", home_channel: str = "ask-a-robot") -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -102,10 +105,13 @@ class Friend(DiscordBot):
         # Loaded memory
         self.memory = memory
 
-        if image_generator is None:
-            # This worked well as of 2024-10-22 with the diffusers library
-            # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
-            self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=False)
+        if isinstance(image_generator, str):
+            if image_generator.lower() == "diffuser":
+                # This worked well as of 2024-10-22 with the diffusers library
+                # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
+                self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=False)
+            elif image_generator.lower() == "flux":
+                self.image_generator = FluxImageGenerator(height=512, width=512)
         else:
             self.image_generator = image_generator
 
