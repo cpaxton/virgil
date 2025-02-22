@@ -60,7 +60,7 @@ class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
     def __init__(self, token: Optional[str] = None, backend="gemma",
-                 attention_window_seconds: float = 600.0, image_generator: str = "flux",
+                 attention_window_seconds: float = 600.0, image_generator: str = "diffuser",
                  join_at_random: bool = False, max_history_length: int = 25,
                  prompt_filename: str = "prompt.txt", home_channel: str = "ask-a-robot") -> None:
         """Initialize the bot with the given token and backend.

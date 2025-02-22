@@ -3,6 +3,7 @@ import torch
 from diffusers import FluxPipeline
 from PIL import Image
 from abc import ABC, abstractmethod
+from transformers import BitsAndBytesConfig
 
 from virgil.image.base import ImageGenerator
 
@@ -37,16 +38,16 @@ class FluxImageGenerator(ImageGenerator):
             )
         elif quantization is None:
             quantization_config = None
+            torch_dtype = torch.bfloat16
         else:
             raise ValueError(f"Unknown quantization method: {quantization}")
 
         # Load the model with the quantization configuration
         self.pipe = FluxPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-schnell",
-            torch_dtype=torch.bfloat16,
-            # variant="fp16",
+            torch_dtype=torch_dtype if 'torch_dtype' in locals() else torch.bfloat16, # Set torch_dtype based on quantization
             quantization_config=quantization_config,
-            use_safetensors=True
+            use_safetensors=True,
         )
         self.pipe = self.pipe.to("cuda" if torch.cuda.is_available() else "cpu")
         self.pipe.set_progress_bar_config(disable=True)
