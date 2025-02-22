@@ -58,9 +58,14 @@ class Qwen(Backend):
         else:
             # Check if the model name is valid
             if model_name is None:
-                model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
-            # model_kwargs["model"] = model_name
+                if specialization == "deepseek":
+                    model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
+                else:
+                    model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
+
             model_id = model_name
+
+        print(f"Loading model: {model_id}")
 
         quantization_config = None
         if quantization is not None:
