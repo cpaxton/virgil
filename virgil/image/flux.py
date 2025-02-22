@@ -7,12 +7,45 @@ from abc import ABC, abstractmethod
 from virgil.image.base import ImageGenerator
 
 class FluxImageGenerator(ImageGenerator):
-    def __init__(self, height: int = 1536, width: int = 1536):
+    def __init__(self, height: int = 1536, width: int = 1536, quantization: str = "int4") -> None:
+        """Create a new FluxImageGenerator. This class generates images using the FLUX model.
+
+        Args:
+            height (int): The height of the generated image. Defaults to 1536.
+            width (int): The width of the generated image. Defaults to 1536.
+            quantization (str): The quantization method to use. Options: "int4", "int8", or None. Defaults to "int4".
+
+        Raises:
+            ValueError: If an unknown quantization method is provided.
+        """
         super().__init__(height, width)
+
+        # Configure quantization
+        if quantization == "int4":
+            # Configure 4-bit quantization
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_compute_dtype=torch.bfloat16
+            )
+        elif quantization == "int8":
+            # Configure 8-bit quantization
+            quantization_config = BitsAndBytesConfig(
+                load_in_8bit=True,
+                bnb_8bit_compute_dtype=torch.bfloat16
+            )
+        elif quantization is None:
+            quantization_config = None
+        else:
+            raise ValueError(f"Unknown quantization method: {quantization}")
+
+        # Load the model with the quantization configuration
         self.pipe = FluxPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-schnell",
             torch_dtype=torch.bfloat16,
             # variant="fp16",
+            quantization_config=quantization_config,
             use_safetensors=True
         )
         self.pipe = self.pipe.to("cuda" if torch.cuda.is_available() else "cpu")
