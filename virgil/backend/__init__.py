@@ -28,6 +28,7 @@ backend_list = [
     "gemma2b",
     "gemma-2b-it",
     "gemma-3-27b-it",
+    "gemma-3-12b-it",
     "llama-3.2-1B",
     "qwen",
     "qwen-0.5B-Instruct",
