@@ -27,6 +27,7 @@ backend_list = [
     "gemma",
     "gemma2b",
     "gemma-2b-it",
+    "gemma-3-27b-it",
     "llama-3.2-1B",
     "qwen",
     "qwen-0.5B-Instruct",
@@ -62,10 +63,15 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
         Backend: The backend instance, used for interfacing with an LLM.
     """
     name = name.lower()
-    if name == "gemma" or name == "gemma2b" or name == "gemma-2b-it":
-        gemma_kwargs = kwargs
-        gemma_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
-        gemma_kwargs["use_flash_attention"] = True if torch.cuda.is_available() else False
+    if name.startswith("gemma"):
+        if name == "gemma2b" or name == "gemma-2b-it":
+            gemma_kwargs = kwargs
+            gemma_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
+            gemma_kwargs["use_flash_attention"] = True if torch.cuda.is_available() else False
+        else:
+            gemma_kwargs = kwargs
+            gemma_kwargs["quantization"] = "int4" if torch.cuda.is_available() else None
+            gemma_kwargs["use_flash_attention"] = True if torch.cuda.is_available() else False
         return Gemma(**gemma_kwargs)
     elif name == "llama" or name == "llama-3.2-1B":
         return Llama(model_name="meta-llama/Llama-3.2-1B", **kwargs)
