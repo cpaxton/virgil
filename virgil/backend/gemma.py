@@ -67,7 +67,7 @@ class Gemma(Backend):
             pipeline_kwargs["device"] = torch.device("mps")
 
         print("[Gemma] loading the model...")
-        self.pipe = pipeline("text-generation", model="google/gemma-2-2b-it", model_kwargs=model_kwargs, **pipeline_kwargs)
+        self.pipe = pipeline("text-generation", model=variant, model_kwargs=model_kwargs, **pipeline_kwargs)
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample
