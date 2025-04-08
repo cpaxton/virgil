@@ -27,6 +27,7 @@ variants = [
     "google/gemma-1-3b-it",
     "google/gemma-1-3b-en",
     "google/gemma-3-27b-it",
+    "google/gemma-3-12b-it",
 ]
 
 class Gemma(Backend):
@@ -42,6 +43,11 @@ class Gemma(Backend):
             quantization (Optional[str]): Optional quantization method.
             use_flash_attention (bool): Whether to use Flash Attention.
         """
+
+        if variant not in variants:
+            raise ValueError(f"Unknown variant: {variant}. Supported variants are: {variants}")
+        else:
+            print("Loading gemma variant:", variant)
 
         if quantization is not None:
             print(f"[Gemma] quantizing the model to {quantization}")
