@@ -31,7 +31,7 @@ import click
 import timeit
 from termcolor import colored
 
-from virgil.backend import Backend
+from virgil.backend import Backend, backend_list
 
 
 class ChatWrapper:
@@ -119,7 +119,7 @@ class ChatWrapper:
 @click.option("--max-history-length", default=50, help="The maximum length of the conversation history.")
 @click.option("--preserve", default=2, help="The number of messages to preserve in the conversation history.")
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
-@click.option("--backend", default="gemma-2b-it", help="The backend to use.")
+@click.option("--backend", default="gemma-3-12b-it", help="The backend to use.", type=click.Choice(backend_list, case_sensitive=False))
 @click.option("--prompt", default="", help="The prompt (as a text file) to start the conversation with.")
 @click.option("--path", default="", help="Optional path to model weights.")
 def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str, path: str = "") -> None:
