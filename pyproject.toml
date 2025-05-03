@@ -1,33 +1,19 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "virgil"
 version = "0.1.0"
 description = "A library for creating and using AI-powered chatbots and AI-powered storytelling."
-authors = [
-    {name = "Chris Paxton", email = "chris.paxton.cs@gmail.com"},
-]
 readme = "README.md"
-requires-python = ">=3.8"
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+requires-python = ">=3.7"
+authors = [
+    { name = "Chris Paxton", email = "chris.paxton.cs@gmail.com" }
 ]
-
+license = { text = "MIT" }
 dependencies = [
-    "torch",
-    "torchvision",
-    "torchaudio",
-    "transformers",
+    "transformers>=4.51.0",
     "diffusers",
     "sentencepiece",
     "Pillow",
@@ -38,11 +24,19 @@ dependencies = [
     "discord.py",
     "python-dotenv",
     "termcolor",
-    "setuptools>=75.3.0",
-    "accelerate>=1.0.1",
+    "hydra-core",
+    "omegaconf"
 ]
 
+[project.urls]
+Homepage = "https://github.com/cpaxton/virgil"
+
 [project.optional-dependencies]
+torch = [
+    "torch>=2.5.1",
+    "torchvision",
+    "torchaudio"
+]
 dev = [
     "pytest",
     "flake8",
@@ -51,21 +45,28 @@ dev = [
     "mypy",
     "pre-commit",
     "codespell",
-    "mdformat",
+    "mdformat"
 ]
-cuda = [
-    "accelerate",
+ai = [
+    "torch>=2.5.1",
+    "torchvision",
     "bitsandbytes",
+    "accelerate",
     "flash-attn",
+    "autoawq"
+    # "xformers"  # Uncomment if/when needed
 ]
 
-[project.urls]
-Homepage = "https://github.com/yourusername/virgil"
+[tool.setuptools]
+# This tells setuptools to include package data as specified below
+include-package-data = true
 
 [tool.setuptools.packages.find]
+where = ["."]
 include = ["virgil"]
 
 [tool.setuptools.package-data]
 "virgil.quiz" = ["quiz.html", "example_quiz.html"]
 "virgil.meme" = ["prompt.txt"]
 "virgil.friend" = ["prompt.txt"]
+"virgil.labyrinth" = ["config/*"]
