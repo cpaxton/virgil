@@ -15,6 +15,7 @@
 from itertools import chain
 from typing import List, Dict
 import discord
+import timeit
 
 
 class ChannelList:

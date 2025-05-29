@@ -30,7 +30,6 @@ def main(token, backend, max_history_length):
         max_history_length=max_history_length,
         prompt_filename=prompt_filename,
     )
-    client = bot.client
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")
     async def summon(ctx):
