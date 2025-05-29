@@ -15,6 +15,7 @@
 # (c) 2024 by Chris Paxton
 
 from typing import Optional
+import logging
 
 import torch
 from .gemma import Gemma
