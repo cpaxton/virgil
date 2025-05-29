@@ -22,7 +22,7 @@ from datetime import datetime
 import yaml
 import click
 
-from virgil.backend import Gemma
+from virgil.backend import get_backend, Backend
 from virgil.chat import ChatWrapper
 from virgil.quiz.parser import ResultParser, QuestionParser
 
@@ -126,7 +126,7 @@ Question 1:
 """
 
 
-def generate_quiz(topic: str, backend: Gemma, save_with_date: bool = False) -> None:
+def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
     question_parser = QuestionParser(chat)
@@ -198,9 +198,16 @@ def generate_quiz(topic: str, backend: Gemma, save_with_date: bool = False) -> N
 
 @click.command()
 @click.option("--topic", default="", help="The topic of the quiz to generate.")
-def main(topic: str = ""):
+@click.option(
+    "--backend",
+    default="gemma-3-12b-it",
+    help="The backend to use for generating the quiz.",
+)
+def main(topic: str = "", backend: str = "gemma-3-12b-it") -> None:
+    backend = get_backend(backend)
+
+    # If you specified a quiz...
     if len(topic) > 0:
-        backend = Gemma()
         generate_quiz(topic, backend)
         return
 
@@ -300,7 +307,6 @@ def main(topic: str = ""):
         "What kind of vinegar are you?",
     ]
 
-    backend = Gemma()
     for topic in topics:
         generate_quiz(topic, backend)
 
