@@ -85,7 +85,7 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
                 release = parts[0][4:]
                 size = parts[1]
                 specialization = parts[2].capitalize()
-                print(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
+                logging.info(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
 
         if specialization == "Deepseek":
             model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
