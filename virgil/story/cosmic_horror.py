@@ -19,7 +19,6 @@ from termcolor import colored
 
 from virgil.backend import get_backend
 
-import sys
 
 userprompt = """Your sister called you at 3am three days ago, drunk and angry and scared as shit. She said was going home. But you'd both never sworn to go back there again, back to that awful, haunting town on the water. It'd be better if the water rose and that whole awful place washed away, that's what you both used to say. But she said she remembered what happened, all those years ago, and that she needed to, and then she hung up.
 
@@ -27,7 +26,7 @@ You haven't heard from her since. Your phone calls go to voicemail, and so you p
 
 You got off the Grayhound a few minutes ago; you're dead tired but you can't sleep yet. No money for a rental, so your only way to your old family home is via the #10 city bus line. Now the beat up old bus stop stands before you, rusted and twisted by years in this awful town. What do you do?"""
 
-prompt = f"""
+prompt = """
 You are an AI storyteller running an interactive game in a cosmic horror story setting, inspired by Lovecraft. I will be interacting with you and you are to give me details about the world and the consequences of the actions. Keep answers short.
 
 The setting is this: we are at a bus stop outside an old, declining rust belt city. The bus stop is populated by a single old man, named Silas, who has graying hair and a worn peacoat. He's got an old pipe, like something out of a 1920s silent film, and he starts packing it after he sits down.
@@ -233,5 +232,5 @@ while True:
     if verbose:
         print("----------------")
         print(f"Parse time taken: {parse_dt} seconds")
-        print(f"Story time taken: {t1-t0:.2f} seconds")
+        print(f"Story time taken: {t1 - t0:.2f} seconds")
         print("----------------")

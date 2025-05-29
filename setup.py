@@ -13,7 +13,13 @@ setup(
     long_description_content_type="text/markdown",
     url="https://github.com/yourusername/virgil",
     packages=["virgil"],
-    package_data={"virgil.quiz": ["quiz.html", "example_quiz.html"], "virgil.meme": ["prompt.txt"], "virgil.friend": ["prompt.txt"], "": ["config/*", "config/*/*"], "virgil.labyrinth": ["config/*"]},
+    package_data={
+        "virgil.quiz": ["quiz.html", "example_quiz.html"],
+        "virgil.meme": ["prompt.txt"],
+        "virgil.friend": ["prompt.txt"],
+        "": ["config/*", "config/*/*"],
+        "virgil.labyrinth": ["config/*"],
+    },
     install_requires=[
         "transformers==4.46.3",
         "diffusers",

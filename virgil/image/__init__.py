@@ -16,8 +16,7 @@
 
 from .base import ImageGenerator
 from .diffuser import DiffuserImageGenerator
-
-__all__ = ["ImageGenerator", "DiffuserImageGenerator"]
+from .flux import FluxImageGenerator
 
 
 def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
@@ -35,3 +34,11 @@ def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
         return DiffuserImageGenerator(**kwargs)
     else:
         raise ValueError(f"Unknown image generator: {generator}")
+
+
+__all__ = [
+    ImageGenerator,
+    DiffuserImageGenerator,
+    FluxImageGenerator,
+    create_image_generator,
+]

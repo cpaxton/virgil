@@ -30,10 +30,17 @@ variants = [
     "google/gemma-3-12b-it",
 ]
 
+
 class Gemma(Backend):
-    def __init__(self, temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True,
-                 quantization: Optional[str] = "int8", use_flash_attention: bool = True,
-                 variant: str = "google/gemma-3-27b-it") -> None:
+    def __init__(
+        self,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        do_sample: bool = True,
+        quantization: Optional[str] = "int8",
+        use_flash_attention: bool = True,
+        variant: str = "google/gemma-3-27b-it",
+    ) -> None:
         """Initialize the Gemma backend.
 
         Args:
@@ -45,7 +52,9 @@ class Gemma(Backend):
         """
 
         if variant not in variants:
-            raise ValueError(f"Unknown variant: {variant}. Supported variants are: {variants}")
+            raise ValueError(
+                f"Unknown variant: {variant}. Supported variants are: {variants}"
+            )
         else:
             print("Loading gemma variant:", variant)
 
@@ -73,7 +82,12 @@ class Gemma(Backend):
             pipeline_kwargs["device"] = torch.device("mps")
 
         print("[Gemma] loading the model...")
-        self.pipe = pipeline("text-generation", model=variant, model_kwargs=model_kwargs, **pipeline_kwargs)
+        self.pipe = pipeline(
+            "text-generation",
+            model=variant,
+            model_kwargs=model_kwargs,
+            **pipeline_kwargs,
+        )
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample

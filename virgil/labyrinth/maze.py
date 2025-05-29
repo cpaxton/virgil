@@ -35,7 +35,11 @@ class Maze:
         self.maze = np.ones((self.height * 2 + 1, self.width * 2 + 1), dtype=int)
 
         # Create a list of all possible walls
-        walls = [(x, y) for x in range(1, self.height * 2, 2) for y in range(1, self.width * 2, 2)]
+        walls = [
+            (x, y)
+            for x in range(1, self.height * 2, 2)
+            for y in range(1, self.width * 2, 2)
+        ]
         random.shuffle(walls)
 
         # Start with the cell at (1, 1)
@@ -44,7 +48,11 @@ class Maze:
 
         while walls:
             x, y = walls.pop()
-            neighbors = [(x + dx, y + dy) for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)] if 0 < x + dx < self.height * 2 and 0 < y + dy < self.width * 2]
+            neighbors = [
+                (x + dx, y + dy)
+                for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2)]
+                if 0 < x + dx < self.height * 2 and 0 < y + dy < self.width * 2
+            ]
 
             unvisited = [n for n in neighbors if self.maze[n] == 1]
 
@@ -74,7 +82,11 @@ class Maze:
 
             for dx, dy in directions:
                 nx, ny = x + dx * 2, y + dy * 2
-                if 0 <= nx < self.width * 2 + 1 and 0 <= ny < self.height * 2 + 1 and self.maze[ny, nx] == 1:
+                if (
+                    0 <= nx < self.width * 2 + 1
+                    and 0 <= ny < self.height * 2 + 1
+                    and self.maze[ny, nx] == 1
+                ):
                     self.maze[y + dy, x + dx] = 0
                     dfs(nx, ny)
 
@@ -162,7 +174,11 @@ class Maze:
 
         for dx, dy in directions:
             nx, ny = x + dx, y + dy
-            if 0 <= nx < self.maze.shape[0] and 0 <= ny < self.maze.shape[1] and self.maze[nx, ny] == 0:
+            if (
+                0 <= nx < self.maze.shape[0]
+                and 0 <= ny < self.maze.shape[1]
+                and self.maze[nx, ny] == 0
+            ):
                 neighbors.append((nx, ny))
 
         return neighbors
@@ -189,7 +205,9 @@ class Maze:
 
             # Highlight start and end points
             plt.plot(1, 1, "go", markersize=10)  # Start point
-            plt.plot(self.width * 2 - 1, self.height * 2 - 1, "bo", markersize=10)  # End point
+            plt.plot(
+                self.width * 2 - 1, self.height * 2 - 1, "bo", markersize=10
+            )  # End point
 
         plt.axis("off")
         plt.show()

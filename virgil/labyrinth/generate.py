@@ -39,7 +39,9 @@ def get_labyrinth_js_path() -> str:
 class LabyrinthGenerator:
     """Load an LLM and use it to generate a labyrinth."""
 
-    def __init__(self, cfg: DictConfig, image_generator: Optional[DiffuserImageGenerator] = None) -> None:
+    def __init__(
+        self, cfg: DictConfig, image_generator: Optional[DiffuserImageGenerator] = None
+    ) -> None:
         self.cfg = cfg
 
         # Set random seed
@@ -58,8 +60,16 @@ class LabyrinthGenerator:
         self.backend = get_backend(self.cfg.backend)
 
         # Objects
-        self.chat = ChatWrapper(backend=self.backend, max_history_length=self.cfg.chat.max_history_length, preserve=self.cfg.chat.messages_to_preserve)
-        self.image_promt_generator = ChatWrapper(backend=self.backend, max_history_length=self.cfg.chat.max_history_length, preserve=self.cfg.chat.messages_to_preserve)
+        self.chat = ChatWrapper(
+            backend=self.backend,
+            max_history_length=self.cfg.chat.max_history_length,
+            preserve=self.cfg.chat.messages_to_preserve,
+        )
+        self.image_promt_generator = ChatWrapper(
+            backend=self.backend,
+            max_history_length=self.cfg.chat.max_history_length,
+            preserve=self.cfg.chat.messages_to_preserve,
+        )
 
         # Load the prompt
         self.initial_prompt_template = self.load_prompt(cfg.prompt.initial_prompt)
@@ -67,7 +77,14 @@ class LabyrinthGenerator:
         self.image_prompt = self.load_prompt(cfg.prompt.image_prompt)
 
         if image_generator is None:
-            self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=False)
+            self.image_generator = DiffuserImageGenerator(
+                height=512,
+                width=512,
+                num_inference_steps=4,
+                guidance_scale=0.0,
+                model="turbo",
+                xformers=False,
+            )
         else:
             self.image_generator = image_generator
 
@@ -78,10 +95,12 @@ class LabyrinthGenerator:
 
     def create_maze(self) -> Maze:
         # Create the maze to explore
-        maze = Maze(self.cfg.maze.height, self.cfg.maze.width, seed=self.cfg.random_seed)
-        graph = maze.extract_graph()
+        maze = Maze(
+            self.cfg.maze.height, self.cfg.maze.width, seed=self.cfg.random_seed
+        )
 
         # TODO: remove debug info
+        # graph = maze.extract_graph()
         # print(graph)
 
         if self.cfg.maze.visualize:
@@ -89,7 +108,13 @@ class LabyrinthGenerator:
 
         return maze
 
-    def generate(self, location: Optional[str] = None, goal: Optional[str] = None, writing_style: Optional[str] = None, image_style: Optional[str] = None) -> None:
+    def generate(
+        self,
+        location: Optional[str] = None,
+        goal: Optional[str] = None,
+        writing_style: Optional[str] = None,
+        image_style: Optional[str] = None,
+    ) -> None:
         """
         Generate a labyrinth based on the given parameters.
 
@@ -110,7 +135,13 @@ class LabyrinthGenerator:
         if image_style is None:
             image_style = self.cfg.world.image_style
 
-        initial_prompt = self.initial_prompt_template.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width)
+        initial_prompt = self.initial_prompt_template.format(
+            location=location,
+            goal=goal,
+            writing_style=writing_style,
+            height=self.cfg.maze.height,
+            width=self.cfg.maze.width,
+        )
 
         res = self.chat.prompt(initial_prompt, verbose=True)
         assert "acknowledge" in res.lower(), "Failed to acknowledge the initial prompt."
@@ -123,7 +154,8 @@ class LabyrinthGenerator:
 
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
-        distances_to_goal = maze.compute_distances_from_goal()
+        # TODO: remove debug info
+        # distances_to_goal = maze.compute_distances_from_goal()
         print("Distances:", distances)
         graph = maze.extract_graph()
         print("Graph:", graph)
@@ -154,8 +186,12 @@ class LabyrinthGenerator:
 
             descriptions[key]["neighbors"] = [f"{n[0]}_{n[1]}" for n in next_nodes]
             descriptions[key]["distance"] = distance
-            descriptions[key]["is_start"] = node[0] == start_node[0] and node[1] == start_node[1]
-            descriptions[key]["is_goal"] = node[0] == goal_node[0] and node[1] == goal_node[1]
+            descriptions[key]["is_start"] = (
+                node[0] == start_node[0] and node[1] == start_node[1]
+            )
+            descriptions[key]["is_goal"] = (
+                node[0] == goal_node[0] and node[1] == goal_node[1]
+            )
             descriptions[key]["is_dead_end"] = len(next_nodes) == 1
             descriptions[key]["is_junction"] = len(next_nodes) > 2
 
@@ -186,53 +222,84 @@ class LabyrinthGenerator:
             if descriptions[key]["is_start"]:
                 extra_info = " - This is the start room.\n"
             if descriptions[key]["is_goal"]:
-                extra_info = f" - This is the goal room, containing {goal}. Describe it.\n"
+                extra_info = (
+                    f" - This is the goal room, containing {goal}. Describe it.\n"
+                )
             if descriptions[key]["is_dead_end"]:
                 extra_info = " - This is a dead end. Describe it.\n"
             if descriptions[key]["is_junction"]:
                 extra_info = " - Multiple paths meet here. Describe them.\n"
             if descriptions[key]["has_npc"]:
-                extra_info = " - There is someone here, waiting for you. Describe them.\n"
+                extra_info = (
+                    " - There is someone here, waiting for you. Describe them.\n"
+                )
             if descriptions[key]["has_challenges"]:
                 extra_info = " - There is a challenge here that will be hard to overcome. Describe it.\n"
             if descriptions[key]["is_unusual"]:
                 extra_info = " - This place is unusual. It is not like the others. Describe why.\n"
 
             # Per room prompt filled out
-            per_room_prompt = self.per_room_prompt.format(location=location, goal=goal, writing_style=writing_style, height=self.cfg.maze.height, width=self.cfg.maze.width, room=node, distance=distance, current_room=node, next_rooms=next_nodes, info=extra_info)
+            per_room_prompt = self.per_room_prompt.format(
+                location=location,
+                goal=goal,
+                writing_style=writing_style,
+                height=self.cfg.maze.height,
+                width=self.cfg.maze.width,
+                room=node,
+                distance=distance,
+                current_room=node,
+                next_rooms=next_nodes,
+                info=extra_info,
+            )
             description = self.chat.prompt(per_room_prompt, verbose=True)
             descriptions[key]["text"] = description
 
             # Set the title
-            room_title = self.chat.prompt('Name this room. Name should be concise, < 5 words, and descriptive, e.g. "The Great Hall," "Secluded Clearing." It should not contain {node}. Name:', verbose=False)
+            room_title = self.chat.prompt(
+                'Name this room. Name should be concise, < 5 words, and descriptive, e.g. "The Great Hall," "Secluded Clearing." It should not contain {node}. Name:',
+                verbose=False,
+            )
             print("Room title:", room_title)
             descriptions[key]["title"] = room_title
 
             if descriptions[key]["has_npc"]:
-                npc_description = self.chat.prompt(f"Describe appearance of the the NPC in this room. The NPC should be a character that the player can interact with. Do not use the term NPC. Describe them in a few sentences, starting with their appearance.")
+                npc_description = self.chat.prompt(
+                    "Describe appearance of the the NPC in this room. The NPC should be a character that the player can interact with. Do not use the term NPC. Describe them in a few sentences, starting with their appearance."
+                )
                 print("NPC description:", npc_description)
                 descriptions[key]["npc"] = npc_description
                 descriptions[key]["text"] += f"\n\n{npc_description}"
             elif descriptions[key]["has_challenges"]:
-                challenge_description = self.chat.prompt(f"Describe the challenge in this room. The challenge should be something that the player must overcome to progress. Do not use the term challenge. Describe it in a few sentences, starting with the challenge.")
+                challenge_description = self.chat.prompt(
+                    "Describe the challenge in this room. The challenge should be something that the player must overcome to progress. Do not use the term challenge. Describe it in a few sentences, starting with the challenge."
+                )
                 print("Challenge description:", challenge_description)
                 descriptions[key]["challenge"] = challenge_description
                 descriptions[key]["text"] += f"\n\n{challenge_description}"
             elif descriptions[key]["is_unusual"]:
-                unusual_description = self.chat.prompt(f"Describe what makes this room unusual in more detail. This room should be different from the others in some way. Describe it in a few sentences, starting with the unusual aspect.")
+                unusual_description = self.chat.prompt(
+                    "Describe what makes this room unusual in more detail. This room should be different from the others in some way. Describe it in a few sentences, starting with the unusual aspect."
+                )
                 print("Unusual description:", unusual_description)
                 descriptions[key]["unusual"] = unusual_description
                 descriptions[key]["text"] += f"\n\n{unusual_description}"
 
             descriptions[key]["actions"] = {}
             for n in next_nodes:
-                action_n = self.chat.prompt(f'Describe how to get to {n} from {node} in one short imperative sentence of < 8 words, without saying either {n} or {node}, e.g. "Climb the stairs.":', verbose=False)
+                action_n = self.chat.prompt(
+                    f'Describe how to get to {n} from {node} in one short imperative sentence of < 8 words, without saying either {n} or {node}, e.g. "Climb the stairs.":',
+                    verbose=False,
+                )
                 print(" - ", action_n, "to", n)
                 descriptions[key]["actions"][f"{n[0]}_{n[1]}"] = action_n
 
             # Generate the image prompt
-            image_prompt = self.image_prompt.format(location=location, description=description)
-            image_description = self.image_promt_generator.prompt(image_prompt, verbose=False)
+            image_prompt = self.image_prompt.format(
+                location=location, description=description
+            )
+            image_description = self.image_promt_generator.prompt(
+                image_prompt, verbose=False
+            )
             print("Image description:", image_description)
             descriptions[key]["image"] = image_description
 
@@ -257,7 +324,9 @@ class LabyrinthGenerator:
             image_filename = os.path.join(folder_name, description["image_filename"])
             self.generate_image(image_style, description["image"], image_filename)
 
-    def generate_image(self, image_style: str, image_description: str, image_filename: str) -> None:
+    def generate_image(
+        self, image_style: str, image_description: str, image_filename: str
+    ) -> None:
         """Generate an image based on the given description.
 
         Args:
@@ -286,7 +355,12 @@ def main(cfg: DictConfig):
     for world in cfg.worlds:
         print("Generating world:", world)
         world = cfg.worlds[world]
-        labyrinth_generator.generate(location=world.location, goal=world.goal, writing_style=world.writing_style, image_style=world.image_style)
+        labyrinth_generator.generate(
+            location=world.location,
+            goal=world.goal,
+            writing_style=world.writing_style,
+            image_style=world.image_style,
+        )
 
 
 if __name__ == "__main__":
