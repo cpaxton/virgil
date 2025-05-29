@@ -9,8 +9,6 @@ pipe = pipeline(
     device="cuda",  # replace with "mps" to run on a Mac device
 )
 
-import sys
-
 
 def query(msg):
     # msg = " ".join(sys.argv[1:])
@@ -28,7 +26,7 @@ def query(msg):
     # Print the assistant's response
     print(assistant_response)
     print("----------------")
-    print(f"Time taken: {t1-t0:.2f} seconds")
+    print(f"Time taken: {t1 - t0:.2f} seconds")
     print("----------------")
 
 

@@ -163,7 +163,20 @@ def generate_quiz(topic: str, backend: Gemma, save_with_date: bool = False) -> N
 
     chat.clear()
 
-    msg = prompt_questions.format(num_questions=10, topic=topic, result_a=res_a["result"], result_b=res_b["result"], result_c=res_c["result"], result_d=res_d["result"], result_e=res_e["result"], description_a=res_a["description"], description_b=res_b["description"], description_c=res_c["description"], description_d=res_d["description"], description_e=res_e["description"])
+    msg = prompt_questions.format(
+        num_questions=10,
+        topic=topic,
+        result_a=res_a["result"],
+        result_b=res_b["result"],
+        result_c=res_c["result"],
+        result_d=res_d["result"],
+        result_e=res_e["result"],
+        description_a=res_a["description"],
+        description_b=res_b["description"],
+        description_c=res_c["description"],
+        description_d=res_d["description"],
+        description_e=res_e["description"],
+    )
     q1 = question_parser.prompt(topic=topic, question=1, msg=msg)
     questions = [q1]
     for i in range(2, 11):
@@ -262,8 +275,20 @@ def main(topic: str = ""):
         "What kind of door are you?",
         "What extremely specific door are you?",
     ]
-    topics4 = ["What kind of potato are you?", "What extremely specific odor are you?", "What popular internet meme are you?", "What Andy are you?", "What quiz are you?", "How drunk are you right now?"]
-    topics = ["How did you get so drunk?", "Who am I and how did I get here?", "What should I name my dog?", "How do I get out of here?"]
+    topics4 = [
+        "What kind of potato are you?",
+        "What extremely specific odor are you?",
+        "What popular internet meme are you?",
+        "What Andy are you?",
+        "What quiz are you?",
+        "How drunk are you right now?",
+    ]
+    topics = [
+        "How did you get so drunk?",
+        "Who am I and how did I get here?",
+        "What should I name my dog?",
+        "How do I get out of here?",
+    ]
 
     # Ran out of memory at tea
     topics4 = [

@@ -22,7 +22,9 @@ class ChannelList:
 
     def __init__(self):
         self.home_channels: List[discord.TextChannel] = []
-        self.visiting_channels: Dict[discord.TextChannel, float] = {}  # Maps channel to expiration time
+        self.visiting_channels: Dict[
+            discord.TextChannel, float
+        ] = {}  # Maps channel to expiration time
 
     def add_home(self, channel: discord.TextChannel):
         """Add a channel to the home list."""
@@ -51,7 +53,9 @@ class ChannelList:
         return self.is_valid(channel)
 
     def __iter__(self):
-        return chain(self.home_channels, (vc.channel for vc in self.visiting_channels.values()))
+        return chain(
+            self.home_channels, (vc.channel for vc in self.visiting_channels.values())
+        )
 
     def __len__(self):
         return len(self.home_channels) + len(self.visiting_channels)

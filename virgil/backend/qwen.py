@@ -15,7 +15,12 @@
 # (c) 2024 by Chris Paxton
 
 import torch
-from transformers import pipeline, BitsAndBytesConfig, AutoModelForCausalLM, AutoTokenizer
+from transformers import (
+    pipeline,
+    BitsAndBytesConfig,
+    AutoModelForCausalLM,
+    AutoTokenizer,
+)
 from typing import Optional
 
 from virgil.backend.base import Backend
@@ -28,7 +33,17 @@ qwen_specializations = ["Instruct", "Coder", "Math", "Deepseek"]
 class Qwen(Backend):
     """Use the Qwen model to generate responses to messages."""
 
-    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int4", model_path: str = None) -> None:
+    def __init__(
+        self,
+        model_name: Optional[str] = None,
+        size: Optional[str] = None,
+        specialization="Instruct",
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+        do_sample: bool = True,
+        quantization: Optional[str] = "int4",
+        model_path: str = None,
+    ) -> None:
         """Initialize the Qwen backend.
 
         Args:
@@ -49,7 +64,9 @@ class Qwen(Backend):
             raise ValueError(f"Unknown size: {size}. Available sizes: {qwen_sizes}")
         # Check if the specialization is valid
         if specialization not in qwen_specializations:
-            raise ValueError(f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}")
+            raise ValueError(
+                f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}"
+            )
 
         model_kwargs = {"torch_dtype": "auto"}
         if model_path is not None and len(model_path) > 0:
@@ -76,7 +93,9 @@ class Qwen(Backend):
                 try:
                     import awq
                 except ImportError:
-                    logger.error("To use quantization, please install the autoawq package.")
+                    logger.error(
+                        "To use quantization, please install the autoawq package."
+                    )
                     quantization = ""
                 if quantization == "awq":
                     model_name += "-AWQ"
@@ -86,14 +105,16 @@ class Qwen(Backend):
                 try:
                     import bitsandbytes  # noqa: F401
                 except ImportError:
-                    raise ImportError("bitsandbytes required for int4/int8 quantization: pip install bitsandbytes")
+                    raise ImportError(
+                        "bitsandbytes required for int4/int8 quantization: pip install bitsandbytes"
+                    )
 
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=(quantization == "int4"),
                     load_in_8bit=(quantization == "int8"),
                     bnb_4bit_use_double_quant=True,
                     bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=torch.bfloat16
+                    bnb_4bit_compute_dtype=torch.bfloat16,
                 )
                 model_kwargs["quantization_config"] = quantization_config
             else:
@@ -108,13 +129,18 @@ class Qwen(Backend):
         if quantization_config is not None:
             model_kwargs["quantization_config"] = quantization_config
 
-
         # Load the model and tokenizer with the quantization configuration
         self.model = AutoModelForCausalLM.from_pretrained(
             model_id,
             quantization_config=quantization_config,
-            device_map="auto" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else None,
-            torch_dtype=torch.bfloat16 if quantization_config is None else None  # added to avoid errors when no quantization
+            device_map="auto"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else None,
+            torch_dtype=torch.bfloat16
+            if quantization_config is None
+            else None,  # added to avoid errors when no quantization
         )
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
@@ -123,7 +149,7 @@ class Qwen(Backend):
             "text-generation",
             model=self.model,
             tokenizer=self.tokenizer,
-            model_kwargs=model_kwargs # keep this
+            model_kwargs=model_kwargs,  # keep this
         )
 
         self.temperature = temperature
@@ -151,5 +177,7 @@ class Qwen(Backend):
 
 
 if __name__ == "__main__":
-    llm = Qwen(model_name=None, size="7B", specialization="Instruct", quantization="int4")
+    llm = Qwen(
+        model_name=None, size="7B", specialization="Instruct", quantization="int4"
+    )
     print(llm("The key to life is"))

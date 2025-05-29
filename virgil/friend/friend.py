@@ -20,7 +20,6 @@ from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
 from typing import Optional
-import timeit
 import random
 import threading
 import time
@@ -59,10 +58,17 @@ def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
 class Friend(DiscordBot):
     """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
 
-    def __init__(self, token: Optional[str] = None, backend="gemma",
-                 attention_window_seconds: float = 600.0, image_generator: str = "diffuser",
-                 join_at_random: bool = False, max_history_length: int = 25,
-                 prompt_filename: str = "prompt.txt", home_channel: str = "ask-a-robot") -> None:
+    def __init__(
+        self,
+        token: Optional[str] = None,
+        backend="gemma",
+        attention_window_seconds: float = 600.0,
+        image_generator: str = "diffuser",
+        join_at_random: bool = False,
+        max_history_length: int = 25,
+        prompt_filename: str = "prompt.txt",
+        home_channel: str = "ask-a-robot",
+    ) -> None:
         """Initialize the bot with the given token and backend.
 
         Args:
@@ -75,7 +81,9 @@ class Friend(DiscordBot):
         """
 
         self.backend = get_backend(backend)
-        self.chat = ChatWrapper(self.backend, max_history_length=max_history_length, preserve=2)
+        self.chat = ChatWrapper(
+            self.backend, max_history_length=max_history_length, preserve=2
+        )
         self.attention_window_seconds = attention_window_seconds
         self.raw_prompt = load_prompt_helper(prompt_filename)
         self.prompt = None
@@ -109,7 +117,14 @@ class Friend(DiscordBot):
             if image_generator.lower() == "diffuser":
                 # This worked well as of 2024-10-22 with the diffusers library
                 # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
-                self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=False)
+                self.image_generator = DiffuserImageGenerator(
+                    height=512,
+                    width=512,
+                    num_inference_steps=4,
+                    guidance_scale=0.0,
+                    model="turbo",
+                    xformers=False,
+                )
             elif image_generator.lower() == "flux":
                 self.image_generator = FluxImageGenerator(height=512, width=512)
         else:
@@ -129,7 +144,11 @@ class Friend(DiscordBot):
         print("Bot User IDL", self.client.user.id)
         self._user_name = self.client.user.name
         self._user_id = self.client.user.id
-        self.prompt = self.raw_prompt.format(username=self._user_name, user_id=self._user_id, memories="\n".join(self.memory))
+        self.prompt = self.raw_prompt.format(
+            username=self._user_name,
+            user_id=self._user_id,
+            memories="\n".join(self.memory),
+        )
 
         if self.sent_prompt is False:
             res = self.chat.prompt(self.prompt, verbose=True)
@@ -189,7 +208,9 @@ class Friend(DiscordBot):
         # try:
         # Now actually prompt the AI
         with self._chat_lock:
-            response = self.chat.prompt(text, verbose=True, assistant_history_prefix="")  # f"{self._user_name} on #{channel_name}: ")
+            response = self.chat.prompt(
+                text, verbose=True, assistant_history_prefix=""
+            )  # f"{self._user_name} on #{channel_name}: ")
         action_plan = self.parser.parse(response)
         print()
         print("Action plan:", action_plan)
@@ -241,7 +262,9 @@ class Friend(DiscordBot):
                 try:
                     self.memory.remove(content)
                 except ValueError:
-                    print(colored(" -> Could not find this in memory: ", content, "red"))
+                    print(
+                        colored(" -> Could not find this in memory: ", content, "red")
+                    )
 
                 # Save memory to file
                 with open("memory.txt", "w") as file:
@@ -285,17 +308,19 @@ class Friend(DiscordBot):
         print("Timestamp:", timestamp)
 
         # Check if this channel is in the whitelist
-        if self.join_at_random and not channel_id in self.allowed_channels:
+        if self.join_at_random and channel_id not in self.allowed_channels:
             # Random number generator - 1 in 1000 chance
             random_number = random.randint(1, 100)
             print("Random number:", random_number)
             if random_number < 2:
                 # Add to whitelist
-                self.allowed_channels.visit(channel_id, timeout_s=self.attention_window_seconds)
+                self.allowed_channels.visit(
+                    channel_id, timeout_s=self.attention_window_seconds
+                )
                 print(f" -> Added {channel_name} to whitelist")
 
         print(self.allowed_channels)
-        if not message.channel in self.allowed_channels:
+        if message.channel not in self.allowed_channels:
             print(" -> Not in allowed channels. Skipping.")
             return None
 
@@ -312,10 +337,17 @@ class Friend(DiscordBot):
 @click.command()
 @click.option("--token", default=None, help="The token for the discord bot.")
 @click.option("--backend", default="gemma", help="The backend to use for the chat.")
-@click.option("--max-history-length", default=25, help="The maximum length of the chat history.")
+@click.option(
+    "--max-history-length", default=25, help="The maximum length of the chat history."
+)
 @click.option("--prompt", default="prompt.txt", help="The filename for the prompt.")
 def main(token, backend, max_history_length, prompt):
-    bot = Friend(token=token, backend=backend, max_history_length=max_history_length, prompt_filename=prompt)
+    bot = Friend(
+        token=token,
+        backend=backend,
+        max_history_length=max_history_length,
+        prompt_filename=prompt,
+    )
     client = bot.client
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")

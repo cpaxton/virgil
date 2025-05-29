@@ -17,13 +17,11 @@
 import yaml
 import os
 import click
-import re
 import numpy as np
 import glob
 
 
 import pkg_resources
-import os
 
 
 def load_quiz_html():
@@ -54,7 +52,11 @@ def read_and_parse_yaml_files(results_file, questions_file):
         # Parse and restructure the data
         parsed_questions = []
         for index, question in enumerate(questions_data, start=1):
-            parsed_question = {"text": question["question"], "image": f"questions/{index}.png", "options": []}
+            parsed_question = {
+                "text": question["question"],
+                "image": f"questions/{index}.png",
+                "options": [],
+            }
             for key, value in question["options"].items():
                 parsed_question["options"].append({"text": value, "type": key})
 
@@ -66,7 +68,12 @@ def read_and_parse_yaml_files(results_file, questions_file):
         parsed_results = {}
         for key, value in results_data.items():
             if isinstance(value, dict):
-                parsed_results[key] = {"description": value["description"], "image": f"results/{key}.png", "image_description": value["image"], "title": value["result"]}
+                parsed_results[key] = {
+                    "description": value["description"],
+                    "image": f"results/{key}.png",
+                    "image_description": value["image"],
+                    "title": value["result"],
+                }
                 topic = value["topic"]
 
         return {
@@ -119,7 +126,9 @@ def create_quiz_html(folder_path: str):
     template = load_quiz_html()
 
     # Replace the placeholders in the template with the data from the combined.yaml file
-    template = template.replace("{{ raw_data }}", yaml.dump(combined_data, default_flow_style=False))
+    template = template.replace(
+        "{{ raw_data }}", yaml.dump(combined_data, default_flow_style=False)
+    )
 
     print(template)
 
@@ -131,8 +140,16 @@ def create_quiz_html(folder_path: str):
 
 # Example usage
 @click.command()
-@click.option("--folder_path", default="", help="Path to the folder containing a set of quizzes to process")
-@click.option("--quiz_path", default="", help="Path to the folder containing results.yaml and questions.yaml for a single quiz")
+@click.option(
+    "--folder_path",
+    default="",
+    help="Path to the folder containing a set of quizzes to process",
+)
+@click.option(
+    "--quiz_path",
+    default="",
+    help="Path to the folder containing results.yaml and questions.yaml for a single quiz",
+)
 def main(folder_path: str = "", quiz_path: str = "") -> None:
     if len(quiz_path) > 0:
         create_quiz_html(quiz_path)
