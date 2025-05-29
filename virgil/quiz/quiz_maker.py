@@ -43,7 +43,7 @@ prompt_answers = """You are generating a fun, clever Buzzfeed-style personality 
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
 
-Results are given with a title and a description, as well as a longer description (1-2 paragraphs) and a prompt for an image generator.
+Results are given with a title and a description, as well as a longer description (1-2 paragraphs) and a prompt for an image generator. You must always end each result with "END RESULT".
 
 For example:
 
