@@ -26,8 +26,14 @@ from typing import Optional
 from virgil.backend.base import Backend
 import virgil.utils.log as logger
 
-qwen_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
+qwen25_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
 qwen_specializations = ["Instruct", "Coder", "Math", "Deepseek"]
+qwen_releases = ["2.5", "3"]
+qwen30_sizes = ["0.6B", "1.7B", "4B", "8B", "14B", "32B"]
+
+# Combine the sizes from both versions
+# Note that we probably need better handling of this in the future
+qwen_sizes = qwen25_sizes + qwen30_sizes
 
 
 class Qwen(Backend):
@@ -43,6 +49,7 @@ class Qwen(Backend):
         do_sample: bool = True,
         quantization: Optional[str] = "int4",
         model_path: str = None,
+        release: str = "3",
     ) -> None:
         """Initialize the Qwen backend.
 
@@ -78,7 +85,7 @@ class Qwen(Backend):
                 if specialization == "Deepseek":
                     model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
                 else:
-                    model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
+                    model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
 
             model_id = model_name
 

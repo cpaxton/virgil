@@ -70,7 +70,15 @@ def create_images_for_folder(folder_path: str, num_tries: int = 10) -> None:
     Args:
         folder_path (str): Path to the folder containing results.yaml and questions.yaml.
     """
-    generator = DiffuserImageGenerator(num_inference_steps=50, guidance_scale=7.5)
+    # generator = DiffuserImageGenerator(num_inference_steps=50, guidance_scale=7.5)
+    generator = DiffuserImageGenerator(
+        height=512,
+        width=512,
+        num_inference_steps=4,
+        guidance_scale=0.0,
+        model="turbo",
+        xformers=False,
+    )
     aligner = SigLIPAligner()
 
     # Create subfolders for the images for questions and for the results

@@ -38,7 +38,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
-from virgil.image.diffuser import DiffuserImageGenerator, FluxImageGenerator
+from virgil.image import DiffuserImageGenerator, FluxImageGenerator
 from virgil.utils import load_prompt
 
 
