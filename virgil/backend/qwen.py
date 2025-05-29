@@ -91,6 +91,7 @@ class Qwen(Backend):
             if quantization == "awq":
                 model_kwargs["torch_dtype"] = torch.float16
                 try:
+                    # ruff: noqa: F401
                     import awq
                 except ImportError:
                     logger.error(

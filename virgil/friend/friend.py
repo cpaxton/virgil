@@ -30,11 +30,15 @@ import discord
 # This only works on Ampere+ GPUs
 import torch
 
+# Enable TensorFloat-32 (TF32) on Ampere GPUs for faster matrix multiplications
+# Need to let Ruff know this is okay
+# ruff: noqa: F401
+# ruff: noqa: E402
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
-from virgil.image.diffuser import DiffuserImageGenerator
+from virgil.image.diffuser import DiffuserImageGenerator, FluxImageGenerator
 from virgil.utils import load_prompt
 
 
@@ -348,7 +352,6 @@ def main(token, backend, max_history_length, prompt):
         max_history_length=max_history_length,
         prompt_filename=prompt,
     )
-    client = bot.client
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")
     async def summon(ctx):
