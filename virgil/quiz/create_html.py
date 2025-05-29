@@ -103,11 +103,8 @@ def create_combined_yaml_for_folder(folder_path: str) -> None:
 
     if parsed_data:
         print(
-            yaml.dump(
+            yaml_dump(
                 parsed_data,
-                default_flow_style=False,
-                sort_keys=False,
-                allow_unicode=True,
             )
         )
 
@@ -134,9 +131,7 @@ def create_quiz_html(folder_path: str):
     template = load_quiz_html()
 
     # Replace the placeholders in the template with the data from the combined.yaml file
-    template = template.replace(
-        "{{ raw_data }}", yaml.dump(combined_data, default_flow_style=False)
-    )
+    template = template.replace("{{ raw_data }}", yaml_dump(combined_data))
 
     print(template)
 
