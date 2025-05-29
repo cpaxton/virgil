@@ -14,8 +14,6 @@
 
 # (c) 2024 by Chris Paxton
 
-from typing import Optional
-
 import torch
 from .gemma import Gemma
 from .base import Backend

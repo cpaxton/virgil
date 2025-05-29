@@ -1,4 +1,5 @@
 import torch
+import random
 from transformers import pipeline
 import timeit
 
@@ -40,7 +41,6 @@ Question: """
 # question = "Who was the president of the united states of america during the american civil war?"
 question = "Name all the prime numbers below 20; for each, name the capital of an African country."
 question_shuffled = question.split(" ")
-import random
 
 random.shuffle(question_shuffled)
 question_shuffled = " ".join(question_shuffled)
