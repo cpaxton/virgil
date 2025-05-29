@@ -180,8 +180,6 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
     res_d["description"] = res_d["description"].replace("\n", " ")
     res_e["description"] = res_e["description"].replace("\n", " ")
 
-    breakpoint()
-
     # Save all the results out as a YAML file
     with open(os.path.join(dirname, "results.yaml"), "w") as f:
         yaml.dump(
