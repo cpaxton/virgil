@@ -35,12 +35,16 @@ from virgil.backend import Backend, backend_list
 
 
 class ChatWrapper:
-    def __init__(self, backend: Backend, max_history_length: int = 50, preserve: int = 2) -> None:
+    def __init__(
+        self, backend: Backend, max_history_length: int = 50, preserve: int = 2
+    ) -> None:
         self.backend = backend
         self.max_history_length = max_history_length
         self.preserve = preserve
         if self.preserve > self.max_history_length:
-            raise ValueError(f"Preserve must be less than or equal to max_history_length. Got preserve={self.preserve} and max_history_length={self.max_history_length}")
+            raise ValueError(
+                f"Preserve must be less than or equal to max_history_length. Got preserve={self.preserve} and max_history_length={self.max_history_length}"
+            )
         self.conversation_history = []
 
     def add_conversation_history(self, role: str, content: str, verbose: bool = False):
@@ -67,7 +71,12 @@ class ChatWrapper:
             # Trim the conversation history, preserving the first `preserve` messages
             # TODO: handle self.preserve > 0
             if len(self.conversation_history) > self.max_history_length:
-                self.conversation_history = self.conversation_history[: self.preserve] + self.conversation_history[-(self.max_history_length - self.preserve) :]
+                self.conversation_history = (
+                    self.conversation_history[: self.preserve]
+                    + self.conversation_history[
+                        -(self.max_history_length - self.preserve) :
+                    ]
+                )
 
         if verbose:
             print("Conversation history:")
@@ -81,7 +90,13 @@ class ChatWrapper:
     def __len__(self):
         return len(self.conversation_history)
 
-    def prompt(self, msg: str, verbose: bool = False, max_new_tokens: int = 2000, assistant_history_prefix: str = "") -> str:
+    def prompt(
+        self,
+        msg: str,
+        verbose: bool = False,
+        max_new_tokens: int = 2000,
+        assistant_history_prefix: str = "",
+    ) -> str:
         """Prompt the LLM with a message.
 
         Args:
@@ -100,7 +115,9 @@ class ChatWrapper:
         assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
         # Add the assistant's response to the conversation history
-        self.add_conversation_history("assistant", assistant_history_prefix + assistant_response)
+        self.add_conversation_history(
+            "assistant", assistant_history_prefix + assistant_response
+        )
 
         if verbose:
             # Print the assistant's response
@@ -109,27 +126,53 @@ class ChatWrapper:
             print()
             print(colored("Response:\n", "blue") + assistant_response)
             print("----------------")
-            print(f"Generator time taken: {t1-t0:.2f} seconds")
+            print(f"Generator time taken: {t1 - t0:.2f} seconds")
             print("----------------")
 
         return assistant_response
 
 
 @click.command()
-@click.option("--max-history-length", default=50, help="The maximum length of the conversation history.")
-@click.option("--preserve", default=2, help="The number of messages to preserve in the conversation history.")
+@click.option(
+    "--max-history-length",
+    default=50,
+    help="The maximum length of the conversation history.",
+)
+@click.option(
+    "--preserve",
+    default=2,
+    help="The number of messages to preserve in the conversation history.",
+)
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
-@click.option("--backend", default="gemma-3-12b-it", help="The backend to use.", type=click.Choice(backend_list, case_sensitive=False))
-@click.option("--prompt", default="", help="The prompt (as a text file) to start the conversation with.")
+@click.option(
+    "--backend",
+    default="gemma-3-12b-it",
+    help="The backend to use.",
+    type=click.Choice(backend_list, case_sensitive=False),
+)
+@click.option(
+    "--prompt",
+    default="",
+    help="The prompt (as a text file) to start the conversation with.",
+)
 @click.option("--path", default="", help="Optional path to model weights.")
-def main(max_history_length: int, preserve: int, verbose: bool, backend: str, prompt: str, path: str = "") -> None:
+def main(
+    max_history_length: int,
+    preserve: int,
+    verbose: bool,
+    backend: str,
+    prompt: str,
+    path: str = "",
+) -> None:
     from virgil.backend import get_backend
-    
+
     kwargs = {}
     if len(path) > 0:
         kwargs["model_path"] = path
     backend = get_backend(backend, **kwargs)
-    chat = ChatWrapper(backend=backend, max_history_length=max_history_length, preserve=preserve)
+    chat = ChatWrapper(
+        backend=backend, max_history_length=max_history_length, preserve=preserve
+    )
 
     prompt_text = None
     if len(prompt) > 0:

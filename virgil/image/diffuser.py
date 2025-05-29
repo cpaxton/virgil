@@ -23,11 +23,6 @@ from virgil.image.base import ImageGenerator
 from virgil.image.siglip import SigLIPAligner
 
 
-from diffusers import AutoPipelineForText2Image
-import torch
-from PIL import Image
-
-
 class DiffuserImageGenerator(ImageGenerator):
     """
     A class for generating images from text prompts using the Diffusers library,
@@ -43,7 +38,15 @@ class DiffuserImageGenerator(ImageGenerator):
         "small_sd3": "stabilityai/stable-diffusion-3-medium",
     }
 
-    def __init__(self, height: int = 512, width: int = 512, num_inference_steps: int = 50, guidance_scale: float = 7.5, model: str = "base", xformers: bool = False) -> None:
+    def __init__(
+        self,
+        height: int = 512,
+        width: int = 512,
+        num_inference_steps: int = 50,
+        guidance_scale: float = 7.5,
+        model: str = "base",
+        xformers: bool = False,
+    ) -> None:
         """
         Initialize the DiffuserImageGenerator with a pre-trained model and image generation parameters.
 
@@ -61,7 +64,9 @@ class DiffuserImageGenerator(ImageGenerator):
         self.guidance_scale = guidance_scale
 
         if model not in self.MODEL_OPTIONS:
-            raise ValueError(f"Unknown model: {model}. Available options are: {', '.join(self.MODEL_OPTIONS.keys())}")
+            raise ValueError(
+                f"Unknown model: {model}. Available options are: {', '.join(self.MODEL_OPTIONS.keys())}"
+            )
 
         model_name = self.MODEL_OPTIONS[model]
 
@@ -74,12 +79,16 @@ class DiffuserImageGenerator(ImageGenerator):
             try:
                 import xformers
             except ImportError:
-                print("Tried to use Xformers but it is not installed. Please install it following instructions at: https://github.com/facebookresearch/xformers")
+                print(
+                    "Tried to use Xformers but it is not installed. Please install it following instructions at: https://github.com/facebookresearch/xformers"
+                )
                 xformers = False
 
         # Load the model
         print("[Diffuser] Loading model...")
-        self.pipeline = AutoPipelineForText2Image.from_pretrained(model_name, torch_dtype=torch.float16, variant="fp16", use_safetensors=True)
+        self.pipeline = AutoPipelineForText2Image.from_pretrained(
+            model_name, torch_dtype=torch.float16, variant="fp16", use_safetensors=True
+        )
 
         # Place the model on the GPU if available
         print("[Diffuser] Placing model on GPU if available...")
@@ -122,7 +131,9 @@ class DiffuserImageGenerator(ImageGenerator):
             self.pipeline.enable_xformers_memory_efficient_attention()
             print("...done.")
 
-    def generate(self, prompt: str, negative_prompt: str = "blurry, bad quality, duplicated") -> Image.Image:
+    def generate(
+        self, prompt: str, negative_prompt: str = "blurry, bad quality, duplicated"
+    ) -> Image.Image:
         """
         Generate an image based on the given text prompt.
 
@@ -135,7 +146,14 @@ class DiffuserImageGenerator(ImageGenerator):
         """
         with torch.no_grad():
             # with torch.cuda.amp.autocast(dtype=torch.float16):
-            result = self.pipeline(prompt=prompt, negative_prompt=negative_prompt, height=self.height, width=self.width, num_inference_steps=self.num_inference_steps, guidance_scale=self.guidance_scale)
+            result = self.pipeline(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                height=self.height,
+                width=self.width,
+                num_inference_steps=self.num_inference_steps,
+                guidance_scale=self.guidance_scale,
+            )
         return result.images[0]
 
 
@@ -147,7 +165,14 @@ if __name__ == "__main__":
     # generator = DiffuserImageGenerator()
     # Sized for Discord banner
     # generator = DiffuserImageGenerator(height=500, width=500)
-    generator = DiffuserImageGenerator(height=200, width=200, num_inference_steps=4, guidance_scale=0.0, model="turbo", xformers=True)
+    generator = DiffuserImageGenerator(
+        height=200,
+        width=200,
+        num_inference_steps=4,
+        guidance_scale=0.0,
+        model="turbo",
+        xformers=True,
+    )
     aligner = SigLIPAligner()
 
     blobfish = False
@@ -169,8 +194,12 @@ if __name__ == "__main__":
         # Blobfish tests
         prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
 
-        aligner.check_alignment("blobfish.png", prompt + " A beautiful, high-quality image.")
-        score, image = aligner.search(generator, prompt + " A beautiful, high-quality image.", num_tries=25)
+        aligner.check_alignment(
+            "blobfish.png", prompt + " A beautiful, high-quality image."
+        )
+        score, image = aligner.search(
+            generator, prompt + " A beautiful, high-quality image.", num_tries=25
+        )
         print(score)
         image.save("blobfish_search.png")
     if friend:

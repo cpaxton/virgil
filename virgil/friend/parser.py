@@ -13,14 +13,19 @@
 # limitations under the License.
 
 from virgil.parser import Parser
-from typing import List, Any, Optional, Tuple
+from typing import List, Tuple
 
 from termcolor import colored
 
 import re
 
 
-def extract_tags(text: str, tags: List[str], allow_unmatched: bool = True, prune_thoughts: bool = True) -> List[Tuple[str, str]]:
+def extract_tags(
+    text: str,
+    tags: List[str],
+    allow_unmatched: bool = True,
+    prune_thoughts: bool = True,
+) -> List[Tuple[str, str]]:
     """Extracts specified tags and their content from the given text.
 
     Args:

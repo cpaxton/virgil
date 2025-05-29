@@ -49,20 +49,37 @@ class SigLIPAligner:
             image = Image.open(image)
 
         # Prepare inputs
-        inputs = self.processor(text=[text], images=[image], return_tensors="pt", padding=True, max_length=self.max_length, truncation=True).to(self.device)
+        inputs = self.processor(
+            text=[text],
+            images=[image],
+            return_tensors="pt",
+            padding=True,
+            max_length=self.max_length,
+            truncation=True,
+        ).to(self.device)
 
         # Generate embeddings
         with torch.no_grad():
             outputs = self.model(**inputs)
 
         # Calculate similarity
-        image_embeds = outputs.image_embeds / outputs.image_embeds.norm(dim=-1, keepdim=True)
-        text_embeds = outputs.text_embeds / outputs.text_embeds.norm(dim=-1, keepdim=True)
+        image_embeds = outputs.image_embeds / outputs.image_embeds.norm(
+            dim=-1, keepdim=True
+        )
+        text_embeds = outputs.text_embeds / outputs.text_embeds.norm(
+            dim=-1, keepdim=True
+        )
         similarity = (image_embeds @ text_embeds.T).item()
 
         return similarity
 
-    def search(self, image_generator, prompt: str, num_tries: int = 10, extras: Optional[str] = None) -> Image:
+    def search(
+        self,
+        image_generator,
+        prompt: str,
+        num_tries: int = 10,
+        extras: Optional[str] = None,
+    ) -> Image:
         """Generate an image based on the prompt, then return the image with the highest alignment score."""
         best_score = -1
         best_image = None

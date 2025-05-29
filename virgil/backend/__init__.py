@@ -13,18 +13,28 @@
 # limitations under the License.
 
 # (c) 2024 by Chris Paxton
-
-from typing import Optional
 import logging
 
 import torch
 from .gemma import Gemma
 from .base import Backend
 from .llama import Llama
-from .qwen import Qwen, qwen_sizes, qwen_specializations, qwen_releases, qwen25_sizes, qwen30_sizes
+from .qwen import (
+    Qwen,
+    qwen_sizes,
+    qwen_specializations,
+    qwen_releases,
+    qwen25_sizes,
+    qwen30_sizes,
+)
 
 qwens = []
-qwens = [f"qwen{release}-{size}-{spec}" for size in qwen_sizes for spec in qwen_specializations for release in qwen_releases]
+qwens = [
+    f"qwen{release}-{size}-{spec}"
+    for size in qwen_sizes
+    for spec in qwen_specializations
+    for release in qwen_releases
+]
 
 
 backend_list = [
@@ -53,12 +63,16 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
         if name == "gemma2b" or name == "gemma-2b-it":
             gemma_kwargs = kwargs
             gemma_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
-            gemma_kwargs["use_flash_attention"] = True if torch.cuda.is_available() else False
+            gemma_kwargs["use_flash_attention"] = (
+                True if torch.cuda.is_available() else False
+            )
             gemma_kwargs["variant"] = "google/gemma-2-2b-it"
         else:
             gemma_kwargs = kwargs
             gemma_kwargs["quantization"] = "int4" if torch.cuda.is_available() else None
-            gemma_kwargs["use_flash_attention"] = True if torch.cuda.is_available() else False
+            gemma_kwargs["use_flash_attention"] = (
+                True if torch.cuda.is_available() else False
+            )
             if not name.endswith("-it"):
                 name += "-it"
             gemma_kwargs["variant"] = "google/" + name
@@ -93,17 +107,25 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
         else:
             if release == "2.5":
                 if size.upper() not in qwen25_sizes:
-                    raise ValueError(f"Unknown size: {size}. Available sizes for Qwen 2.5: {qwen25_sizes}")
+                    raise ValueError(
+                        f"Unknown size: {size}. Available sizes for Qwen 2.5: {qwen25_sizes}"
+                    )
                 if specialization not in qwen_specializations:
-                    raise ValueError(f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}")
+                    raise ValueError(
+                        f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}"
+                    )
                 model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
             elif release == "3":
                 # No specializations
                 if size.upper() not in qwen30_sizes:
-                    raise ValueError(f"Unknown size: {size}. Available sizes for Qwen 3: {qwen30_sizes}")
+                    raise ValueError(
+                        f"Unknown size: {size}. Available sizes for Qwen 3: {qwen30_sizes}"
+                    )
                 model_name = f"Qwen/Qwen{release}-{size}"
             else:
-                raise ValueError(f"Unknown release: {release}. Available releases: {qwen_releases}")
+                raise ValueError(
+                    f"Unknown release: {release}. Available releases: {qwen_releases}"
+                )
 
         qwen_kwargs = kwargs
         # qwen_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None

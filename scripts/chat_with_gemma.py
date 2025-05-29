@@ -47,7 +47,7 @@ while True:
     # Print the assistant's response
     print(assistant_response)
     print("----------------")
-    print(f"Time taken: {t1-t0:.2f} seconds")
+    print(f"Time taken: {t1 - t0:.2f} seconds")
     print("----------------")
 
 # Ahoy, matey! I be Gemma, a digital scallywag, a language-slingin' parrot of the digital seas. I be here to help ye with yer wordy woes, answer yer questions, and spin ye yarns of the digital world.  So, what be yer pleasure, eh? 🦜

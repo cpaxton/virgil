@@ -1,4 +1,5 @@
 import torch
+import random
 from transformers import pipeline
 import timeit
 
@@ -8,8 +9,6 @@ pipe = pipeline(
     model_kwargs={"torch_dtype": torch.bfloat16},
     device="cuda",  # replace with "mps" to run on a Mac device
 )
-
-import sys
 
 
 def query(msg):
@@ -28,7 +27,7 @@ def query(msg):
     # Print the assistant's response
     print(assistant_response)
     print("----------------")
-    print(f"Time taken: {t1-t0:.2f} seconds")
+    print(f"Time taken: {t1 - t0:.2f} seconds")
     print("----------------")
 
 
@@ -42,7 +41,6 @@ Question: """
 # question = "Who was the president of the united states of america during the american civil war?"
 question = "Name all the prime numbers below 20; for each, name the capital of an African country."
 question_shuffled = question.split(" ")
-import random
 
 random.shuffle(question_shuffled)
 question_shuffled = " ".join(question_shuffled)
