@@ -21,7 +21,7 @@ import torch
 from .gemma import Gemma
 from .base import Backend
 from .llama import Llama
-from .qwen import Qwen, qwen_sizes, qwen_specializations, qwen_releases
+from .qwen import Qwen, qwen_sizes, qwen_specializations, qwen_releases, qwen25_sizes, qwen30_sizes
 
 qwens = []
 qwens = [f"qwen{release}-{size}-{spec}" for size in qwen_sizes for spec in qwen_specializations for release in qwen_releases]
@@ -75,7 +75,7 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
             specialization = "Instruct"
             release = "3"
         else:
-            release = "3"
+            release = "2.5"
             size = "1.5B"
             specialization = "Instruct"
 
@@ -91,7 +91,19 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
         if specialization == "Deepseek":
             model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
         else:
-            model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
+            if release == "2.5":
+                if size.upper() not in qwen25_sizes:
+                    raise ValueError(f"Unknown size: {size}. Available sizes for Qwen 2.5: {qwen25_sizes}")
+                if specialization not in qwen_specializations:
+                    raise ValueError(f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}")
+                model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
+            elif release == "3":
+                # No specializations
+                if size.upper() not in qwen30_sizes:
+                    raise ValueError(f"Unknown size: {size}. Available sizes for Qwen 3: {qwen30_sizes}")
+                model_name = f"Qwen/Qwen{release}-{size}"
+            else:
+                raise ValueError(f"Unknown release: {release}. Available releases: {qwen_releases}")
 
         qwen_kwargs = kwargs
         # qwen_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
