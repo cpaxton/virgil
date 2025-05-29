@@ -80,9 +80,9 @@ You are generating a fun, clever Buzzfeed-style personality quiz titled, "{topic
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description. All questions will be related to "{topic}", but will get increasingly weird as the quiz goes on.
 
-For example, Question 1 will be weirdness level 1, but Question 3 will be weirdness level 9, and may be something very absurd or personal. It will refer back to the answers of the previous question.
+For example, Question 1 will be weirdness level 1, but Question 3 will be weirdness level 9, and may be something very absurd or personal. It will refer back to the answers of the previous question. Every answer should be unique and different, and should not repeat any previous answers. They will be roughly 1 sentence long, and will never include a line break or newline character.
 
-You will also give a detailed prompt for an image generator associated with each question. You will be very clear about the image, and will include sufficient detail. You will not hallucinate.
+You will also give a detailed prompt for an image generator associated with each question. You will be very clear about the image, and will include sufficient detail. You will not hallucinate. Image descriptions should be concise and evocative, and should be detailed enough for an image generator to create a good image. Don't use too many names or specific references, but instead focus on the general theme of the question, unless it's a well-known pop culture reference or a famous character.
 
 For example:
 Question 1:
@@ -168,6 +168,20 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
     res_d = result_parser.prompt(topic=topic, letter="D")
     res_e = result_parser.prompt(topic=topic, letter="E")
 
+    # Strip all newlines from results
+    res_a["result"] = res_a["result"].replace("\n", " ")
+    res_b["result"] = res_b["result"].replace("\n", " ")
+    res_c["result"] = res_c["result"].replace("\n", " ")
+    res_d["result"] = res_d["result"].replace("\n", " ")
+    res_e["result"] = res_e["result"].replace("\n", " ")
+    res_a["description"] = res_a["description"].replace("\n", " ")
+    res_b["description"] = res_b["description"].replace("\n", " ")
+    res_c["description"] = res_c["description"].replace("\n", " ")
+    res_d["description"] = res_d["description"].replace("\n", " ")
+    res_e["description"] = res_e["description"].replace("\n", " ")
+
+    breakpoint()
+
     # Save all the results out as a YAML file
     with open(os.path.join(dirname, "results.yaml"), "w") as f:
         yaml.dump({"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e}, f)
@@ -197,6 +211,21 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
             msg = f"Topic: {topic}\nQuestion {i}:"
         q = question_parser.prompt(topic=topic, question=i, msg=msg)
         questions.append(q)
+
+    # Strip all newlines from questions and answers
+    for question in questions:
+        question["question"] = question["question"].replace("\n", " ")
+        for key in question["options"]:
+            question["options"][key] = question["options"][key].replace("\n", " ")
+    # Also strip the image descriptions
+    for question in questions:
+        if "image" in question:
+            question["image"] = question["image"].replace("\n", " ")
+        for key in question["options"]:
+            if "image" in question["options"][key]:
+                question["options"][key]["image"] = question["options"][key][
+                    "image"
+                ].replace("\n", " ")
 
     # Save all the questions out as a YAML file
     with open(os.path.join(dirname, "questions.yaml"), "w") as f:
