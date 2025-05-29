@@ -69,6 +69,7 @@ Mostly (letter)'s:
 Result: (the result)
 Description: (the description)
 Image: (A detailed prompt for an image generator)
+END RESULT
 
 Topic: {topic}
 Mostly A's:
@@ -100,6 +101,7 @@ B: {result_b}: {description_b}
 C: {result_c}: {description_c}
 D: {result_d}: {description_d}
 E: {result_e}: {description_e}
+END QUESTION
 
 Make sure answers are on-theme. For example, answer A should be something relevant to {result_a}; answer B should be something relevant to {result_b}, etc.
 
@@ -305,6 +307,8 @@ def main(topic: str = "", backend: str = "gemma-3-12b-it") -> None:
         "What kind of seed are you?",
         "What kind of oil are you?",
         "What kind of vinegar are you?",
+        # Started from when I was using Gemma3-14b, may 28, 2025
+        "Which character from the Stormlight Archive are you?",
     ]
 
     for topic in topics:
