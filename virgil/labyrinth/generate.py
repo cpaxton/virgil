@@ -98,9 +98,9 @@ class LabyrinthGenerator:
         maze = Maze(
             self.cfg.maze.height, self.cfg.maze.width, seed=self.cfg.random_seed
         )
-        graph = maze.extract_graph()
 
         # TODO: remove debug info
+        # graph = maze.extract_graph()
         # print(graph)
 
         if self.cfg.maze.visualize:
@@ -154,7 +154,8 @@ class LabyrinthGenerator:
 
         # compute distances from start for everything
         distances = maze.compute_distances_from_start()
-        distances_to_goal = maze.compute_distances_from_goal()
+        # TODO: remove debug info
+        # distances_to_goal = maze.compute_distances_from_goal()
         print("Distances:", distances)
         graph = maze.extract_graph()
         print("Graph:", graph)
