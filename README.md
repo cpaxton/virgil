@@ -55,6 +55,15 @@ It will generate a quiz with 10 questions and answers, in a folder with the same
 
 Examples are available [on my website](https://cpaxton.github.io/quiz/). Not all of them are winners, but plenty of them are fun. As it's an important and related topic, I also have some [thoughts on AI art](https://itcanthink.substack.com/p/off-topic-what-role-for-ai-in-the) -- which is basically that I think it's a neat thing in its own right and not competitive with human art.
 
+#### Testing a Quiz Locally
+
+The script will create a folder with the name of your question, e.g. "What kind of crustacean are you?". Inside that folder, you will find an html file. Just run a simple HTTP server to serve the quiz:
+```bash
+python -m http.server 8000
+```
+
+You can then navigate to `http://0.0.0.0:8000/` to view the quiz in your browser. This is a simple way to test the quiz locally before deploying it somewhere else.
+
 ### Friend
 
 Friend is a simple chatbot which can use various backends to generate text on Discord. After installing `virgil`:
