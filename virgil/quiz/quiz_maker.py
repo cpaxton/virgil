@@ -129,7 +129,7 @@ Question 1:
 
 
 def str_presenter(dumper, data):
-    if len(data.splitlines()) > 1:  # check for multiline string
+    if len(data) > 80 or "\n" in data:
         return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
 
@@ -184,7 +184,12 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
 
     # Save all the results out as a YAML file
     with open(os.path.join(dirname, "results.yaml"), "w") as f:
-        yaml.dump({"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e}, f)
+        yaml.dump(
+            {"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e},
+            f,
+            allow_unicode=True,
+            sort_keys=False,
+        )
 
     chat.clear()
 
