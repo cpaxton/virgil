@@ -23,12 +23,13 @@ import virgil.utils.log as logger
 
 qwen_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
 qwen_specializations = ["Instruct", "Coder", "Math", "Deepseek"]
+qwen_releases = ["2.5", "3"]
 
 
 class Qwen(Backend):
     """Use the Qwen model to generate responses to messages."""
 
-    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int4", model_path: str = None) -> None:
+    def __init__(self, model_name: Optional[str] = None, size: Optional[str] = None, specialization="Instruct", temperature: float = 0.7, top_p: float = 0.9, do_sample: bool = True, quantization: Optional[str] = "int4", model_path: str = None, release: str = "3") -> None:
         """Initialize the Qwen backend.
 
         Args:
@@ -61,7 +62,7 @@ class Qwen(Backend):
                 if specialization == "Deepseek":
                     model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
                 else:
-                    model_name = f"Qwen/Qwen2.5-{size}-{specialization}"
+                    model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
 
             model_id = model_name
 

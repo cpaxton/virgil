@@ -20,7 +20,10 @@ import torch
 from .gemma import Gemma
 from .base import Backend
 from .llama import Llama
-from .qwen import Qwen, qwen_sizes, qwen_specializations
+from .qwen import Qwen, qwen_sizes, qwen_specializations, qwen_releases
+
+qwens = []
+qwens = [f"qwen{release}-{size}-{spec}" for size in qwen_sizes for spec in qwen_specializations for release in qwen_releases]
 
 
 backend_list = [
@@ -31,26 +34,7 @@ backend_list = [
     "gemma-3-12b-it",
     "llama-3.2-1B",
     "qwen",
-    "qwen-0.5B-Instruct",
-    "qwen-0.5B-Coder",
-    "qwen-0.5B-Math",
-    "qwen-1.5B-Instruct",
-    "qwen-1.5B-Coder",
-    "qwen-1.5B-Math",
-    "qwen-3B-Instruct",
-    "qwen-3B-Coder",
-    "qwen-3B-Math",
-    "qwen-7B-Instruct",
-    "qwen-7B-Coder",
-    "qwen-7B-Math",
-    "qwen-14B-Instruct",
-    "qwen-14B-Coder",
-    "qwen-14B-Math",
-    "qwen-1.5B-Deepseek",
-    "qwen-7B-Deepseek",
-    "qwen-14B-Deepseek",
-    "qwen-32B-Deepseek",
-]
+] + qwens
 
 
 def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backend:
@@ -88,27 +72,20 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
         if name == "qwen":
             size = "3B"
             specialization = "Instruct"
-        # if one of the sizes is in the name...
-        elif any(size.lower() in name for size in qwen_sizes):
-            for size in qwen_sizes:
-                if size.lower() in name:
-                    break
-            else:
-                # if we didn't find a size, default to 1.5B
-                size = "1.5B"
-            if any(spec.lower() in name for spec in qwen_specializations):
-                for spec in qwen_specializations:
-                    if spec.lower() in name:
-                        specialization = spec
-                        break
-                else:
-                    specialization = "Instruct"
-            else:
-                specialization = "Instruct"
-            print(f"Size: {size}, Specialization: {specialization}")
+            release = "3"
         else:
+            release = "3"
             size = "1.5B"
             specialization = "Instruct"
+
+            # Parse qwen{release}-{size}-{specialization} or qwen{release}-{size}
+            # e.g. qwen3-1.5B-Instruct, qwen2.5-7B-Coder, qwen2.5-14B-Math
+            parts = name.split("-")
+            if len(parts) == 3:
+                release = parts[0][4:]
+                size = parts[1]
+                specialization = parts[2].capitalize()
+                print(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
 
         if specialization == "Deepseek":
             model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"

@@ -25,7 +25,8 @@ dependencies = [
     "python-dotenv",
     "termcolor",
     "hydra-core",
-    "omegaconf"
+    "omegaconf",
+    "hf_xet",
 ]
 
 [project.urls]
