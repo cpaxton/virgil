@@ -43,7 +43,7 @@ prompt_answers = """You are generating a fun, clever Buzzfeed-style personality 
 
 There will be 5 multiple-choice options per question: A, B, C, D, and E. At the end, you will also provide a categorization: if the quiz taker chose mostly A, for example, you will describe what A is, and give a description.
 
-Results are given with a title and a description, as well as a longer description (1-2 paragraphs) and a prompt for an image generator. You must always end each result with "END RESULT".
+Results are given with a title and a description, as well as a longer description (1-2 paragraphs) and a prompt for an image generator. You must always end each result with "END RESULT". Image descriptions should be concise and evocative, and should be detailed enough for an image generator to create a good image. Don't use too many names or specific references, but instead focus on the general theme of the result, unless it's a well-known pop culture reference or a famous character.
 
 For example:
 
@@ -128,6 +128,15 @@ Question 1:
 """
 
 
+def str_presenter(dumper, data):
+    if len(data.splitlines()) > 1:  # check for multiline string
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+
+yaml.add_representer(str, str_presenter)
+
+
 def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
@@ -191,7 +200,7 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
 
     # Save all the questions out as a YAML file
     with open(os.path.join(dirname, "questions.yaml"), "w") as f:
-        yaml.dump(questions, f)
+        yaml.dump(questions, f, allow_unicode=True, sort_keys=False)
 
     chat.clear()
 
