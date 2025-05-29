@@ -19,12 +19,12 @@
 
 import os
 from datetime import datetime
-import yaml
 import click
 
 from virgil.backend import get_backend, Backend
 from virgil.chat import ChatWrapper
 from virgil.quiz.parser import ResultParser, QuestionParser
+from virgil.utils import yaml_dump
 
 
 userprompt = """
@@ -128,15 +128,6 @@ Question 1:
 """
 
 
-def str_presenter(dumper, data):
-    if len(data) > 80 or "\n" in data:
-        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
-    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
-
-
-yaml.add_representer(str, str_presenter)
-
-
 def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) -> None:
     chat = ChatWrapper(backend)
     result_parser = ResultParser(chat)
@@ -182,12 +173,7 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
 
     # Save all the results out as a YAML file
     with open(os.path.join(dirname, "results.yaml"), "w") as f:
-        yaml.dump(
-            {"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e},
-            f,
-            allow_unicode=True,
-            sort_keys=False,
-        )
+        yaml_dump({"A": res_a, "B": res_b, "C": res_c, "D": res_d, "E": res_e}, f)
 
     chat.clear()
 
@@ -232,7 +218,7 @@ def generate_quiz(topic: str, backend: Backend, save_with_date: bool = False) ->
 
     # Save all the questions out as a YAML file
     with open(os.path.join(dirname, "questions.yaml"), "w") as f:
-        yaml.dump(questions, f, allow_unicode=True, sort_keys=False)
+        yaml_dump(questions, f)
 
     chat.clear()
 

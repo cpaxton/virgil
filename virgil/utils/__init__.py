@@ -14,5 +14,6 @@
 
 from .config import load_config
 from .prompt import load_prompt
+from .yaml_utils import yaml_dump
 
-__all__ = [load_config, load_prompt]
+__all__ = [load_config, load_prompt, yaml_dump]
