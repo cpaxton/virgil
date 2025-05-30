@@ -14,12 +14,13 @@
 
 # (c) 2024 by Chris Paxton
 
-import yaml
 import os
 import click
 import numpy as np
 import glob
+import yaml
 
+from virgil.utils import yaml_dump
 
 import pkg_resources
 
@@ -101,12 +102,16 @@ def create_combined_yaml_for_folder(folder_path: str) -> None:
     parsed_data = read_and_parse_yaml_files(results_file_path, questions_file_path)
 
     if parsed_data:
-        print(yaml.dump(parsed_data, default_flow_style=False))
+        print(
+            yaml_dump(
+                parsed_data,
+            )
+        )
 
     # Dump it to combined.yaml
     combined_file_path = os.path.join(folder_path, "combined.yaml")
     with open(combined_file_path, "w") as combined_stream:
-        yaml.dump(parsed_data, combined_stream, default_flow_style=False)
+        yaml_dump(parsed_data, combined_stream)
 
 
 def create_quiz_html(folder_path: str):
@@ -126,9 +131,7 @@ def create_quiz_html(folder_path: str):
     template = load_quiz_html()
 
     # Replace the placeholders in the template with the data from the combined.yaml file
-    template = template.replace(
-        "{{ raw_data }}", yaml.dump(combined_data, default_flow_style=False)
-    )
+    template = template.replace("{{ raw_data }}", yaml_dump(combined_data))
 
     print(template)
 

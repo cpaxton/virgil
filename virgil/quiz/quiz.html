@@ -1,185 +1,186 @@
 <!DOCTYPE html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title id="quiz-title">Personality Quiz</title>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-		<style>
-			body {
-				font-family: Arial, sans-serif;
-				max-width: 800px;
-				margin: 0 auto;
-				padding: 20px;
-			}
-			#question-image {
-				max-width: 100%;
-				height: auto;
-			}
-			.option {
-				display: block;
-				margin: 10px 0;
-				padding: 10px;
-				background-color: #f0f0f0;
-				border: none;
-				cursor: pointer;
-				width: 100%;
-				text-align: left;
-			}
-			.option:hover {
-				background-color: #e0e0e0;
-			}
-			.share-button {
-				display: inline-block;
-				margin: 5px;
-				padding: 10px;
-				border-radius: 5px;
-				color: white;
-				text-decoration: none;
-			}
-			.share-button i {
-				margin-right: 5px;
-			}
-			.facebook { background-color: #3b5998; }
-			.twitter { background-color: #1da1f2; }
-			.linkedin { background-color: #0077b5; }
-			.pinterest { background-color: #bd081c; }
-			.instagram { background-color: #C13584; }
-			.bluesky { background-color: #00A3E0; }
-			.discord { background-color: #7289DA; }
-		</style>
-	</head>
-	<body>
-		<h1 id="quiz-topic"></h1>
-		<div id="quiz-container">
-			<h2 id="question-text"></h2>
-			<img id="question-image" src="" alt="Question Image">
-			<div id="options-container"></div>
-		</div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personality Quiz</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #question-image, #result-image {
+            max-width: 100%;
+            height: auto;
+        }
+        .option {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            text-align: left;
+        }
+        .option:hover {
+            background-color: #e0e0e0;
+        }
+        .share-button {
+            display: inline-block;
+            margin: 5px;
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            text-decoration: none;
+        }
+        .share-button i {
+            margin-right: 5px;
+        }
+        .facebook { background-color: #3b5998; }
+        .twitter { background-color: #1da1f2; }
+        .linkedin { background-color: #0077b5; }
+        .pinterest { background-color: #bd081c; }
+        .discord { background-color: #7289DA; }
+        /* No bluesky/instagram in FA 6.4.0 */
+    </style>
+</head>
+<body>
+    <h1 id="quiz-topic"></h1>
+    <div id="quiz-container">
+        <h2 id="question-text"></h2>
+        <img id="question-image" src="" alt="" style="display:none;">
+        <div id="options-container"></div>
+    </div>
 
-		<script>
-			const quizData = `{{ raw_data }}`;
+    <script>
+        // Replace with your YAML as a string, e.g. from a template engine
+        const quizData = `{{ raw_data }}`;
 
-			const data = jsyaml.load(quizData);
-			let currentQuestion = 0;
-			const answers = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+        const data = jsyaml.load(quizData);
+        let currentQuestion = 0;
+        const answers = { A: 0, B: 0, C: 0, D: 0, E: 0 };
 
-			document.getElementById('quiz-title').textContent = data.topic;
-			document.getElementById('quiz-topic').textContent = data.topic;
+        document.title = data.topic;
+        document.getElementById('quiz-topic').textContent = data.topic;
 
-			function loadQuestion() {
-				const question = data.questions[currentQuestion];
-				document.getElementById('question-text').textContent = question.text;
-				document.getElementById('question-image').src = question.image;
+        function loadQuestion() {
+            const question = data.questions[currentQuestion];
+            document.getElementById('question-text').textContent = question.text;
 
-				const optionsContainer = document.getElementById('options-container');
-				optionsContainer.innerHTML = '';
+            const img = document.getElementById('question-image');
+            if (question.image) {
+                img.src = question.image;
+                img.alt = question.image_description || "Question Image";
+                img.style.display = "";
+            } else {
+                img.src = "";
+                img.alt = "";
+                img.style.display = "none";
+            }
 
-				question.options.forEach(option => {
-					const button = document.createElement('button');
-					button.textContent = option.text;
-					button.classList.add('option');
-					button.addEventListener('click', () => selectAnswer(option.type));
-					optionsContainer.appendChild(button);
-				});
-			}
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
 
-			function selectAnswer(type) {
-				answers[type]++;
-				currentQuestion++;
+            question.options.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option.text;
+                button.classList.add('option');
+                button.addEventListener('click', () => selectAnswer(option.type));
+                optionsContainer.appendChild(button);
+            });
+        }
 
-				if (currentQuestion < data.questions.length) {
-					loadQuestion();
-				} else {
-					showResult();
-				}
-			}
+        function selectAnswer(type) {
+            answers[type]++;
+            currentQuestion++;
 
-			function showResult() {
-				const resultType = Object.keys(answers).reduce((a, b) => answers[a] > answers[b] ? a : b);
-				const result = data.results[resultType];
+            if (currentQuestion < data.questions.length) {
+                loadQuestion();
+            } else {
+                showResult();
+            }
+        }
 
-				const quizContainer = document.getElementById('quiz-container');
-				quizContainer.innerHTML = `
-					<h2>Your Result: ${result.title}</h2>
-					<img id="result-image" src="${result.image}" alt="${result.image_description}" style="max-width: 100%; height: auto;">
-					<p>${result.description}</p>
-				`;
+        function showResult() {
+            const resultType = Object.keys(answers).reduce((a, b) => answers[a] > answers[b] ? a : b);
+            const result = data.results[resultType];
 
-				const shareButton = document.createElement("button");
-				shareButton.textContent = "Share Results";
-				shareButton.onclick = shareResults;
-				quizContainer.appendChild(shareButton);
-			}
+            const quizContainer = document.getElementById('quiz-container');
+            quizContainer.innerHTML = `
+                <h2>Your Result: ${result.title}</h2>
+                ${result.image ? `<img id="result-image" src="${result.image}" alt="${result.image_description || 'Result Image'}">` : ''}
+                <p>${result.description}</p>
+            `;
 
-			function shareResults() {
-				const resultType = Object.keys(answers).reduce((a, b) => answers[a] > answers[b] ? a : b);
-				const result = data.results[resultType];
-				const shareText = `I just completed the "${data.topic}" personality quiz! My result: ${result.title}`;
-				const shareUrl = encodeURIComponent(window.location.href);
-				const resultImage = document.getElementById('result-image').src;
+            const shareButton = document.createElement("button");
+            shareButton.textContent = "Share Results";
+            shareButton.onclick = shareResults;
+            quizContainer.appendChild(shareButton);
+        }
 
-				const shareLinks = {
-					Facebook: {
-						url: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${encodeURIComponent(shareText)}`,
-						icon: 'fab fa-facebook-f'
-					},
-					Twitter: {
-						url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${shareUrl}`,
-						icon: 'fab fa-twitter'
-					},
-					LinkedIn: {
-						url: `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`,
-						icon: 'fab fa-linkedin-in'
-					},
-					Pinterest: {
-						url: `https://pinterest.com/pin/create/button/?url=${shareUrl}&media=${encodeURIComponent(resultImage)}&description=${encodeURIComponent(shareText)}`,
-						icon: 'fab fa-pinterest-p'
-					},
-					Instagram: {
-						url: `https://www.instagram.com/create/story/?media=${encodeURIComponent(resultImage)}&caption=${encodeURIComponent(shareText)}`,
-						icon: 'fab fa-instagram'
-					},
-					BlueSky: {
-						url: `https://bsky.app/intent/compose?text=${encodeURIComponent(shareText)}&url=${shareUrl}`,
-						icon: 'fab fa-bluesky'
-					},
-					Discord: {
-						url: `https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&redirect_uri=${encodeURIComponent(window.location.origin)}&response_type=code&scope=webhook.incoming`,
-						icon: 'fab fa-discord'
-					}
-				};
+        function shareResults() {
+            const resultType = Object.keys(answers).reduce((a, b) => answers[a] > answers[b] ? a : b);
+            const result = data.results[resultType];
+            const shareText = `I just completed the "${data.topic}" personality quiz! My result: ${result.title}`;
+            const shareUrl = encodeURIComponent(window.location.href);
+            const resultImage = result.image || '';
 
-				const shareContainer = document.createElement("div");
-				shareContainer.style.marginTop = "20px";
+            const shareLinks = {
+                Facebook: {
+                    url: `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${encodeURIComponent(shareText)}`,
+                    icon: 'fab fa-facebook-f'
+                },
+                Twitter: {
+                    url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${shareUrl}`,
+                    icon: 'fab fa-twitter'
+                },
+                LinkedIn: {
+                    url: `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}`,
+                    icon: 'fab fa-linkedin-in'
+                },
+                Pinterest: {
+                    url: `https://pinterest.com/pin/create/button/?url=${shareUrl}&media=${encodeURIComponent(resultImage)}&description=${encodeURIComponent(shareText)}`,
+                    icon: 'fab fa-pinterest-p'
+                },
+                // Instagram and Bluesky sharing via web is not supported; omitted.
+                Discord: {
+                    url: `#`,
+                    icon: 'fab fa-discord'
+                }
+            };
 
-				Object.entries(shareLinks).forEach(([platform, {url, icon}]) => {
-					const shareLink = document.createElement("a");
-					shareLink.href = url;
-					shareLink.className = `share-button ${platform.toLowerCase()}`;
-					shareLink.innerHTML = `<i class="${icon}"></i>${platform}`;
-					shareLink.target = "_blank";
-					if (platform === 'Discord') {
-						shareLink.onclick = (e) => {
-							e.preventDefault();
-							shareToDiscord(shareText, resultImage);
-						};
-					}
-					shareContainer.appendChild(shareLink);
-				});
+            const shareContainer = document.createElement("div");
+            shareContainer.style.marginTop = "20px";
 
-				document.getElementById("quiz-container").appendChild(shareContainer);
-			}
+            Object.entries(shareLinks).forEach(([platform, {url, icon}]) => {
+                const shareLink = document.createElement("a");
+                shareLink.href = url;
+                shareLink.className = `share-button ${platform.toLowerCase()}`;
+                shareLink.innerHTML = `<i class="${icon}"></i>${platform}`;
+                shareLink.target = "_blank";
+                if (platform === 'Discord') {
+                    shareLink.onclick = (e) => {
+                        e.preventDefault();
+                        shareToDiscord(shareText, resultImage);
+                    };
+                }
+                shareContainer.appendChild(shareLink);
+            });
 
-			function shareToDiscord(text, imageUrl) {
-				// This function would typically use Discord's API to share content
-				// For demonstration purposes, we'll just log the share attempt
-				console.log(`Sharing to Discord: ${text}\nImage: ${imageUrl}`);
-				alert("Discord sharing functionality would be implemented here.");
-			}
+            document.getElementById("quiz-container").appendChild(shareContainer);
+        }
 
-			loadQuestion();
-		</script>
-	</body>
+        function shareToDiscord(text, imageUrl) {
+            alert("Discord sharing functionality would be implemented here.");
+        }
+
+        loadQuestion();
+    </script>
+</body>
 </html>
+
