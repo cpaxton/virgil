@@ -83,7 +83,14 @@ class Qwen(Backend):
             # Check if the model name is valid
             if model_name is None:
                 if specialization == "Deepseek":
-                    model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
+                    if release == "2.5":
+                        model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
+                    elif release == "3":
+                        if size != "8B":
+                            logger.warning(
+                                f"DeepSeek only supports the 8B model for Qwen 3, using that instead of {size}"
+                            )
+                        model_name = "deepseek-ai/DeepSeek-R1-0528-Qwen3-8b"
                 else:
                     model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
 

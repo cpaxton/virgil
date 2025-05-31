@@ -18,3 +18,18 @@ from termcolor import colored
 def error(*args):
     msg = " ".join([str(arg) for arg in args])
     print(colored("[ERROR]", "red"), msg)
+
+
+def warning(*args):
+    msg = " ".join([str(arg) for arg in args])
+    print(colored("[WARNING]", "yellow"), msg)
+
+
+def info(*args):
+    msg = " ".join([str(arg) for arg in args])
+    print(colored("[INFO]", "blue"), msg)
+
+
+def success(*args):
+    msg = " ".join([str(arg) for arg in args])
+    print(colored("[SUCCESS]", "green"), msg)

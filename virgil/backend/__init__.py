@@ -13,8 +13,6 @@
 # limitations under the License.
 
 # (c) 2024 by Chris Paxton
-import logging
-
 import torch
 from .gemma import Gemma
 from .base import Backend
@@ -27,6 +25,7 @@ from .qwen import (
     qwen25_sizes,
     qwen30_sizes,
 )
+import virgil.util.log as logger
 
 qwens = []
 qwens = [
@@ -100,32 +99,39 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
                 release = parts[0][4:]
                 size = parts[1]
                 specialization = parts[2].capitalize()
-                logging.info(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
+                logger.info(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
 
-        if specialization == "Deepseek":
-            model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
-        else:
-            if release == "2.5":
-                if size.upper() not in qwen25_sizes:
-                    raise ValueError(
-                        f"Unknown size: {size}. Available sizes for Qwen 2.5: {qwen25_sizes}"
-                    )
-                if specialization not in qwen_specializations:
-                    raise ValueError(
-                        f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}"
-                    )
-                model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
-            elif release == "3":
-                # No specializations
-                if size.upper() not in qwen30_sizes:
-                    raise ValueError(
-                        f"Unknown size: {size}. Available sizes for Qwen 3: {qwen30_sizes}"
-                    )
+        # Parse size and specialization
+        if release == "2.5":
+            if size.upper() not in qwen25_sizes:
+                raise ValueError(
+                    f"Unknown size: {size}. Available sizes for Qwen 2.5: {qwen25_sizes}"
+                )
+            if specialization == "Deepseek":
+                model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
+            elif specialization not in qwen_specializations:
+                raise ValueError(
+                    f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}"
+                )
+            model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
+        elif release == "3":
+            # No specializations
+            if size.upper() not in qwen30_sizes:
+                raise ValueError(
+                    f"Unknown size: {size}. Available sizes for Qwen 3: {qwen30_sizes}"
+                )
+            if specialization != "Deepseek":
                 model_name = f"Qwen/Qwen{release}-{size}"
             else:
-                raise ValueError(
-                    f"Unknown release: {release}. Available releases: {qwen_releases}"
-                )
+                if size != "8B":
+                    logger.warning(
+                        f"Deepseek specialization only available for 8B size in Qwen 3, using 8B instead of {size}"
+                    )
+                model_name = "deepseek-ai/DeepSeek-R1-0528-Qwen3-8b"
+        else:
+            raise ValueError(
+                f"Unknown release: {release}. Available releases: {qwen_releases}"
+            )
 
         qwen_kwargs = kwargs
         # qwen_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
