@@ -96,8 +96,8 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
             # e.g. qwen3-1.5B-Instruct, qwen2.5-7B-Coder, qwen2.5-14B-Math
             parts = name.split("-")
             if len(parts) == 3:
-                release = parts[0][4:]
-                size = parts[1]
+                release = parts[0][4:].strip()  # e.g. "3" or "2.5"
+                size = parts[1].upper()
                 specialization = parts[2].capitalize()
                 logger.info(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
 
