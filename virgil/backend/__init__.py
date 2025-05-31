@@ -25,7 +25,7 @@ from .qwen import (
     qwen25_sizes,
     qwen30_sizes,
 )
-import virgil.util.log as logger
+import virgil.utils.log as logger
 
 qwens = []
 qwens = [
