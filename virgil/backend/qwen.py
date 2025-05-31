@@ -96,7 +96,7 @@ class Qwen(Backend):
 
             model_id = model_name
 
-        print(f"Loading model: {model_id}")
+        logger.say(f"Loading model: {model_id}")
 
         quantization_config = None
         if quantization is not None:

@@ -33,3 +33,8 @@ def info(*args):
 def success(*args):
     msg = " ".join([str(arg) for arg in args])
     print(colored("[SUCCESS]", "green"), msg)
+
+
+def say(*args):
+    msg = " ".join([str(arg) for arg in args])
+    print(colored(msg, "blue"), flush=True)
