@@ -27,6 +27,7 @@ from .qwen import (
     qwen25_sizes,
     qwen30_sizes,
 )
+from .ernie import Ernie
 
 qwens = []
 qwens = [
