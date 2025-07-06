@@ -99,6 +99,11 @@ class DiffuserImageGenerator(ImageGenerator):
             self.num_inference_steps = min(28, num_inference_steps)
             if guidance_scale == 7.5:
                 self.guidance_scale = 5.0
+        elif "playground" in model:
+            # Inference steps should be 20-25
+            self.num_inference_steps = min(20, num_inference_steps)
+            if guidance_scale == 7.5:
+                self.guidance_scale = 4.0
 
         print(f"[Diffuser] Loading model: {model_name}")
         try:
@@ -245,6 +250,12 @@ def test_diffuser():
 @click.option("--width", default=512, help="Width of the generated image.")
 @click.option(
     "--num_inference_steps",
+    "--steps",
+    "--num-inference-steps",
+    "--num-steps",
+    "--num_steps",
+    "--inference-steps",
+    "--inference_steps",
     default=50,
     help="Number of inference steps for generation.",
 )
