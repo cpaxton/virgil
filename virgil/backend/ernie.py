@@ -17,17 +17,24 @@ from virgil.backend.base import Backend
 ernie_model_ids = [
     "baidu/ERNIE-4.5-VL-28B-A3B-PT",  # Post-trained
     "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",  # Base pre-trained
+    # 21B (no VL) versions
+    "baidu/ERNIE-4.5-21B-A3B-PT",  # Post-trained
+    "baidu/ERNIE-4.5-21B-A3B-Base-Paddle",  # Base pre-trained
+    "baidu/ERNIE-4.5-21B-Base-Paddle",  # Base pre-trained without A3B
     # Add the 0.3B versions of the models
-    "baidu/ERNIE-4.5-VL-0.3B-A3B-PT",  # Post-trained
-    "baidu/ERNIE-4.5-VL-0.3B-A3B-Base-Paddle",  # Base pre-trained
+    "baidu/ERNIE-4.5-0.3B-Base-Paddle",  # Base pre-trained without A3B
+    "baidu/ERNIE-4.5-0.3B-ase-PT",  # Base pre-trained with A3B
 ]
 
-ernie_name_to_id = {
-    "ernie-4.5-vl-28b-a3b-pt": "baidu/ERNIE-4.5-VL-28B-A3B-PT",
-    "ernie-4.5-vl-28b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",
-    "ernie-4.5-vl-0.3b-a3b-pt": "baidu/ERNIE-4.5-VL-0.3B-A3B-PT",
-    "ernie-4.5-vl-0.3b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-0.3B-A3B-Base-Paddle",
-}
+ernie_name_to_id = {}
+
+for name in ernie_model_ids:
+    # Extract the model name from the ID
+    model_name = name.split("/")[-1]
+    # Normalize the name to lowercase
+    normalized_name = model_name.lower()
+    # Map the normalized name to the model ID
+    ernie_name_to_id[normalized_name] = name
 
 
 def get_ernie_model_id(name: str) -> Optional[str]:
