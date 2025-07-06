@@ -83,3 +83,6 @@ def main(height: int = 1536, width: int = 1536, quantization: str = "int4", prom
         prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
     image = generator.generate(prompt)
     image.save(output)
+
+if __name__ == "__main__":
+    main()
