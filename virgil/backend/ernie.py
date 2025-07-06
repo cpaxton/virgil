@@ -5,7 +5,6 @@
 
 import torch
 from transformers import (
-    pipeline,
     BitsAndBytesConfig,
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -14,12 +13,35 @@ from transformers import (
 from typing import Optional
 
 from virgil.backend.base import Backend
-import virgil.utils.log as logger
 
 ernie_model_ids = [
     "baidu/ERNIE-4.5-VL-28B-A3B-PT",  # Post-trained
     "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",  # Base pre-trained
 ]
+
+ernie_name_to_id = {
+    "ernie-4.5-vl-28b-a3b-pt": "baidu/ERNIE-4.5-VL-28B-A3B-PT",
+    "ernie-4.5-vl-28b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",
+}
+
+def get_ernie_model_id(name: str) -> Optional[str]:
+    """Get the ERNIE model ID from its name.
+
+    Args:
+        name (str): The name of the ERNIE model.
+
+    Returns:
+        Optional[str]: The HuggingFace model ID if found, otherwise None.
+    """
+    return ernie_name_to_id.get(name.lower(), None)
+
+def get_ernie_model_names() -> list[str]:
+    """Get a list of available ERNIE model names.
+
+    Returns:
+        list[str]: List of ERNIE model names.
+    """
+    return list(ernie_name_to_id.keys())
 
 class Ernie(Backend):
     """Use the Baidu ERNIE 4.5-VL-28B-A3B model for multimodal generation."""
@@ -81,14 +103,18 @@ class Ernie(Backend):
             model_id,
             **model_kwargs,
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True, trust_remote_code=True)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_id, use_fast=True, trust_remote_code=True
+        )
         self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
 
         self.temperature = temperature
         self.top_p = top_p
         self.do_sample = do_sample
 
-    def __call__(self, messages, images=None, max_new_tokens: int = 128, *args, **kwargs) -> list:
+    def __call__(
+        self, messages, images=None, max_new_tokens: int = 128, *args, **kwargs
+    ) -> list:
         """
         Generate a response to a list of messages, optionally with images.
 
@@ -107,21 +133,28 @@ class Ernie(Backend):
         # For multimodal, use the chat template and processor
         chat_messages = []
         if images:
-            chat_messages.append({
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": messages[0]},
-                    {"type": "image_url", "image_url": {"url": images[0]}},
-                ],
-            })
+            chat_messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": messages[0]},
+                        {"type": "image_url", "image_url": {"url": images[0]}},
+                    ],
+                }
+            )
         else:
-            chat_messages.append({
-                "role": "user",
-                "content": [{"type": "text", "text": messages[0]}],
-            })
+            chat_messages.append(
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": messages[0]}],
+                }
+            )
 
         text = self.processor.apply_chat_template(
-            chat_messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+            chat_messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            enable_thinking=False,
         )
 
         image_inputs, video_inputs = self.processor.process_vision_info(chat_messages)
@@ -138,8 +171,8 @@ class Ernie(Backend):
 
         with torch.no_grad():
             generated_ids = self.model.generate(
-                inputs=inputs['input_ids'],
-                attention_mask=inputs.get('attention_mask'),
+                inputs=inputs["input_ids"],
+                attention_mask=inputs.get("attention_mask"),
                 max_new_tokens=max_new_tokens,
                 temperature=self.temperature,
                 top_p=self.top_p,
@@ -148,7 +181,14 @@ class Ernie(Backend):
             output_text = self.processor.decode(generated_ids)
         return output_text
 
+
 if __name__ == "__main__":
     llm = Ernie(model_name="baidu/ERNIE-4.5-VL-28B-A3B-PT", quantization="int4")
-    print(llm("Describe the image.", images=["https://paddlenlp.bj.bcebos.com/datasets/paddlemix/demo_images/example1.jpg"]))
-
+    print(
+        llm(
+            "Describe the image.",
+            images=[
+                "https://paddlenlp.bj.bcebos.com/datasets/paddlemix/demo_images/example1.jpg"
+            ],
+        )
+    )
