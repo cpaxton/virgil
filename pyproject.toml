@@ -28,7 +28,8 @@ dependencies = [
     "omegaconf",
     "hf_xet",
     "soundfile",
-    "datasets"
+    "datasets",
+    "audiocraft"
 ]
 
 [project.urls]
