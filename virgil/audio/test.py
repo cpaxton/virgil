@@ -1,5 +1,6 @@
 import unittest
 from virgil.audio import get_audio_generator
+import os
 
 
 class TestAudioGenerator(unittest.TestCase):
@@ -9,7 +10,9 @@ class TestAudioGenerator(unittest.TestCase):
 
     def test_generate_audio(self):
         generator = get_audio_generator()
-        generator.generate("Hello, world!", "/tmp/hello.wav")
+        output_path = "/tmp/test_audio.wav"
+        generator.generate("Hello, this is a test.", output_path)
+        self.assertTrue(os.path.exists(output_path))
 
 
 if __name__ == "__main__":

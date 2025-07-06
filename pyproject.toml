@@ -27,6 +27,8 @@ dependencies = [
     "hydra-core",
     "omegaconf",
     "hf_xet",
+    "soundfile",
+    "datasets"
 ]
 
 [project.urls]
@@ -34,7 +36,7 @@ Homepage = "https://github.com/cpaxton/virgil"
 
 [project.optional-dependencies]
 torch = [
-    "torch>=2.5.1",
+    "torch>=2.6",
     "torchvision",
     "torchaudio"
 ]
@@ -49,7 +51,7 @@ dev = [
     "mdformat"
 ]
 ai = [
-    "torch>=2.5.1",
+    "torch>=2.6",
     "torchvision",
     "bitsandbytes",
     "accelerate",
