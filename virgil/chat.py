@@ -146,6 +146,7 @@ class ChatWrapper:
 @click.option("--verbose", is_flag=True, help="Print verbose output.")
 @click.option(
     "--backend",
+    "--model",
     default="gemma-3-12b-it",
     help="The backend to use.",
     type=click.Choice(backend_list, case_sensitive=False),
