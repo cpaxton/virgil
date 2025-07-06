@@ -26,7 +26,7 @@ class Framepack(VideoBackend):
 
     def __init__(
         self,
-        model_id: str = "lllyasviel/FramePackI2V_HY",
+        model_id: str = "cerspense/zeroscope_v2_576w",  # Updated default model
         torch_dtype: torch.dtype = torch.float16,
         variant: str = "fp16",
     ):
@@ -69,6 +69,7 @@ class Framepack(VideoBackend):
         Returns:
             List[str]: A list containing the path to the generated video.
         """
+
         image = load_image(image_path)
         video_frames = self.pipe(
             prompt=prompt,
@@ -78,6 +79,5 @@ class Framepack(VideoBackend):
             guidance_scale=guidance_scale,
             **kwargs,
         ).frames[0]
-
         export_to_video(video_frames, output_path)
         return [output_path]
