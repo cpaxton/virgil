@@ -279,15 +279,19 @@ def test_diffuser():
 )
 @click.option(
     "--prompt",
+    "-p",
     default="A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
     help="Text prompt for image generation.",
 )
 @click.option(
     "--output",
+    "--output-file",
+    "--output-filename",
+    "-o",
     default="generated_image.png",
     help="Output filename for the generated image.",
 )
-@click.option("--num-images", default=1, help="Number of images to generate.")
+@click.option("--num-images", "-n", default=1, help="Number of images to generate.")
 def main(
     height: int = 512,
     width: int = 512,

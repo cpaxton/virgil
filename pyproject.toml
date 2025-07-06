@@ -30,7 +30,7 @@ dependencies = [
     "soundfile",
     "datasets",
     "audiocraft",
-    "librosa"
+    "librosa",
     "decord>=0.6.0",
 ]
 
