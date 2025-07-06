@@ -66,9 +66,9 @@ class LTXVideo(VideoBackend):
             text_encoder=text_encoder_8bit,
             transformer=transformer_8bit,
             torch_dtype=torch.float16,
-            device_map="balanced",
         )
-        self.pipe.to("cuda")
+        # TODO: this may not be supported in bitsandbytes
+        # self.pipe.to("cuda")
 
     def __call__(
         self,
