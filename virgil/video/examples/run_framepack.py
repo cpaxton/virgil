@@ -22,7 +22,7 @@ from virgil.video import get_video_backend
 )
 @click.option(
     "--image-path",
-    default="virgil/video/examples/cat.jpg",
+    default="virgil/video/examples/cwknight_8.png",
     help="The path to the initial image.",
 )
 @click.option("--num-frames", default=16, help="The number of frames to generate.")
