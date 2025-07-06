@@ -13,10 +13,14 @@
 # limitations under the License.
 
 import torch
-from diffusers import DiffusionPipeline
 from diffusers.utils import export_to_video, load_image
 from .base import VideoBackend
 from typing import List
+from diffusers import (
+    HunyuanVideoFramepackPipeline,
+    HunyuanVideoFramepackTransformer3DModel,
+)
+from transformers import SiglipImageProcessor, SiglipVisionModel
 
 
 class Framepack(VideoBackend):
@@ -26,9 +30,9 @@ class Framepack(VideoBackend):
 
     def __init__(
         self,
-        model_id: str = "cerspense/zeroscope_v2_576w",  # Updated default model
-        torch_dtype: torch.dtype = torch.float16,
-        variant: str = "fp16",
+        # model_id: str = "cerspense/zeroscope_v2_576w",  # Updated default model
+        # torch_dtype: torch.dtype = torch.float16,
+        # variant: str = "fp16",
     ):
         """
         Initialize the Framepack backend.
@@ -38,21 +42,42 @@ class Framepack(VideoBackend):
             torch_dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
         """
-        self.pipe = DiffusionPipeline.from_pretrained(
-            model_id,
-            torch_dtype=torch_dtype,
-            variant=variant,
+
+        transformer = HunyuanVideoFramepackTransformer3DModel.from_pretrained(
+            "lllyasviel/FramePackI2V_HY", torch_dtype=torch.bfloat16
+        )
+        feature_extractor = SiglipImageProcessor.from_pretrained(
+            "lllyasviel/flux_redux_bfl", subfolder="feature_extractor"
+        )
+        image_encoder = SiglipVisionModel.from_pretrained(
+            "lllyasviel/flux_redux_bfl",
+            subfolder="image_encoder",
+            torch_dtype=torch.float16,
+        )
+        self.pipe = HunyuanVideoFramepackPipeline.from_pretrained(
+            "hunyuanvideo-community/HunyuanVideo",
+            transformer=transformer,
+            feature_extractor=feature_extractor,
+            image_encoder=image_encoder,
+            torch_dtype=torch.float16,
         )
         self.pipe.to("cuda")
+
+        # Enable memory optimizations
+        self.enable_memory_optimizations = True  # Set to False to disable optimizations
+        if self.enable_memory_optimizations:
+            self.pipe.enable_model_cpu_offload()
+            self.pipe.vae.enable_tiling()
 
     def __call__(
         self,
         prompt: str,
         image_path: str,
-        num_frames: int = 16,
-        num_inference_steps: int = 50,
-        guidance_scale: float = 7.5,
-        output_path: str = "output.mp4",
+        num_frames: int = 91,
+        num_inference_steps: int = 30,
+        guidance_scale: float = 9.0,
+        output_path: str | None = None,
+        fps: int = 30,
         **kwargs,
     ) -> List[str]:
         """
@@ -77,7 +102,10 @@ class Framepack(VideoBackend):
             num_frames=num_frames,
             num_inference_steps=num_inference_steps,
             guidance_scale=guidance_scale,
+            generator=torch.Generator().manual_seed(0),
+            sampling_type="inverted_anti_drifting",
             **kwargs,
         ).frames[0]
-        export_to_video(video_frames, output_path)
+        if output_path is not None:
+            export_to_video(video_frames, output_path, fps=fps)
         return [output_path]
