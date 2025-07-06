@@ -21,6 +21,7 @@ import torch
 from diffusers import AutoPipelineForText2Image
 from virgil.image.base import ImageGenerator
 from virgil.image.siglip import SigLIPAligner
+import virgil.utils.log as log
 import click
 
 
@@ -135,7 +136,7 @@ class DiffuserImageGenerator(ImageGenerator):
                 **pipeline_kwargs,
             )
         except Exception as e:
-            print(f"Standard load failed ({e}), attempting fallback...")
+            log.error(f"Standard load failed ({e}), attempting fallback...")
             # Fallback without quantization/variant
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name, **pipeline_kwargs
