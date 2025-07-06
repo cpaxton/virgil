@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 from transformers import pipeline
 
+from diffusers import StableDiffusionPipeline
 from audiocraft.models import MusicGen
 from virgil.audio.base import BaseAudioGenerator
 
@@ -34,7 +35,9 @@ class MusicGenerator(BaseAudioGenerator):
         elif model == "musicgen-melody":
             self.pipe = MusicGen.get_pretrained(model_id, device=self.device)
         elif model == "riffusion":
-            self.pipe = pipeline("text-to-image", model=model_id, device=self.device)
+            self.pipe = StableDiffusionPipeline.from_pretrained(model_id).to(
+                self.device
+            )
         elif model == "jukebox":
             click.echo(
                 "Warning: Jukebox model is very slow and may take a long time to generate music."
