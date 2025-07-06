@@ -250,6 +250,8 @@ def test_diffuser():
 )
 @click.option(
     "--guidance_scale",
+    "--guidance",
+    "--guidance-scale",
     default=7.5,
     help="Guidance scale for image generation.",
 )
