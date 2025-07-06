@@ -75,19 +75,11 @@ class FluxImageGenerator(ImageGenerator):
 @click.option("--width", default=1536, help="Width of the generated image.")
 @click.option("--quantization", default="int4", help="Quantization method (int4, int8, or None).")
 @click.option("--prompt", default="", help="Prompt for image generation.")
-def main(height: int = 1536, width: int = 1536, quantization: str = "int4", prompt: str = "") -> None:
+@click.option("--output", default="generated_image.png", help="Output filename for the generated image.")
+def main(height: int = 1536, width: int = 1536, quantization: str = "int4", prompt: str = "", output: str = "generated_image.png") -> None:
     """Main function to generate an image using the FluxImageGenerator."""
     generator = FluxImageGenerator(height=height, width=width, quantization=quantization)
     if len(prompt) == 0:
         prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
     image = generator.generate(prompt)
-    image.show()  # Display the generated image
-
-if __name__ == "__main__":
-    generator = FluxImageGenerator()
-    blobfish = True
-
-    if blobfish:
-        prompt = "A blobfish, its gelatinous body slumped and discolored, resting on a bed of seaweed in a dark, deep-sea environment. The blobfish''s face is a pale, almost translucent, and its eyes are wide and vacant. The background is a dark, inky blue, with faint bioluminescent creatures swimming in the distance."
-        image = generator.generate(prompt)
-        image.save("blobfish.png")
+    image.save(output)
