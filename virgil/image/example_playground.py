@@ -18,13 +18,16 @@ def main(use_aligner: bool = False):
     basic_image = generator.generate(prompt)
     basic_image.save("playground_cityscape_basic.png")
 
+    enhanced_prompt = (
+        prompt + ", masterpiece, 8k resolution, unreal engine, cinematic lighting"
+    )
+    enhanced_image = generator.generate(enhanced_prompt)
+    enhanced_image.save("playground_cityscape_enhanced.png")
+
     if use_aligner:
         # Use aligner for enhanced generation
         print("Using SigLIP aligner for enhanced image generation...")
         # Quality-enhanced generation (using alignment)
-        enhanced_prompt = (
-            prompt + ", masterpiece, 8k resolution, unreal engine, cinematic lighting"
-        )
         score, best_image = aligner.search(
             generator,
             enhanced_prompt,
