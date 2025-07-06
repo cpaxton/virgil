@@ -19,10 +19,10 @@ from virgil.video import get_video_backend
 @click.command()
 @click.option(
     "--prompt",
-    default="A beautiful sunset over the ocean.",
+    default="",
     help="The prompt to generate the video from.",
 )
-@click.option("--num-frames", default=16, help="The number of frames to generate.")
+@click.option("--num-frames", default=161, help="The number of frames to generate.")
 @click.option(
     "--num-inference-steps", default=50, help="The number of inference steps to use."
 )
@@ -36,6 +36,17 @@ def main(prompt, num_frames, num_inference_steps, guidance_scale, output_path):
     """
     Generate a video using the LTX-Video model.
     """
+    if len(prompt) == 0:
+        prompt = (
+            "A detailed wooden toy ship with intricately carved masts and sails is seen "
+            "gliding smoothly over a plush, blue carpet that mimics the waves of the sea. "
+            "The ship's hull is painted a rich brown, with tiny windows. The carpet, soft "
+            "and textured, provides a perfect backdrop, resembling an oceanic expanse. "
+            "Surrounding the ship are various other toys and children's items, hinting "
+            "at a playful environment. The scene captures the innocence and imagination "
+            "of childhood, with the toy ship's journey symbolizing endless adventures in "
+            "a whimsical, indoor setting."
+        )
     backend = get_video_backend("ltx-video")
     backend(
         prompt=prompt,
