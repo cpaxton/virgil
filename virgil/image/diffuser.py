@@ -109,14 +109,14 @@ class DiffuserImageGenerator(ImageGenerator):
 
         print(f"[Diffuser] Loading model: {model_name}")
         try:
-            # New: Prepare quantization config if requested
-            bnb_config = None
+            # Prepare quantization parameters
+            load_dtype = torch.float16
+            quant_config = None
+
             if quantization in ["int4", "int8"]:
                 from transformers import BitsAndBytesConfig
 
-                load_dtype = torch.float16  # Keep compute dtype as float16
-
-                bnb_config = BitsAndBytesConfig(
+                quant_config = BitsAndBytesConfig(
                     load_in_4bit=(quantization == "int4"),
                     load_in_8bit=(quantization == "int8"),
                     bnb_4bit_use_double_quant=True,
@@ -126,20 +126,26 @@ class DiffuserImageGenerator(ImageGenerator):
                 )
                 print(f"[Diffuser] Using {quantization} quantization")
 
-            # Try loading with recommended parameters + quantization
+            # Load pipeline with quantization config
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
-                torch_dtype=load_dtype if not bnb_config else None,
+                torch_dtype=load_dtype,
                 variant="fp16",
                 use_safetensors=True,
-                quantization_config=bnb_config,  # Pass quantization config
+                quantization_config=quant_config,  # Correct parameter name
                 **pipeline_kwargs,
             )
+        except ImportError:
+            print("Quantization requires bitsandbytes: pip install bitsandbytes")
         except Exception as e:
             log.error(f"Standard load failed ({e}), attempting fallback...")
             # Fallback without quantization/variant
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
-                model_name, **pipeline_kwargs
+                model_name,
+                torch_dtype=torch.float16,
+                variant="fp16",
+                use_safetensors=True,
+                **pipeline_kwargs,
             )
 
         # Device placement
