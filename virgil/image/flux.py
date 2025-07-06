@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Chris Paxton
+
+import click
 import torch
 from diffusers import FluxPipeline
 from PIL import Image
@@ -66,6 +69,19 @@ class FluxImageGenerator(ImageGenerator):
             ).images[0]
         return image
 
+
+@click.command()
+@click.option("--height", default=1536, help="Height of the generated image.")
+@click.option("--width", default=1536, help="Width of the generated image.")
+@click.option("--quantization", default="int4", help="Quantization method (int4, int8, or None).")
+@click.option("--prompt", default="", help="Prompt for image generation.")
+def main(height: int = 1536, width: int = 1536, quantization: str = "int4", prompt: str = "") -> None:
+    """Main function to generate an image using the FluxImageGenerator."""
+    generator = FluxImageGenerator(height=height, width=width, quantization=quantization)
+    if len(prompt) == 0:
+        prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
+    image = generator.generate(prompt)
+    image.show()  # Display the generated image
 
 if __name__ == "__main__":
     generator = FluxImageGenerator()
