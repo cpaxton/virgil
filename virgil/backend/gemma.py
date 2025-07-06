@@ -28,6 +28,7 @@ variants = [
     "google/gemma-1-3b-en",
     "google/gemma-3-27b-it",
     "google/gemma-3-12b-it",
+    "google/gemma-3-1b-it",
 ]
 
 name_to_variant = {}
