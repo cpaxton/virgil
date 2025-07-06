@@ -6,16 +6,21 @@ import soundfile as sf
 
 
 class AudioGenerator(BaseAudioGenerator):
+    MODEL_ALIASES = {
+        "speecht5": "microsoft/speecht5_tts",
+    }
+
     def __init__(
         self,
-        model_id: str = "microsoft/speecht5_tts",
-        vocoder_id: str = "microsoft/speecht5_hifigan",
+        model: str = "speecht5",
+        vocoder: str = "microsoft/speecht5_hifigan",
         speaker_id: int = 174,
     ):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        model_id = self.MODEL_ALIASES.get(model, model)
         self.processor = SpeechT5Processor.from_pretrained(model_id)
         self.model = SpeechT5ForTextToSpeech.from_pretrained(model_id).to(self.device)
-        self.vocoder = SpeechT5HifiGan.from_pretrained(vocoder_id).to(self.device)
+        self.vocoder = SpeechT5HifiGan.from_pretrained(vocoder).to(self.device)
         self.embeddings_dataset = load_dataset(
             "Matthijs/cmu-arctic-xvectors", split="validation"
         )
