@@ -55,6 +55,7 @@ class DiffuserImageGenerator(ImageGenerator):
         guidance_scale: float = 7.5,
         model: str = "base",
         xformers: bool = False,
+        quantization: str = "none",  # Options: "none", "int4", "int8"
         **pipeline_kwargs,  # Additional pipeline arguments
     ) -> None:
         """
@@ -107,17 +108,35 @@ class DiffuserImageGenerator(ImageGenerator):
 
         print(f"[Diffuser] Loading model: {model_name}")
         try:
-            # Try loading with recommended parameters first
+            # New: Prepare quantization config if requested
+            bnb_config = None
+            if quantization in ["int4", "int8"]:
+                from transformers import BitsAndBytesConfig
+
+                load_dtype = torch.float16  # Keep compute dtype as float16
+
+                bnb_config = BitsAndBytesConfig(
+                    load_in_4bit=(quantization == "int4"),
+                    load_in_8bit=(quantization == "int8"),
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=load_dtype,
+                    bnb_8bit_compute_dtype=load_dtype,
+                )
+                print(f"[Diffuser] Using {quantization} quantization")
+
+            # Try loading with recommended parameters + quantization
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
-                torch_dtype=torch.float16,
+                torch_dtype=load_dtype if not bnb_config else None,
                 variant="fp16",
                 use_safetensors=True,
+                quantization_config=bnb_config,  # Pass quantization config
                 **pipeline_kwargs,
             )
         except Exception as e:
             print(f"Standard load failed ({e}), attempting fallback...")
-            # Fallback without specific parameters
+            # Fallback without quantization/variant
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name, **pipeline_kwargs
             )
@@ -129,8 +148,22 @@ class DiffuserImageGenerator(ImageGenerator):
             device = "mps"
         else:
             device = "cpu"
+
+        # New: Special handling for quantized models
+        if quantization in ["int4", "int8"]:
+            if device != "cuda":
+                print(
+                    f"Warning: {quantization} quantization requires CUDA. Disabling quantization."
+                )
+            elif not isinstance(self.pipeline, torch.nn.Module):
+                # Workaround for diffusers device placement bug
+                self.pipeline.to("cuda")
+            else:
+                self.pipeline = self.pipeline.to(device)
+        else:
+            self.pipeline = self.pipeline.to(device)
+
         print(f"[Diffuser] Using device: {device}")
-        self.pipeline = self.pipeline.to(device)
 
         # Enable optimizations
         self._enable_optimizations(xformers)
@@ -292,6 +325,13 @@ def test_diffuser():
     default="generated_image.png",
     help="Output filename for the generated image.",
 )
+@click.option(
+    "--quantization",
+    "-q",
+    default="none",
+    type=click.Choice(["none", "int4", "int8"]),
+    help="Quantization method to use (none, int4, int8).",
+)
 @click.option("--num-images", "-n", default=1, help="Number of images to generate.")
 def main(
     height: int = 512,
@@ -303,6 +343,7 @@ def main(
     prompt: str = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
     output: str = "generated_image.png",
     num_images: int = 1,
+    quantization: str = "none",  # Options: "none", "int4", "int8"
 ) -> None:
     """Main function to generate an image using the DiffuserImageGenerator."""
     generator = DiffuserImageGenerator(
@@ -312,6 +353,7 @@ def main(
         guidance_scale=guidance_scale,
         model=model,
         xformers=xformers,
+        quantization=quantization,
     )
 
     if num_images < 1:
