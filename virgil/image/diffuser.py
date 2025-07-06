@@ -101,31 +101,6 @@ class DiffuserImageGenerator(ImageGenerator):
             self.pipeline = self.pipeline.to("cpu")
         print("...done.")
 
-        # Change to channels-last format for speed
-        # print("[Diffuser] Converting models to channels-last format for speed...")
-        # self.pipeline.unet.to(memory_format=torch.channels_last)
-        # self.pipeline.vae.to(memory_format=torch.channels_last)
-        # print("...done.")
-
-        # Fuse the QKV projections for memory efficiency
-        # print("[Diffuser] Fusing QKV projections for memory efficiency...")
-        # self.pipeline.fuse_qkv_projections()
-        # print("...done.")
-
-        # Compile the models
-        # print("[Diffuser] Compiling models for speed...")
-        # self.pipeline.unet = torch.compile(self.pipeline.unet, mode="max-autotune", fullgraph=True)
-        # self.pipeline.vae.decode = torch.compile(self.pipeline.vae.decode, mode="max-autotune", fullgraph=True)
-        # print("...done.")
-
-        # Convert the model to float16 for memory efficiency
-        # self.pipeline = self.pipeline.to(torch.float16)
-
-        # Ensure all model components are in FP16
-        # self.pipeline.unet = self.pipeline.unet.to(torch.float16)
-        # self.pipeline.text_encoder = self.pipeline.text_encoder.to(torch.float16)
-        # self.pipeline.vae = self.pipeline.vae.to(torch.float16)
-
         # Optional: Enable memory efficient attention
         if xformers:
             print("[Diffuser] Enabling memory efficient attention via xformers...")
