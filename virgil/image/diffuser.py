@@ -21,6 +21,7 @@ import torch
 from diffusers import AutoPipelineForText2Image
 from virgil.image.base import ImageGenerator
 from virgil.image.siglip import SigLIPAligner
+import click
 
 
 class DiffuserImageGenerator(ImageGenerator):
@@ -157,7 +158,11 @@ class DiffuserImageGenerator(ImageGenerator):
         return result.images[0]
 
 
-if __name__ == "__main__":
+def test_diffuser():
+    """
+    Test the DiffuserImageGenerator with a sample prompt.
+    """
+
     import torch
 
     print("CuDNN version:", torch.backends.cudnn.version())
@@ -212,3 +217,67 @@ if __name__ == "__main__":
         score, image = aligner.search(generator, prompt, num_tries=25)
         print(score)
         image.save("onion_search.png")
+
+
+@click.command()
+@click.option("--height", default=512, help="Height of the generated image.")
+@click.option("--width", default=512, help="Width of the generated image.")
+@click.option(
+    "--num_inference_steps",
+    default=50,
+    help="Number of inference steps for generation.",
+)
+@click.option(
+    "--guidance_scale",
+    default=7.5,
+    help="Guidance scale for image generation.",
+)
+@click.option(
+    "--model",
+    default="base",
+    type=click.Choice(DiffuserImageGenerator.MODEL_OPTIONS.keys()),
+    help="Model to use for image generation.",
+)
+@click.option(
+    "--xformers",
+    is_flag=True,
+    help="Use xformers for memory-efficient attention.",
+)
+@click.option(
+    "--prompt",
+    default="A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
+    help="Text prompt for image generation.",
+)
+@click.option(
+    "--output",
+    default="generated_image.png",
+    help="Output filename for the generated image.",
+)
+def main(
+    height: int = 512,
+    width: int = 512,
+    num_inference_steps: int = 50,
+    guidance_scale: float = 7.5,
+    model: str = "base",
+    xformers: bool = False,
+    prompt: str = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
+    output: str = "generated_image.png",
+) -> None:
+    """Main function to generate an image using the DiffuserImageGenerator."""
+    generator = DiffuserImageGenerator(
+        height=height,
+        width=width,
+        num_inference_steps=num_inference_steps,
+        guidance_scale=guidance_scale,
+        model=model,
+        xformers=xformers,
+    )
+    if len(prompt) == 0:
+        prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
+    image = generator.generate(prompt)
+    image.save(output)
+
+
+if __name__ == "__main__":
+    main()
+    # test_diffuser()  # Uncomment to run the test function
