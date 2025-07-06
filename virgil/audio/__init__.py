@@ -1,5 +1,5 @@
 from virgil.audio.base import BaseAudioGenerator
-from virgil.audio.main import AudioGenerator
+from virgil.audio.speech import AudioGenerator
 from virgil.audio.music import MusicGenerator
 
 
