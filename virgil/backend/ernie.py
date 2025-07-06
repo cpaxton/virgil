@@ -17,11 +17,16 @@ from virgil.backend.base import Backend
 ernie_model_ids = [
     "baidu/ERNIE-4.5-VL-28B-A3B-PT",  # Post-trained
     "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",  # Base pre-trained
+    # Add the 0.3B versions of the models
+    "baidu/ERNIE-4.5-VL-0.3B-A3B-PT",  # Post-trained
+    "baidu/ERNIE-4.5-VL-0.3B-A3B-Base-Paddle",  # Base pre-trained
 ]
 
 ernie_name_to_id = {
     "ernie-4.5-vl-28b-a3b-pt": "baidu/ERNIE-4.5-VL-28B-A3B-PT",
     "ernie-4.5-vl-28b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",
+    "ernie-4.5-vl-0.3b-a3b-pt": "baidu/ERNIE-4.5-VL-0.3B-A3B-PT",
+    "ernie-4.5-vl-0.3b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-0.3B-A3B-Base-Paddle",
 }
 
 
