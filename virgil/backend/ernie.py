@@ -23,7 +23,7 @@ ernie_model_ids = [
     "baidu/ERNIE-4.5-21B-Base-Paddle",  # Base pre-trained without A3B
     # Add the 0.3B versions of the models
     "baidu/ERNIE-4.5-0.3B-Base-Paddle",  # Base pre-trained without A3B
-    "baidu/ERNIE-4.5-0.3B-ase-PT",  # Base pre-trained with A3B
+    "baidu/ERNIE-4.5-0.3B-Base-PT",  # Base pre-trained with A3B
 ]
 
 ernie_name_to_id = {}
