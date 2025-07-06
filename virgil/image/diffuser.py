@@ -27,10 +27,11 @@ import click
 class DiffuserImageGenerator(ImageGenerator):
     """
     A class for generating images from text prompts using the Diffusers library,
-    with support for various small and efficient models.
+    with support for various models including future improvements.
     """
 
-    MODEL_OPTIONS = {
+    # Preset model aliases for convenience
+    MODEL_ALIASES = {
         "base": "stabilityai/stable-diffusion-xl-base-1.0",
         "turbo": "stabilityai/sdxl-turbo",
         "turbo_3.5": "stabilityai/stable-diffusion-3.5-large-turbo",
@@ -47,89 +48,110 @@ class DiffuserImageGenerator(ImageGenerator):
         guidance_scale: float = 7.5,
         model: str = "base",
         xformers: bool = False,
+        **pipeline_kwargs,  # Additional pipeline arguments
     ) -> None:
         """
-        Initialize the DiffuserImageGenerator with a pre-trained model and image generation parameters.
+        Initialize the image generator.
 
         Args:
-            height (int): The height of the generated image. Defaults to 512.
-            width (int): The width of the generated image. Defaults to 512.
-            num_inference_steps (int): The number of denoising steps. Defaults to 50.
-            guidance_scale (float): The guidance scale for generation. Defaults to 7.5.
-            model (str): The model to use. Options: "base", "turbo", "small", "tiny", "small_sd3". Defaults to "base".
-            xformers (bool): Whether to use xformers for memory efficiency. Defaults to False.
+            height: Height of generated images (default: 512)
+            width: Width of generated images (default: 512)
+            num_inference_steps: Denoising steps (default: 50)
+            guidance_scale: Classifier-free guidance scale (default: 7.5)
+            model: Model alias or direct HuggingFace repository ID
+            xformers: Enable memory-efficient attention (requires xformers)
+            pipeline_kwargs: Additional arguments for pipeline initialization
         """
         self.height = height
         self.width = width
         self.num_inference_steps = num_inference_steps
         self.guidance_scale = guidance_scale
 
-        if model not in self.MODEL_OPTIONS:
-            raise ValueError(
-                f"Unknown model: {model}. Available options are: {', '.join(self.MODEL_OPTIONS.keys())}"
+        # Resolve model identifier
+        model_name = self.MODEL_ALIASES.get(model, model)
+
+        # Auto-adjust parameters for turbo models
+        if "turbo" in model_name.lower():
+            self.num_inference_steps = min(4, num_inference_steps)
+            if guidance_scale == 7.5:  # Only override default value
+                self.guidance_scale = 0.0
+
+        print(f"[Diffuser] Loading model: {model_name}")
+        try:
+            # Try loading with recommended parameters first
+            self.pipeline = AutoPipelineForText2Image.from_pretrained(
+                model_name,
+                torch_dtype=torch.float16,
+                variant="fp16",
+                use_safetensors=True,
+                **pipeline_kwargs,
+            )
+        except Exception as e:
+            print(f"Standard load failed ({e}), attempting fallback...")
+            # Fallback without specific parameters
+            self.pipeline = AutoPipelineForText2Image.from_pretrained(
+                model_name, **pipeline_kwargs
             )
 
-        model_name = self.MODEL_OPTIONS[model]
-
-        # Adjust parameters for specific models
-        if model == "turbo":
-            self.num_inference_steps = min(4, num_inference_steps)
-            self.guidance_scale = 0.0 if guidance_scale == 7.5 else guidance_scale
-
-        if xformers:
-            try:
-                import xformers
-            except ImportError:
-                print(
-                    "Tried to use Xformers but it is not installed. Please install it following instructions at: https://github.com/facebookresearch/xformers"
-                )
-                xformers = False
-
-        # Load the model
-        print("[Diffuser] Loading model...")
-        self.pipeline = AutoPipelineForText2Image.from_pretrained(
-            model_name, torch_dtype=torch.float16, variant="fp16", use_safetensors=True
-        )
-
-        # Place the model on the GPU if available
-        print("[Diffuser] Placing model on GPU if available...")
+        # Device placement
         if torch.cuda.is_available():
-            self.pipeline = self.pipeline.to("cuda")
+            device = "cuda"
         elif torch.backends.mps.is_available():
-            self.pipeline = self.pipeline.to("mps")
+            device = "mps"
         else:
-            self.pipeline = self.pipeline.to("cpu")
-        print("...done.")
+            device = "cpu"
+        print(f"[Diffuser] Using device: {device}")
+        self.pipeline = self.pipeline.to(device)
 
-        # Optional: Enable memory efficient attention
-        if xformers:
-            print("[Diffuser] Enabling memory efficient attention via xformers...")
-            self.pipeline.enable_xformers_memory_efficient_attention()
-            print("...done.")
+        # Enable optimizations
+        self._enable_optimizations(xformers)
+
+    def _enable_optimizations(self, xformers: bool) -> None:
+        """Apply performance optimizations where supported"""
+        try:
+            # Channels-last memory format
+            if hasattr(self.pipeline, "unet"):
+                self.pipeline.unet.to(memory_format=torch.channels_last)
+            if hasattr(self.pipeline, "vae"):
+                self.pipeline.vae.to(memory_format=torch.channels_last)
+
+            # Memory-efficient attention
+            if xformers:
+                self.pipeline.enable_xformers_memory_efficient_attention()
+                print("[Diffuser] Enabled xformers memory efficient attention")
+        except Exception as e:
+            print(f"[Diffuser] Optimization warning: {str(e)}")
 
     def generate(
-        self, prompt: str, negative_prompt: str = "blurry, bad quality, duplicated"
+        self,
+        prompt: str,
+        negative_prompt: str = "blurry, bad quality, duplicated",
+        **generation_kwargs,  # Additional generation arguments
     ) -> Image.Image:
         """
-        Generate an image based on the given text prompt.
+        Generate image from text prompt.
 
         Args:
-            prompt (str): The text description of the image to generate.
-            negative_prompt (str): The negative prompt to guide generation away from certain attributes.
+            prompt: Text description of desired image
+            negative_prompt: Negative guidance prompt
+            generation_kwargs: Additional arguments for generation
 
         Returns:
-            Image.Image: The generated image.
+            Generated PIL Image
         """
+        # Merge class parameters with runtime parameters
+        base_params = {
+            "prompt": prompt,
+            "negative_prompt": negative_prompt,
+            "height": self.height,
+            "width": self.width,
+            "num_inference_steps": self.num_inference_steps,
+            "guidance_scale": self.guidance_scale,
+        }
+        params = {**base_params, **generation_kwargs}
+
         with torch.no_grad():
-            # with torch.cuda.amp.autocast(dtype=torch.float16):
-            result = self.pipeline(
-                prompt=prompt,
-                negative_prompt=negative_prompt,
-                height=self.height,
-                width=self.width,
-                num_inference_steps=self.num_inference_steps,
-                guidance_scale=self.guidance_scale,
-            )
+            result = self.pipeline(**params)
         return result.images[0]
 
 
@@ -209,8 +231,8 @@ def test_diffuser():
 )
 @click.option(
     "--model",
-    default="base",
-    type=click.Choice(DiffuserImageGenerator.MODEL_OPTIONS.keys()),
+    default="turbo",
+    type=click.Choice(DiffuserImageGenerator.MODEL_ALIASES.keys()),
     help="Model to use for image generation.",
 )
 @click.option(
@@ -228,6 +250,7 @@ def test_diffuser():
     default="generated_image.png",
     help="Output filename for the generated image.",
 )
+@click.option("--num-images", default=1, help="Number of images to generate.")
 def main(
     height: int = 512,
     width: int = 512,
@@ -237,6 +260,7 @@ def main(
     xformers: bool = False,
     prompt: str = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
     output: str = "generated_image.png",
+    num_images: int = 1,
 ) -> None:
     """Main function to generate an image using the DiffuserImageGenerator."""
     generator = DiffuserImageGenerator(
@@ -247,10 +271,27 @@ def main(
         model=model,
         xformers=xformers,
     )
+
+    if num_images < 1:
+        raise ValueError("Number of images to generate must be at least 1.")
+
     if len(prompt) == 0:
         prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
-    image = generator.generate(prompt)
-    image.save(output)
+
+    # Extract file extension from output
+    output_extension = output.split(".")[-1].lower()
+    if output_extension not in ["png", "jpg", "jpeg"]:
+        raise ValueError("Output file must be a PNG or JPG image.")
+
+    if num_images > 1:
+        images = []
+        for i in range(num_images):
+            image = generator.generate(prompt)
+            images.append(image)
+            image.save(f"{output.split('.')[0]}_{i + 1}.{output_extension}")
+    else:
+        image = generator.generate(prompt)
+        image.save(output)
 
 
 if __name__ == "__main__":
