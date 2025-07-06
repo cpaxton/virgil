@@ -13,10 +13,16 @@
 # limitations under the License.
 
 import torch
-from diffusers import LTXVideoPipeline
+from diffusers import LTXPipeline
 from diffusers.utils import export_to_video
 from .base import VideoBackend
 from typing import List
+
+from diffusers import (
+    BitsAndBytesConfig as DiffusersBitsAndBytesConfig,
+    LTXVideoTransformer3DModel,
+)
+from transformers import BitsAndBytesConfig as BitsAndBytesConfig, T5EncoderModel
 
 
 class LTXVideo(VideoBackend):
@@ -38,10 +44,29 @@ class LTXVideo(VideoBackend):
             torch_dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
         """
-        self.pipe = LTXVideoPipeline.from_pretrained(
-            model_id,
-            torch_dtype=torch_dtype,
-            variant=variant,
+
+        quant_config = BitsAndBytesConfig(load_in_8bit=True)
+        text_encoder_8bit = T5EncoderModel.from_pretrained(
+            "Lightricks/LTX-Video",
+            subfolder="text_encoder",
+            quantization_config=quant_config,
+            torch_dtype=torch.float16,
+        )
+
+        quant_config = DiffusersBitsAndBytesConfig(load_in_8bit=True)
+        transformer_8bit = LTXVideoTransformer3DModel.from_pretrained(
+            "Lightricks/LTX-Video",
+            subfolder="transformer",
+            quantization_config=quant_config,
+            torch_dtype=torch.float16,
+        )
+
+        self.pipe = LTXPipeline.from_pretrained(
+            "Lightricks/LTX-Video",
+            text_encoder=text_encoder_8bit,
+            transformer=transformer_8bit,
+            torch_dtype=torch.float16,
+            device_map="balanced",
         )
         self.pipe.to("cuda")
 
