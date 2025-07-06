@@ -27,6 +27,7 @@ dependencies = [
     "hydra-core",
     "omegaconf",
     "hf_xet",
+    "decord>=0.6.0",
 ]
 
 [project.urls]

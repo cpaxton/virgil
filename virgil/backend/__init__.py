@@ -27,6 +27,7 @@ from .qwen import (
     qwen25_sizes,
     qwen30_sizes,
 )
+from .ernie import Ernie, get_ernie_model_id, get_ernie_model_names
 
 qwens = []
 qwens = [
@@ -37,15 +38,19 @@ qwens = [
 ]
 
 
-backend_list = [
-    "gemma",
-    "gemma2b",
-    "gemma-2b-it",
-    "gemma-3-27b-it",
-    "gemma-3-12b-it",
-    "llama-3.2-1B",
-    "qwen",
-] + qwens
+backend_list = (
+    [
+        "gemma",
+        "gemma2b",
+        "gemma-2b-it",
+        "gemma-3-27b-it",
+        "gemma-3-12b-it",
+        "llama-3.2-1B",
+        "qwen",
+    ]
+    + qwens
+    + get_ernie_model_names()
+)
 
 
 def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backend:
@@ -77,6 +82,10 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
                 name += "-it"
             gemma_kwargs["variant"] = "google/" + name
         return Gemma(**gemma_kwargs)
+    if name.startswith("ernie"):
+        # ERNIE models are named like "ernie-4.5-vl-28b-a3b"
+        model_id = get_ernie_model_id(name)
+        return Ernie(model_name=model_id, **kwargs)
     elif name == "llama" or name == "llama-3.2-1B":
         return Llama(model_name="meta-llama/Llama-3.2-1B", **kwargs)
     elif name.startswith("qwen"):
