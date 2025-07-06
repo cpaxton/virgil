@@ -1,8 +1,10 @@
-from virgil.audio.base import BaseAudioGenerator
-from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
-from datasets import load_dataset
-import torch
+import click
 import soundfile as sf
+import torch
+from datasets import load_dataset
+from transformers import SpeechT5ForTextToSpeech, SpeechT5HifiGan, SpeechT5Processor
+
+from virgil.audio.base import BaseAudioGenerator
 
 
 class AudioGenerator(BaseAudioGenerator):
@@ -39,3 +41,46 @@ class AudioGenerator(BaseAudioGenerator):
         )
 
         sf.write(output_path, speech.cpu().numpy(), samplerate=16000)
+
+
+@click.command()
+@click.option(
+    "--text",
+    "-t",
+    required=True,
+    help="The text to convert to speech.",
+)
+@click.option(
+    "--output-path",
+    "-o",
+    required=True,
+    help="The path to save the generated speech file (e.g., speech.wav).",
+)
+@click.option(
+    "--model",
+    "-m",
+    default="speecht5",
+    help="The model to use for speech generation (e.g., 'speecht5').",
+)
+@click.option(
+    "--vocoder",
+    "-v",
+    default="microsoft/speecht5_hifigan",
+    help="The vocoder to use for speech generation.",
+)
+@click.option(
+    "--speaker-id",
+    "-s",
+    default=174,
+    type=int,
+    help="The speaker ID to use for speech generation.",
+)
+def cli(text: str, output_path: str, model: str, vocoder: str, speaker_id: int):
+    """Generates speech from text."""
+    generator = AudioGenerator(model=model, vocoder=vocoder, speaker_id=speaker_id)
+    generator.generate(text=text, output_path=output_path)
+    click.echo(f"Speech generated and saved to {output_path}")
+
+
+if __name__ == "__main__":
+    cli()
