@@ -38,6 +38,13 @@ class DiffuserImageGenerator(ImageGenerator):
         "small": "segmind/SSD-1B",
         "tiny": "segmind/tiny-sd",
         "small_sd3": "stabilityai/stable-diffusion-3-medium",
+        # New additions
+        "lightning": "ByteDance/SDXL-Lightning",  # Ultra-fast generation (4-8 steps)
+        "hyper": "stabilityai/sdxl-turbo",  # Alias for consistency (same as turbo)
+        "playground": "playgroundai/playground-v2.5-1024px-aesthetic",  # High-quality aesthetic
+        "pixart": "PixArt-alpha/PixArt-Sigma-XL-2-1024-MS",  # Transformer-based efficiency
+        "würstchen": "warp-ai/wuerstchen",  # Efficient latent diffusion
+        "sd3_medium": "stabilityai/stable-diffusion-3-medium",  # Consistent naming
     }
 
     def __init__(
@@ -75,6 +82,23 @@ class DiffuserImageGenerator(ImageGenerator):
             self.num_inference_steps = min(4, num_inference_steps)
             if guidance_scale == 7.5:  # Only override default value
                 self.guidance_scale = 0.0
+
+        # Handle turbo-like models
+        if model in ["turbo", "hyper", "lightning"]:
+            self.num_inference_steps = min(4, num_inference_steps)
+
+            # Special guidance scale handling
+            if guidance_scale == 7.5:  # Only override default
+                if model == "lightning":
+                    self.guidance_scale = 1.0  # SDXL-Lightning prefers 1.0
+                else:
+                    self.guidance_scale = 0.0  # Other turbos use 0.0
+
+        # Handle SD3 models
+        elif "sd3" in model:
+            self.num_inference_steps = min(28, num_inference_steps)
+            if guidance_scale == 7.5:
+                self.guidance_scale = 5.0
 
         print(f"[Diffuser] Loading model: {model_name}")
         try:
