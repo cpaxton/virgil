@@ -8,17 +8,30 @@ from virgil.audio.base import BaseAudioGenerator
 
 class MusicGenerator(BaseAudioGenerator):
     MODEL_ALIASES = {
-        "musicgen": "facebook/musicgen-large",
+        "musicgen-small": "facebook/musicgen-small",
+        "musicgen-medium": "facebook/musicgen-medium",
+        "musicgen-large": "facebook/musicgen-large",
+        "musicgen-stereo-small": "facebook/musicgen-stereo-small",
+        "musicgen-stereo-medium": "facebook/musicgen-stereo-medium",
+        "musicgen-stereo-large": "facebook/musicgen-stereo-large",
+        "audiocraft-melody": "facebook/audiocraft-melody",
+        "audiocraft-drums": "facebook/audiocraft-drums",
+        "audiocraft-bass": "facebook/audiocraft-bass",
+        "audiocraft-guitar": "facebook/audiocraft-guitar",
+        "audiocraft-piano": "facebook/audiocraft-piano",
+        "audiocraft-speech": "facebook/audiocraft-speech",
     }
 
-    def __init__(self, model: str = "musicgen"):
+    def __init__(self, model: str = "musicgen-small"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         model_id = self.MODEL_ALIASES.get(model, model)
         self.pipe = pipeline("text-to-audio", model=model_id, device=self.device)
 
     def generate(self, text: str, output_path: str):
         music = self.pipe(text)
-        sf.write(output_path, music["audio"], samplerate=music["sampling_rate"])
+        sf.write(
+            output_path, music["audio"].squeeze(), samplerate=music["sampling_rate"]
+        )
 
 
 @click.command()
@@ -37,8 +50,9 @@ class MusicGenerator(BaseAudioGenerator):
 @click.option(
     "--model",
     "-m",
-    default="musicgen",
-    help="The model to use for music generation (e.g., 'musicgen').",
+    default="musicgen-small",
+    type=click.Choice(list(MusicGenerator.MODEL_ALIASES.keys())),
+    help="The model to use for music generation.",
 )
 def cli(text: str, output_path: str, model: str):
     """Generates music from a text prompt."""
