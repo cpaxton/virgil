@@ -24,6 +24,7 @@ ernie_name_to_id = {
     "ernie-4.5-vl-28b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",
 }
 
+
 def get_ernie_model_id(name: str) -> Optional[str]:
     """Get the ERNIE model ID from its name.
 
@@ -35,6 +36,7 @@ def get_ernie_model_id(name: str) -> Optional[str]:
     """
     return ernie_name_to_id.get(name.lower(), None)
 
+
 def get_ernie_model_names() -> list[str]:
     """Get a list of available ERNIE model names.
 
@@ -42,6 +44,7 @@ def get_ernie_model_names() -> list[str]:
         list[str]: List of ERNIE model names.
     """
     return list(ernie_name_to_id.keys())
+
 
 class Ernie(Backend):
     """Use the Baidu ERNIE 4.5-VL-28B-A3B model for multimodal generation."""

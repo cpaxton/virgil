@@ -38,15 +38,19 @@ qwens = [
 ]
 
 
-backend_list = [
-    "gemma",
-    "gemma2b",
-    "gemma-2b-it",
-    "gemma-3-27b-it",
-    "gemma-3-12b-it",
-    "llama-3.2-1B",
-    "qwen",
-] + qwens + get_ernie_model_names()
+backend_list = (
+    [
+        "gemma",
+        "gemma2b",
+        "gemma-2b-it",
+        "gemma-3-27b-it",
+        "gemma-3-12b-it",
+        "llama-3.2-1B",
+        "qwen",
+    ]
+    + qwens
+    + get_ernie_model_names()
+)
 
 
 def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backend:
@@ -81,7 +85,7 @@ def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backe
     if name.startswith("ernie"):
         # ERNIE models are named like "ernie-4.5-vl-28b-a3b"
         model_id = get_ernie_model_id(name)
-        return Ernie(model_name=model_id, **ernie_kwargs)
+        return Ernie(model_name=model_id, **kwargs)
     elif name == "llama" or name == "llama-3.2-1B":
         return Llama(model_name="meta-llama/Llama-3.2-1B", **kwargs)
     elif name.startswith("qwen"):
