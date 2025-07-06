@@ -2,6 +2,9 @@ import click
 import torch
 import torchaudio
 import soundfile as sf
+import librosa
+import numpy as np
+from PIL import Image
 from transformers import pipeline
 
 from audiocraft.models import MusicGen
@@ -18,6 +21,8 @@ class MusicGenerator(BaseAudioGenerator):
         "musicgen-stereo-large": "facebook/musicgen-stereo-large",
         "suno-bark": "suno/bark",
         "musicgen-melody": "meta-audio/musicgen-melody",
+        "riffusion": "riffusion/riffusion-model-v1",
+        "jukebox": "openai/jukebox-1b-lyrics",
     }
 
     def __init__(self, model: str = "musicgen-small"):
@@ -28,6 +33,13 @@ class MusicGenerator(BaseAudioGenerator):
             self.pipe = pipeline("text-to-speech", model=model_id, device=self.device)
         elif model == "musicgen-melody":
             self.pipe = MusicGen.get_pretrained(model_id, device=self.device)
+        elif model == "riffusion":
+            self.pipe = pipeline("text-to-image", model=model_id, device=self.device)
+        elif model == "jukebox":
+            click.echo(
+                "Warning: Jukebox model is very slow and may take a long time to generate music."
+            )
+            self.pipe = pipeline("text-to-audio", model=model_id, device=self.device)
         else:
             self.pipe = pipeline("text-to-audio", model=model_id, device=self.device)
 
@@ -43,6 +55,12 @@ class MusicGenerator(BaseAudioGenerator):
             sf.write(
                 output_path, music.cpu().squeeze(), samplerate=self.pipe.sample_rate
             )
+        elif self.model == "riffusion":
+            image = self.pipe(text).images[0]
+            image.save("spectrogram.png")
+            spectrogram = np.array(Image.open("spectrogram.png").convert("L"))
+            audio = librosa.griffinlim(spectrogram)
+            sf.write(output_path, audio, samplerate=22050)
         else:
             music = self.pipe(text)
             sf.write(
