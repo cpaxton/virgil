@@ -268,6 +268,7 @@ def test_diffuser():
 )
 @click.option(
     "--model",
+    "-m",
     default="turbo",
     type=click.Choice(DiffuserImageGenerator.MODEL_ALIASES.keys()),
     help="Model to use for image generation.",
