@@ -14,12 +14,6 @@ class MusicGenerator(BaseAudioGenerator):
         "musicgen-stereo-small": "facebook/musicgen-stereo-small",
         "musicgen-stereo-medium": "facebook/musicgen-stereo-medium",
         "musicgen-stereo-large": "facebook/musicgen-stereo-large",
-        "audiocraft-melody": "facebook/audiocraft-melody",
-        "audiocraft-drums": "facebook/audiocraft-drums",
-        "audiocraft-bass": "facebook/audiocraft-bass",
-        "audiocraft-guitar": "facebook/audiocraft-guitar",
-        "audiocraft-piano": "facebook/audiocraft-piano",
-        "audiocraft-speech": "facebook/audiocraft-speech",
     }
 
     def __init__(self, model: str = "musicgen-small"):
