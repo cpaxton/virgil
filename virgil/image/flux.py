@@ -26,7 +26,6 @@ class FluxImageGenerator:
         self.height = height
         self.width = width
         self.device = self._get_device()
-        quantization_config = None
 
         if quantization == "int4":
             # Configure 4-bit quantization (NF4 + nested quantization)
@@ -85,10 +84,10 @@ class FluxImageGenerator:
         if self.cpu_offload:
             # Enable CPU offloading for memory efficiency
             self.pipe.enable_model_cpu_offload()
-
-        # Only move to device if not quantized (quantized models load on GPU by default)
-        if quantization_config is None:
-            self.pipe = self.pipe.to(self.device)
+        else:
+            # Only move to device if not quantized (quantized models load on GPU by default)
+            if diffusers_quant_config is None:
+                self.pipe = self.pipe.to(self.device)
 
         self.pipe.set_progress_bar_config(disable=True)
 
