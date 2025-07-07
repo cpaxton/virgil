@@ -96,6 +96,11 @@ class Friend(DiscordBot):
         self.sent_prompt = False
         self.join_at_random = join_at_random
         self.home_channel = home_channel
+
+        # For prompts
+        self.backend_name = backend
+        self.image_generator_name = image_generator
+
         super(Friend, self).__init__(token)
 
         # Check to see if memory file exists
@@ -152,6 +157,8 @@ class Friend(DiscordBot):
             username=self._user_name,
             user_id=self._user_id,
             memories="\n".join(self.memory),
+            llm_name=self.backend_name,
+            image_generator_name=self.image_generator_name,
         )
 
         if self.sent_prompt is False:
