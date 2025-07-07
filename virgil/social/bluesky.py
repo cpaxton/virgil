@@ -78,7 +78,7 @@ def main(post: str | None = None):
 
     # Example usage of the Social class
     # Replace with actual subclass implementation
-    social_media = Bluesky(username="virgil-robot")
+    social_media = Bluesky(username="virgil-robot.bsky.social")
     social_media.connect()
     if post is not None and len(post) > 0:
         social_media.post(post)
