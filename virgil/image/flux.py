@@ -79,7 +79,7 @@ class FluxImageGenerator:
             transformer=transformer,
             text_encoder_2=text_encoder,
             torch_dtype=torch.float16,
-            device_map="auto",  # Automatically offloads to CPU/GPU :cite[1]
+            device_map="balanced",
         )
 
         self.cpu_offload = cpu_offload
