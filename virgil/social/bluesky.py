@@ -6,6 +6,60 @@ import click
 
 from .base import Social
 
+import re
+from typing import List, Dict
+
+
+def parse_mentions(text: str) -> List[Dict]:
+    """
+    Code from https://docs.bsky.app/blog/create-post
+    Parse mentions in a given text.
+
+    Args:
+        text (str): The text to parse for mentions.
+    Returns:
+        List[Dict]: A list of dictionaries containing the start and end indices of mentions and the handle.
+    """
+    spans = []
+    # regex based on: https://atproto.com/specs/handle#handle-identifier-syntax
+    mention_regex = rb"[$|\W](@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
+    text_bytes = text.encode("UTF-8")
+    for m in re.finditer(mention_regex, text_bytes):
+        spans.append(
+            {
+                "start": m.start(1),
+                "end": m.end(1),
+                "handle": m.group(1)[1:].decode("UTF-8"),
+            }
+        )
+    return spans
+
+
+def parse_urls(text: str) -> List[Dict]:
+    """Parse URLs in a given text.
+    Code from https://docs.bsky.app/blog/create-post
+
+    Args:
+        text (str): The text to parse for URLs.
+
+    Returns:
+        List[Dict]: A list of dictionaries containing the start and end indices of URLs and the URL itself.
+    """
+    spans = []
+    # partial/naive URL regex based on: https://stackoverflow.com/a/3809435
+    # tweaked to disallow some training punctuation
+    url_regex = rb"[$|\W](https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*[-a-zA-Z0-9@%_\+~#//=])?)"
+    text_bytes = text.encode("UTF-8")
+    for m in re.finditer(url_regex, text_bytes):
+        spans.append(
+            {
+                "start": m.start(1),
+                "end": m.end(1),
+                "url": m.group(1).decode("UTF-8"),
+            }
+        )
+    return spans
+
 
 class Bluesky(Social):
     def __init__(self, username, connection_env_var: str = "BLUESKY_APP_PASSWORD"):
