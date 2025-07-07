@@ -61,6 +61,54 @@ def parse_urls(text: str) -> List[Dict]:
     return spans
 
 
+def parse_facets(text: str) -> List[Dict]:
+    """
+    Parse facets from text, resolving mentions to DIDs and URLs to URIs.
+    From https://docs.bsky.app/blog/create-post
+    Args:
+        text (str): The text to parse for facets.
+    Returns:
+        List[Dict]: A list of dictionaries containing the index and features for each facet.
+    """
+    facets = []
+    for m in parse_mentions(text):
+        resp = requests.get(
+            "https://bsky.social/xrpc/com.atproto.identity.resolveHandle",
+            params={"handle": m["handle"]},
+        )
+        # If the handle can't be resolved, just skip it!
+        # It will be rendered as text in the post instead of a link
+        if resp.status_code == 400:
+            continue
+        did = resp.json()["did"]
+        facets.append(
+            {
+                "index": {
+                    "byteStart": m["start"],
+                    "byteEnd": m["end"],
+                },
+                "features": [{"$type": "app.bsky.richtext.facet#mention", "did": did}],
+            }
+        )
+    for u in parse_urls(text):
+        facets.append(
+            {
+                "index": {
+                    "byteStart": u["start"],
+                    "byteEnd": u["end"],
+                },
+                "features": [
+                    {
+                        "$type": "app.bsky.richtext.facet#link",
+                        # NOTE: URI ("I") not URL ("L")
+                        "uri": u["url"],
+                    }
+                ],
+            }
+        )
+    return facets
+
+
 class Bluesky(Social):
     def __init__(self, username, connection_env_var: str = "BLUESKY_APP_PASSWORD"):
         super().__init__(username)
