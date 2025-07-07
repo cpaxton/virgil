@@ -6,47 +6,86 @@ from diffusers import FluxPipeline
 from PIL import Image
 from transformers import BitsAndBytesConfig
 
-from virgil.image.base import ImageGenerator
+
+from transformers import (
+    T5EncoderModel,
+    BitsAndBytesConfig as TransformersBitsAndBytesConfig,
+)
+from diffusers.models import FluxTransformer2DModel
+import gc
 
 
-class FluxImageGenerator(ImageGenerator):
+class FluxImageGenerator:
     def __init__(
-        self, height: int = 1536, width: int = 1536, quantization: str = "int4"
+        self,
+        height: int = 1536,
+        width: int = 1536,
+        quantization: str = "int4",
+        cpu_offload: bool = True,
     ) -> None:
-        super().__init__(height, width)
+        self.height = height
+        self.width = width
         self.device = self._get_device()
-        torch_dtype = torch.bfloat16
         quantization_config = None
-        load_kwargs = {}
 
-        # Configure quantization
         if quantization == "int4":
-            quantization_config = BitsAndBytesConfig(
+            # Configure 4-bit quantization (NF4 + nested quantization)
+            diffusers_quant_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",  # Optimal for normal-distributed weights
+                bnb_4bit_compute_dtype=torch.float16,  # Faster computation
+                bnb_4bit_use_double_quant=True,  # Nested quantization for extra savings :cite[1]
+            )
+
+            transformers_quant_config = TransformersBitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
-                bnb_4bit_use_double_quant=True,
-                bnb_4bit_compute_dtype=torch_dtype,
+                bnb_4bit_compute_dtype=torch.float16,
             )
-            load_kwargs["quantization_config"] = quantization_config
         elif quantization == "int8":
-            quantization_config = BitsAndBytesConfig(
+            # Configure 8-bit quantization
+            diffusers_quant_config = BitsAndBytesConfig(
                 load_in_8bit=True,
-                bnb_8bit_compute_dtype=torch_dtype,
+                bnb_8bit_use_double_quant=True,  # Nested quantization for extra savings
+                bnb_8bit_compute_dtype=torch.float16,
             )
-            load_kwargs["quantization_config"] = quantization_config
-        elif quantization is not None:
-            raise ValueError(
-                f"Unsupported quantization: '{quantization}'. "
-                "Use 'int4', 'int8', or None."
+            transformers_quant_config = TransformersBitsAndBytesConfig(
+                load_in_8bit=True,
+                bnb_8bit_use_double_quant=True,
+                bnb_8bit_compute_dtype=torch.float16,
             )
         else:
-            # For non-quantized model, use bfloat16 and move to device later
-            load_kwargs["torch_dtype"] = torch_dtype
+            # No quantization
+            diffusers_quant_config = None
+            transformers_quant_config = None
 
-        # Load model pipeline
-        self.pipe = FluxPipeline.from_pretrained(
-            "black-forest-labs/FLUX.1-schnell", use_safetensors=True, **load_kwargs
+        # Load quantized components
+        text_encoder = T5EncoderModel.from_pretrained(
+            "black-forest-labs/FLUX.1-dev",
+            subfolder="text_encoder_2",
+            quantization_config=transformers_quant_config,
+            torch_dtype=torch.float16,
         )
+
+        transformer = FluxTransformer2DModel.from_pretrained(
+            "black-forest-labs/FLUX.1-dev",
+            subfolder="transformer",
+            quantization_config=diffusers_quant_config,
+            torch_dtype=torch.float16,
+        )
+
+        self.pipe = FluxPipeline.from_pretrained(
+            "black-forest-labs/FLUX.1-dev",
+            transformer=transformer,
+            text_encoder_2=text_encoder,
+            torch_dtype=torch.float16,
+            device_map="auto",  # Automatically offloads to CPU/GPU :cite[1]
+        )
+
+        self.cpu_offload = cpu_offload
+        if self.cpu_offload:
+            # Enable CPU offloading for memory efficiency
+            self.pipe.enable_model_cpu_offload()
 
         # Only move to device if not quantized (quantized models load on GPU by default)
         if quantization_config is None:
@@ -61,14 +100,20 @@ class FluxImageGenerator(ImageGenerator):
             )
         return "cuda"
 
-    def generate(self, prompt: str) -> Image.Image:
+    def generate(
+        self, prompt: str, inference_steps: int = 28, guidance_scale: float = 3.5
+    ) -> Image.Image:
+        # Garbage collection and empty cache to free up memory
+        gc.collect()
+        torch.cuda.empty_cache()
+        # Generate the image using the Flux pipeline
         with torch.inference_mode():
             result = self.pipe(
                 prompt=prompt,
                 height=self.height,
                 width=self.width,
-                num_inference_steps=12,
-                guidance_scale=5.0,
+                num_inference_steps=inference_steps,
+                guidance_scale=guidance_scale,
                 output_type="pil",
             )
         return result.images[0]
@@ -76,7 +121,7 @@ class FluxImageGenerator(ImageGenerator):
 
 @click.command()
 @click.option("--height", default=512, help="Height of the generated image.")
-@click.option("--width", default=256, help="Width of the generated image.")
+@click.option("--width", default=512, help="Width of the generated image.")
 @click.option(
     "--quantization", default="int4", help="Quantization method (int4, int8, or None)."
 )
