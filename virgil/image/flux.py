@@ -142,7 +142,9 @@ def main(
     )
     if len(prompt) == 0:
         prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
+    print("Generating image with prompt:", prompt)
     image = generator.generate(prompt)
+    print("Saving generated image to:", output)
     image.save(output)
 
 
