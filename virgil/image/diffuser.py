@@ -23,6 +23,8 @@ from virgil.image.base import ImageGenerator
 from virgil.image.siglip import SigLIPAligner
 import virgil.utils.log as log
 import click
+from diffusers import BitsAndBytesConfig
+from diffusers.models import FluxTransformer2DModel
 
 
 class DiffuserImageGenerator(ImageGenerator):
@@ -107,25 +109,35 @@ class DiffuserImageGenerator(ImageGenerator):
             if guidance_scale == 7.5:
                 self.guidance_scale = 4.0
 
+        # Quantization configuration
+        # Prepare quantization parameters
+        load_dtype = torch.float16
+        bnb_4bit_compute_dtype = torch.float16
+        quant_config = None
+
+        if quantization in ["int4", "int8"]:
+            quant_config = BitsAndBytesConfig(
+                load_in_4bit=(quantization == "int4"),
+                load_in_8bit=(quantization == "int8"),
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=load_dtype,
+                bnb_8bit_compute_dtype=load_dtype,
+            )
+            print(f"[Diffuser] Using {quantization} quantization")
+
+        # First load the transformer model
+        transformer = None
+        if "flux" in model:
+            # Load the quantized transformer model
+            transformer = FluxTransformer2DModel.from_pretrained(
+                "fused_transformer",
+                quantization_config=quant_config,
+                torch_dtype=bnb_4bit_compute_dtype,
+            )
+
         print(f"[Diffuser] Loading model: {model_name}")
         try:
-            # Prepare quantization parameters
-            load_dtype = torch.float16
-            quant_config = None
-
-            if quantization in ["int4", "int8"]:
-                from transformers import BitsAndBytesConfig
-
-                quant_config = BitsAndBytesConfig(
-                    load_in_4bit=(quantization == "int4"),
-                    load_in_8bit=(quantization == "int8"),
-                    bnb_4bit_use_double_quant=True,
-                    bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=load_dtype,
-                    bnb_8bit_compute_dtype=load_dtype,
-                )
-                print(f"[Diffuser] Using {quantization} quantization")
-
             # Load pipeline with quantization config
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
@@ -142,6 +154,7 @@ class DiffuserImageGenerator(ImageGenerator):
             # Fallback without quantization/variant
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
+                transformer=transformer,
                 torch_dtype=torch.float16,
                 variant="fp16",
                 use_safetensors=True,
