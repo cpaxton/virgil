@@ -122,7 +122,7 @@ class FluxImageGenerator:
 
 
 @click.command()
-@click.option("--height", default=540, help="Height of the generated image.")
+@click.option("--height", default=640, help="Height of the generated image.")
 @click.option("--width", default=800, help="Width of the generated image.")
 @click.option(
     "--quantization", default="int4", help="Quantization method (int4, int8, or None)."
