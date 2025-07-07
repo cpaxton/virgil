@@ -22,10 +22,16 @@ class FluxImageGenerator:
         width: int = 1536,
         quantization: str = "int4",
         cpu_offload: bool = True,
+        inference_steps: int = 50,
+        guidance_scale: float = 3.5,
     ) -> None:
         self.height = height
         self.width = width
         self.device = self._get_device()
+
+        # Used for generation
+        self.inference_steps = inference_steps
+        self.guidance_scale = guidance_scale
 
         if quantization == "int4":
             # Configure 4-bit quantization (NF4 + nested quantization)
@@ -98,9 +104,7 @@ class FluxImageGenerator:
             )
         return "cuda"
 
-    def generate(
-        self, prompt: str, inference_steps: int = 28, guidance_scale: float = 3.5
-    ) -> Image.Image:
+    def generate(self, prompt: str) -> Image.Image:
         # Garbage collection and empty cache to free up memory
         gc.collect()
         torch.cuda.empty_cache()
@@ -110,8 +114,8 @@ class FluxImageGenerator:
                 prompt=prompt,
                 height=self.height,
                 width=self.width,
-                num_inference_steps=inference_steps,
-                guidance_scale=guidance_scale,
+                num_inference_steps=self.inference_steps,
+                guidance_scale=self.guidance_scale,
                 output_type="pil",
             )
         return result.images[0]
