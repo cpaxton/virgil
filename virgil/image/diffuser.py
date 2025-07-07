@@ -21,7 +21,10 @@ import torch
 from diffusers import AutoPipelineForText2Image
 from virgil.image.base import ImageGenerator
 from virgil.image.siglip import SigLIPAligner
+import virgil.utils.log as log
 import click
+from diffusers import BitsAndBytesConfig
+from diffusers.models import FluxTransformer2DModel
 
 
 class DiffuserImageGenerator(ImageGenerator):
@@ -55,6 +58,7 @@ class DiffuserImageGenerator(ImageGenerator):
         guidance_scale: float = 7.5,
         model: str = "base",
         xformers: bool = False,
+        quantization: str = "none",  # Options: "none", "int4", "int8"
         **pipeline_kwargs,  # Additional pipeline arguments
     ) -> None:
         """
@@ -105,21 +109,56 @@ class DiffuserImageGenerator(ImageGenerator):
             if guidance_scale == 7.5:
                 self.guidance_scale = 4.0
 
+        # Quantization configuration
+        # Prepare quantization parameters
+        load_dtype = torch.float16
+        bnb_4bit_compute_dtype = torch.float16
+        quant_config = None
+
+        if quantization in ["int4", "int8"]:
+            quant_config = BitsAndBytesConfig(
+                load_in_4bit=(quantization == "int4"),
+                load_in_8bit=(quantization == "int8"),
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=load_dtype,
+                bnb_8bit_compute_dtype=load_dtype,
+            )
+            print(f"[Diffuser] Using {quantization} quantization")
+
+        # First load the transformer model
+        transformer = None
+        if "flux" in model:
+            # Load the quantized transformer model
+            transformer = FluxTransformer2DModel.from_pretrained(
+                "fused_transformer",
+                quantization_config=quant_config,
+                torch_dtype=bnb_4bit_compute_dtype,
+            )
+
         print(f"[Diffuser] Loading model: {model_name}")
         try:
-            # Try loading with recommended parameters first
+            # Load pipeline with quantization config
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
+                torch_dtype=load_dtype,
+                variant="fp16",
+                use_safetensors=True,
+                quantization_config=quant_config,  # Correct parameter name
+                **pipeline_kwargs,
+            )
+        except ImportError:
+            print("Quantization requires bitsandbytes: pip install bitsandbytes")
+        except Exception as e:
+            log.error(f"Standard load failed ({e}), attempting fallback...")
+            # Fallback without quantization/variant
+            self.pipeline = AutoPipelineForText2Image.from_pretrained(
+                model_name,
+                transformer=transformer,
                 torch_dtype=torch.float16,
                 variant="fp16",
                 use_safetensors=True,
                 **pipeline_kwargs,
-            )
-        except Exception as e:
-            print(f"Standard load failed ({e}), attempting fallback...")
-            # Fallback without specific parameters
-            self.pipeline = AutoPipelineForText2Image.from_pretrained(
-                model_name, **pipeline_kwargs
             )
 
         # Device placement
@@ -129,8 +168,22 @@ class DiffuserImageGenerator(ImageGenerator):
             device = "mps"
         else:
             device = "cpu"
+
+        # New: Special handling for quantized models
+        if quantization in ["int4", "int8"]:
+            if device != "cuda":
+                print(
+                    f"Warning: {quantization} quantization requires CUDA. Disabling quantization."
+                )
+            elif not isinstance(self.pipeline, torch.nn.Module):
+                # Workaround for diffusers device placement bug
+                self.pipeline.to("cuda")
+            else:
+                self.pipeline = self.pipeline.to(device)
+        else:
+            self.pipeline = self.pipeline.to(device)
+
         print(f"[Diffuser] Using device: {device}")
-        self.pipeline = self.pipeline.to(device)
 
         # Enable optimizations
         self._enable_optimizations(xformers)
@@ -268,6 +321,7 @@ def test_diffuser():
 )
 @click.option(
     "--model",
+    "-m",
     default="turbo",
     type=click.Choice(DiffuserImageGenerator.MODEL_ALIASES.keys()),
     help="Model to use for image generation.",
@@ -279,15 +333,26 @@ def test_diffuser():
 )
 @click.option(
     "--prompt",
+    "-p",
     default="A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
     help="Text prompt for image generation.",
 )
 @click.option(
     "--output",
+    "--output-file",
+    "--output-filename",
+    "-o",
     default="generated_image.png",
     help="Output filename for the generated image.",
 )
-@click.option("--num-images", default=1, help="Number of images to generate.")
+@click.option(
+    "--quantization",
+    "-q",
+    default="none",
+    type=click.Choice(["none", "int4", "int8"]),
+    help="Quantization method to use (none, int4, int8).",
+)
+@click.option("--num-images", "-n", default=1, help="Number of images to generate.")
 def main(
     height: int = 512,
     width: int = 512,
@@ -298,6 +363,7 @@ def main(
     prompt: str = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water.",
     output: str = "generated_image.png",
     num_images: int = 1,
+    quantization: str = "none",  # Options: "none", "int4", "int8"
 ) -> None:
     """Main function to generate an image using the DiffuserImageGenerator."""
     generator = DiffuserImageGenerator(
@@ -307,6 +373,7 @@ def main(
         guidance_scale=guidance_scale,
         model=model,
         xformers=xformers,
+        quantization=quantization,
     )
 
     if num_images < 1:

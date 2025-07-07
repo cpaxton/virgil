@@ -16,7 +16,7 @@
 import logging
 
 import torch
-from .gemma import Gemma
+from .gemma import Gemma, get_gemma_model_names
 from .base import Backend
 from .llama import Llama
 from .qwen import (
@@ -40,14 +40,10 @@ qwens = [
 
 backend_list = (
     [
-        "gemma",
-        "gemma2b",
-        "gemma-2b-it",
-        "gemma-3-27b-it",
-        "gemma-3-12b-it",
         "llama-3.2-1B",
         "qwen",
     ]
+    + get_gemma_model_names()
     + qwens
     + get_ernie_model_names()
 )

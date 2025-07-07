@@ -30,7 +30,7 @@ dependencies = [
     "soundfile",
     "datasets",
     "audiocraft",
-    "librosa"
+    "librosa",
     "decord>=0.6.0",
 ]
 
@@ -56,7 +56,7 @@ dev = [
 ai = [
     "torch>=2.6",
     "torchvision",
-    "bitsandbytes",
+    "bitsandbytes>=0.43.0",
     "accelerate",
     "flash-attn",
     "autoawq"
