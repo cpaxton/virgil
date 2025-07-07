@@ -70,15 +70,18 @@ class Bluesky(Social):
 
 
 @click.command()
+@click.option(
+    "--username", type=str, default="virgil-robot.bsky.social", help="Bluesky username."
+)
 @click.option("--post", type=str, default=None, help="Content to post on Bluesky.")
-def main(post: str | None = None):
+def main(post: str | None = None, username: str = "virgil-robot.bsky.social"):
     """Main function to run the social media posting."""
     if post is None:
         post = "Hello, world! This is a default post."
 
     # Example usage of the Social class
     # Replace with actual subclass implementation
-    social_media = Bluesky(username="virgil-robot.bsky.social")
+    social_media = Bluesky(username=username)
     social_media.connect()
     if post is not None and len(post) > 0:
         social_media.post(post)
