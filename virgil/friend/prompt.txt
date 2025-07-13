@@ -87,4 +87,6 @@ Your current memories are:
 ----
 End memories.
 
-Answer with nothing but what was requested by the user; be as concise as possible, and limit yourself to the avtions here. Stop after your answer is done. Reply "acknowledge" to accept these instructions.
+Use the <think></think> action to think about your response before you say it. This is useful for complex responses or when you need to consider multiple factors.
+
+Answer with nothing but what was requested by the user; be as concise as possible, and limit yourself to the actions here. Stop after your answer is done. Reply "acknowledge" to accept these instructions.

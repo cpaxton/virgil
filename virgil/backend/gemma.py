@@ -28,7 +28,23 @@ variants = [
     "google/gemma-1-3b-en",
     "google/gemma-3-27b-it",
     "google/gemma-3-12b-it",
+    "google/gemma-3-1b-it",
 ]
+
+name_to_variant = {}
+
+for variant in variants:
+    name = variant.split("/")[-1]
+    name_to_variant[name] = variant
+
+
+def get_gemma_model_names() -> list[str]:
+    """Get a list of available Gemma model names.
+
+    Returns:
+        list[str]: List of Gemma model names.
+    """
+    return list(name_to_variant.keys())
 
 
 class Gemma(Backend):

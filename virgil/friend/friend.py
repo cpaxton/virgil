@@ -345,12 +345,19 @@ class Friend(DiscordBot):
     "--max-history-length", default=25, help="The maximum length of the chat history."
 )
 @click.option("--prompt", default="prompt.txt", help="The filename for the prompt.")
-def main(token, backend, max_history_length, prompt):
+@click.option(
+    "--image-generator",
+    default="diffuser",
+    help="The image generator to use.",
+    type=click.Choice(["diffuser", "flux"], case_sensitive=False),
+)
+def main(token, backend, max_history_length, prompt, image_generator):
     bot = Friend(
         token=token,
         backend=backend,
         max_history_length=max_history_length,
         prompt_filename=prompt,
+        image_generator=image_generator,
     )
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")

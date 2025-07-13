@@ -27,6 +27,10 @@ dependencies = [
     "hydra-core",
     "omegaconf",
     "hf_xet",
+    "soundfile",
+    "datasets",
+    "audiocraft",
+    "librosa",
     "decord>=0.6.0",
     "moviepy>=2.0.0",
 ]
@@ -36,7 +40,7 @@ Homepage = "https://github.com/cpaxton/virgil"
 
 [project.optional-dependencies]
 torch = [
-    "torch>=2.5.1",
+    "torch>=2.6",
     "torchvision",
     "torchaudio"
 ]
@@ -51,9 +55,9 @@ dev = [
     "mdformat"
 ]
 ai = [
-    "torch>=2.5.1",
+    "torch>=2.6",
     "torchvision",
-    "bitsandbytes",
+    "bitsandbytes>=0.43.0",
     "accelerate",
     "flash-attn",
     "autoawq"
