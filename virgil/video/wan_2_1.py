@@ -16,38 +16,50 @@ import torch
 from diffusers import DiffusionPipeline
 from diffusers.utils import export_to_video
 from .base import VideoBackend
-from typing import List
+from typing import List, Optional
+import click
+from PIL import Image
 
 
 class Wan21(VideoBackend):
-    """
-    A wrapper for the Wan-2.1 model.
-    """
+    """A wrapper for the Wan-2.1 model with quantization support and image/text inputs."""
 
     def __init__(
         self,
         model_id: str = "Wan-AI/Wan2.1-T2V-14B",
         torch_dtype: torch.dtype = torch.float16,
         variant: str = "fp16",
+        quantization: Optional[str] = None,
     ):
         """
-        Initialize the Wan21 backend.
+        Initialize the Wan21 backend with quantization support.
 
         Args:
             model_id (str): The ID of the model to use.
             torch_dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
+            quantization (str): Quantization mode ('int4' or 'int8')
         """
-        self.pipe = DiffusionPipeline.from_pretrained(
-            model_id,
-            torch_dtype=torch_dtype,
-            variant=variant,
-        )
+        load_kwargs = {
+            "torch_dtype": torch_dtype,
+            "variant": variant,
+        }
+
+        # Add quantization configuration
+        if quantization == "int8":
+            load_kwargs["load_in_8bit"] = True
+        elif quantization == "int4":
+            load_kwargs["load_in_4bit"] = True
+
+        self.pipe = DiffusionPipeline.from_pretrained(model_id, **load_kwargs)
+
         self.pipe.to("cuda")
+        self.supported_modes = ["text", "image"]
 
     def __call__(
         self,
-        prompt: str,
+        prompt: Optional[str] = None,
+        image: Optional[Image.Image] = None,
         num_frames: int = 16,
         num_inference_steps: int = 50,
         guidance_scale: float = 7.5,
@@ -55,25 +67,108 @@ class Wan21(VideoBackend):
         **kwargs,
     ) -> List[str]:
         """
-        Generate a video from a text prompt.
+        Generate a video from text prompt OR an initial image.
 
         Args:
-            prompt (str): The text prompt to generate the video from.
-            num_frames (int): The number of frames to generate.
-            num_inference_steps (int): The number of inference steps to use.
-            guidance_scale (float): The guidance scale to use.
-            output_path (str): The path to save the generated video.
+            prompt (str): Text prompt for video generation
+            image (PIL.Image): Initial image for video generation
+            num_frames (int): Number of frames to generate
+            num_inference_steps (int): Inference steps
+            guidance_scale (float): Guidance scale
+            output_path (str): Output video path
 
         Returns:
-            List[str]: A list containing the path to the generated video.
+            List[str]: Path to generated video
         """
-        video_frames = self.pipe(
-            prompt=prompt,
-            num_frames=num_frames,
-            num_inference_steps=num_inference_steps,
-            guidance_scale=guidance_scale,
-            **kwargs,
-        ).frames[0]
+        # Validate input
+        if not (prompt or image):
+            raise ValueError("Either prompt or image must be provided")
+        if prompt and image:
+            raise ValueError("Specify only one of prompt or image")
 
+        # Prepare generation parameters
+        gen_kwargs = {
+            "num_frames": num_frames,
+            "num_inference_steps": num_inference_steps,
+            "guidance_scale": guidance_scale,
+            **kwargs,
+        }
+
+        # Run appropriate generation mode
+        if image:
+            gen_kwargs["image"] = image
+            video_frames = self.pipe(**gen_kwargs).frames[0]
+        else:
+            gen_kwargs["prompt"] = prompt
+            video_frames = self.pipe(**gen_kwargs).frames[0]
+
+        # Save and return result
         export_to_video(video_frames, output_path)
         return [output_path]
+
+
+@click.command()
+@click.option("--prompt", type=str, help="Text prompt for video generation")
+@click.option("--image-path", type=click.Path(exists=True), help="Initial image path")
+@click.option(
+    "--output-path", default="output.mp4", type=click.Path(), help="Output video path"
+)
+@click.option("--num-frames", default=16, type=int, help="Number of video frames")
+@click.option("--num-steps", default=50, type=int, help="Inference steps")
+@click.option("--guidance-scale", default=7.5, type=float, help="Guidance scale")
+@click.option(
+    "--model-id", default="Wan-AI/Wan2.1-T2V-14B", help="Hugging Face model ID"
+)
+@click.option(
+    "--quantization", type=click.Choice(["int4", "int8"]), help="Quantization mode"
+)
+@click.option(
+    "--dtype",
+    default="float16",
+    type=click.Choice(["float32", "float16", "bfloat16"]),
+    help="Torch data type",
+)
+def generate_video(
+    prompt: str,
+    image_path: str,
+    output_path: str,
+    num_frames: int,
+    num_steps: int,
+    guidance_scale: float,
+    model_id: str,
+    quantization: str,
+    dtype: str,
+):
+    """CLI for Wan2.1 video generation with text or image inputs"""
+    # Convert dtype string to torch dtype
+    dtype_map = {
+        "float32": torch.float32,
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+    }
+
+    # Load image if provided
+    image = None
+    if image_path:
+        image = Image.open(image_path)
+
+    # Initialize pipeline
+    generator = Wan21(
+        model_id=model_id, torch_dtype=dtype_map[dtype], quantization=quantization
+    )
+
+    # Generate video
+    result = generator(
+        prompt=prompt,
+        image=image,
+        num_frames=num_frames,
+        num_inference_steps=num_steps,
+        guidance_scale=guidance_scale,
+        output_path=output_path,
+    )
+
+    click.echo(f"Video generated at: {result[0]}")
+
+
+if __name__ == "__main__":
+    generate_video()
