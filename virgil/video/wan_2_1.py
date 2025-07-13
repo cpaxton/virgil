@@ -57,7 +57,7 @@ class Wan21(VideoBackend):
         """
         load_kwargs = {
             "torch_dtype": torch_dtype,
-            "variant": variant,
+            # "variant": variant,
         }
 
         # Configure quantization using BitsAndBytesConfig
@@ -162,7 +162,9 @@ class Wan21(VideoBackend):
 @click.option("--num-steps", default=50, type=int, help="Inference steps")
 @click.option("--guidance-scale", default=7.5, type=float, help="Guidance scale")
 @click.option(
-    "--model-id", default="Wan-AI/Wan2.1-T2V-14B", help="Hugging Face model ID"
+    "--model-id",
+    default="Wan-AI/Wan2.1-T2V-14B-Diffusers",
+    help="Hugging Face model ID",
 )
 @click.option(
     "--quantization", type=click.Choice(["int4", "int8"]), help="Quantization mode"
