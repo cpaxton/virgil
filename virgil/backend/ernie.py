@@ -201,7 +201,24 @@ class Ernie(Backend):
                 top_p=self.top_p,
                 do_sample=self.do_sample,
             )
-            output_text = self.processor.decode(generated_ids)
+
+            # Handle different output formats
+            if hasattr(generated_ids, "sequences"):
+                # Newer Hugging Face output format
+                token_ids = generated_ids.sequences[0]
+            elif isinstance(generated_ids, (list, tuple)):
+                # Tuple output (scores, ids) format
+                token_ids = generated_ids[0][0]
+            elif generated_ids.dim() == 2:
+                # Batch dimension present
+                token_ids = generated_ids[0]
+            else:
+                # Already flat tensor
+                token_ids = generated_ids
+
+            # Decode to text
+            output_text = self.processor.decode(token_ids, skip_special_tokens=True)
+
         return output_text
 
 
