@@ -17,17 +17,24 @@ from virgil.backend.base import Backend
 ernie_model_ids = [
     "baidu/ERNIE-4.5-VL-28B-A3B-PT",  # Post-trained
     "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",  # Base pre-trained
+    # 21B (no VL) versions
+    "baidu/ERNIE-4.5-21B-A3B-PT",  # Post-trained
+    "baidu/ERNIE-4.5-21B-A3B-Base-Paddle",  # Base pre-trained
+    "baidu/ERNIE-4.5-21B-Base-Paddle",  # Base pre-trained without A3B
     # Add the 0.3B versions of the models
-    "baidu/ERNIE-4.5-VL-0.3B-A3B-PT",  # Post-trained
-    "baidu/ERNIE-4.5-VL-0.3B-A3B-Base-Paddle",  # Base pre-trained
+    "baidu/ERNIE-4.5-0.3B-Base-Paddle",  # Base pre-trained without A3B
+    "baidu/ERNIE-4.5-0.3B-Base-PT",  # Base pre-trained with A3B
 ]
 
-ernie_name_to_id = {
-    "ernie-4.5-vl-28b-a3b-pt": "baidu/ERNIE-4.5-VL-28B-A3B-PT",
-    "ernie-4.5-vl-28b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",
-    "ernie-4.5-vl-0.3b-a3b-pt": "baidu/ERNIE-4.5-VL-0.3B-A3B-PT",
-    "ernie-4.5-vl-0.3b-a3b-base-paddle": "baidu/ERNIE-4.5-VL-0.3B-A3B-Base-Paddle",
-}
+ernie_name_to_id = {}
+
+for name in ernie_model_ids:
+    # Extract the model name from the ID
+    model_name = name.split("/")[-1]
+    # Normalize the name to lowercase
+    normalized_name = model_name.lower()
+    # Map the normalized name to the model ID
+    ernie_name_to_id[normalized_name] = name
 
 
 def get_ernie_model_id(name: str) -> Optional[str]:
@@ -158,18 +165,26 @@ class Ernie(Backend):
                 }
             )
 
+        # Validate and clean chat_messages
+        for msg in chat_messages:
+            content = msg.get("content")
+            if isinstance(content, list):
+                msg["content"] = " ".join(str(item) for item in content)
+            elif not isinstance(content, str):
+                msg["content"] = str(content) if content is not None else ""
+
         text = self.processor.apply_chat_template(
             chat_messages,
             tokenize=False,
             add_generation_prompt=True,
-            enable_thinking=False,
+            enable_thinking=False,  # Ensure this is a valid argument
         )
 
-        image_inputs, video_inputs = self.processor.process_vision_info(chat_messages)
+        # image_inputs, video_inputs = self.processor.process_vision_info(chat_messages)
         inputs = self.processor(
             text=[text],
-            images=image_inputs,
-            videos=video_inputs,
+            # images=image_inputs,
+            # videos=video_inputs,
             padding=True,
             return_tensors="pt",
         )
@@ -186,7 +201,24 @@ class Ernie(Backend):
                 top_p=self.top_p,
                 do_sample=self.do_sample,
             )
-            output_text = self.processor.decode(generated_ids)
+
+            # Handle different output formats
+            if hasattr(generated_ids, "sequences"):
+                # Newer Hugging Face output format
+                token_ids = generated_ids.sequences[0]
+            elif isinstance(generated_ids, (list, tuple)):
+                # Tuple output (scores, ids) format
+                token_ids = generated_ids[0][0]
+            elif generated_ids.dim() == 2:
+                # Batch dimension present
+                token_ids = generated_ids[0]
+            else:
+                # Already flat tensor
+                token_ids = generated_ids
+
+            # Decode to text
+            output_text = self.processor.decode(token_ids, skip_special_tokens=True)
+
         return output_text
 
 
