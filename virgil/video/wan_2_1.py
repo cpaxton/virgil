@@ -20,13 +20,21 @@ from typing import List, Optional
 import click
 from PIL import Image
 
+# Try to import the specific WanPipeline
+try:
+    from diffusers import WanPipeline
+
+    WANPIPELINE_AVAILABLE = True
+except ImportError:
+    WANPIPELINE_AVAILABLE = False
+
 
 class Wan21(VideoBackend):
     """A wrapper for the Wan-2.1 model with quantization support and image/text inputs."""
 
     def __init__(
         self,
-        model_id: str = "Wan-AI/Wan2.1-T2V-14B",
+        model_id: str = "Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
         torch_dtype: torch.dtype = torch.float16,
         variant: str = "fp16",
         quantization: Optional[str] = None,
@@ -42,7 +50,7 @@ class Wan21(VideoBackend):
         """
         load_kwargs = {
             "torch_dtype": torch_dtype,
-            "variant": variant,
+            # "variant": variant,
         }
 
         # Add quantization configuration
@@ -51,7 +59,11 @@ class Wan21(VideoBackend):
         elif quantization == "int4":
             load_kwargs["load_in_4bit"] = True
 
-        self.pipe = DiffusionPipeline.from_pretrained(model_id, **load_kwargs)
+        # Use specific WanPipeline if available
+        if WANPIPELINE_AVAILABLE:
+            self.pipe = WanPipeline.from_pretrained(model_id, **load_kwargs)
+        else:
+            self.pipe = DiffusionPipeline.from_pretrained(model_id, **load_kwargs)
 
         self.pipe.to("cuda")
         self.supported_modes = ["text", "image"]
@@ -97,10 +109,18 @@ class Wan21(VideoBackend):
         # Run appropriate generation mode
         if image:
             gen_kwargs["image"] = image
-            video_frames = self.pipe(**gen_kwargs).frames[0]
+            result = self.pipe(**gen_kwargs)
         else:
             gen_kwargs["prompt"] = prompt
-            video_frames = self.pipe(**gen_kwargs).frames[0]
+            result = self.pipe(**gen_kwargs)
+
+        # Handle different pipeline output formats
+        if hasattr(result, "frames"):
+            video_frames = result.frames[0]
+        elif hasattr(result, "videos"):
+            video_frames = result.videos[0]
+        else:
+            video_frames = result[0]
 
         # Save and return result
         export_to_video(video_frames, output_path)
@@ -117,10 +137,15 @@ class Wan21(VideoBackend):
 @click.option("--num-steps", default=50, type=int, help="Inference steps")
 @click.option("--guidance-scale", default=7.5, type=float, help="Guidance scale")
 @click.option(
-    "--model-id", default="Wan-AI/Wan2.1-T2V-14B", help="Hugging Face model ID"
+    "--model-id",
+    default="Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
+    help="Hugging Face model ID",
 )
 @click.option(
-    "--quantization", type=click.Choice(["int4", "int8"]), help="Quantization mode"
+    "--quantization",
+    type=click.Choice(["int4", "int8"]),
+    help="Quantization mode",
+    default="int4",
 )
 @click.option(
     "--dtype",
