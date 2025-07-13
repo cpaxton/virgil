@@ -36,7 +36,6 @@ class Wan21(VideoBackend):
         self,
         model_id: str = "Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
         torch_dtype: torch.dtype = torch.float16,
-        variant: str = "fp16",
         quantization: Optional[str] = None,
     ):
         """
@@ -50,7 +49,6 @@ class Wan21(VideoBackend):
         """
         load_kwargs = {
             "torch_dtype": torch_dtype,
-            # "variant": variant,
         }
 
         # Add quantization configuration
