@@ -165,18 +165,26 @@ class Ernie(Backend):
                 }
             )
 
+        # Validate and clean chat_messages
+        for msg in chat_messages:
+            content = msg.get("content")
+            if isinstance(content, list):
+                msg["content"] = " ".join(str(item) for item in content)
+            elif not isinstance(content, str):
+                msg["content"] = str(content) if content is not None else ""
+
         text = self.processor.apply_chat_template(
             chat_messages,
             tokenize=False,
             add_generation_prompt=True,
-            enable_thinking=False,
+            enable_thinking=False,  # Ensure this is a valid argument
         )
 
-        image_inputs, video_inputs = self.processor.process_vision_info(chat_messages)
+        # image_inputs, video_inputs = self.processor.process_vision_info(chat_messages)
         inputs = self.processor(
             text=[text],
-            images=image_inputs,
-            videos=video_inputs,
+            # images=image_inputs,
+            # videos=video_inputs,
             padding=True,
             return_tensors="pt",
         )
