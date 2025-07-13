@@ -19,51 +19,76 @@ from .base import VideoBackend
 from typing import List, Optional
 import click
 from PIL import Image
+from transformers import BitsAndBytesConfig
 
-# Try to import the specific WanPipeline
+# Try to import the specific WanPipeline if available
 try:
     from diffusers import WanPipeline
 
+    PipelineClass = WanPipeline
     WANPIPELINE_AVAILABLE = True
 except ImportError:
+    PipelineClass = DiffusionPipeline
     WANPIPELINE_AVAILABLE = False
 
 
 class Wan21(VideoBackend):
-    """A wrapper for the Wan-2.1 model with quantization support and image/text inputs."""
+    """A wrapper for the Wan-2.1 model with proper quantization support."""
 
     def __init__(
         self,
-        model_id: str = "Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
+        model_id: str = "Wan-AI/Wan2.1-T2V-14B",
         torch_dtype: torch.dtype = torch.float16,
+        variant: str = "fp16",
         quantization: Optional[str] = None,
+        offload: bool = False,
+        sequential_offload: bool = False,
     ):
         """
-        Initialize the Wan21 backend with quantization support.
+        Initialize the Wan21 backend with advanced memory management.
 
         Args:
             model_id (str): The ID of the model to use.
             torch_dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
             quantization (str): Quantization mode ('int4' or 'int8')
+            offload (bool): Enable model CPU offloading
+            sequential_offload (bool): Enable sequential CPU offloading (more memory efficient)
         """
         load_kwargs = {
             "torch_dtype": torch_dtype,
+            "variant": variant,
         }
 
-        # Add quantization configuration
-        if quantization == "int8":
-            load_kwargs["load_in_8bit"] = True
-        elif quantization == "int4":
-            load_kwargs["load_in_4bit"] = True
+        # Configure quantization using BitsAndBytesConfig
+        if quantization:
+            quant_config = BitsAndBytesConfig(
+                load_in_4bit=(quantization == "int4"),
+                load_in_8bit=(quantization == "int8"),
+                bnb_4bit_compute_dtype=torch_dtype,
+                bnb_4bit_use_double_quant=True,
+            )
+            load_kwargs["quantization_config"] = quant_config
+            load_kwargs["device_map"] = "auto"  # Automatic device placement
 
-        # Use specific WanPipeline if available
-        if WANPIPELINE_AVAILABLE:
-            self.pipe = WanPipeline.from_pretrained(model_id, **load_kwargs)
-        else:
-            self.pipe = DiffusionPipeline.from_pretrained(model_id, **load_kwargs)
+        # Initialize pipeline
+        self.pipe = PipelineClass.from_pretrained(model_id, **load_kwargs)
 
-        self.pipe.to("cuda")
+        # Apply offloading strategies
+        if offload or sequential_offload:
+            if not quantization:  # Offloading doesn't work with quantization
+                if sequential_offload:
+                    self.pipe.enable_sequential_cpu_offload()
+                else:
+                    self.pipe.enable_model_cpu_offload()
+            else:
+                print(
+                    "Warning: Offloading is not compatible with quantization - using quantization device mapping"
+                )
+        elif not quantization:
+            # Move to GPU if not using quantization or offloading
+            self.pipe.to("cuda")
+
         self.supported_modes = ["text", "image"]
 
     def __call__(
@@ -117,8 +142,10 @@ class Wan21(VideoBackend):
             video_frames = result.frames[0]
         elif hasattr(result, "videos"):
             video_frames = result.videos[0]
-        else:
+        elif isinstance(result, list) and len(result) > 0:
             video_frames = result[0]
+        else:
+            raise ValueError(f"Unexpected pipeline output format: {type(result)}")
 
         # Save and return result
         export_to_video(video_frames, output_path)
@@ -135,21 +162,22 @@ class Wan21(VideoBackend):
 @click.option("--num-steps", default=50, type=int, help="Inference steps")
 @click.option("--guidance-scale", default=7.5, type=float, help="Guidance scale")
 @click.option(
-    "--model-id",
-    default="Wan-AI/Wan2.1-I2V-14B-720P-Diffusers",
-    help="Hugging Face model ID",
+    "--model-id", default="Wan-AI/Wan2.1-T2V-14B", help="Hugging Face model ID"
 )
 @click.option(
-    "--quantization",
-    type=click.Choice(["int4", "int8"]),
-    help="Quantization mode",
-    default="int4",
+    "--quantization", type=click.Choice(["int4", "int8"]), help="Quantization mode"
 )
 @click.option(
     "--dtype",
     default="float16",
     type=click.Choice(["float32", "float16", "bfloat16"]),
     help="Torch data type",
+)
+@click.option("--offload", is_flag=True, help="Enable model CPU offloading")
+@click.option(
+    "--sequential-offload",
+    is_flag=True,
+    help="Enable sequential CPU offloading (more memory efficient)",
 )
 def generate_video(
     prompt: str,
@@ -161,8 +189,10 @@ def generate_video(
     model_id: str,
     quantization: str,
     dtype: str,
+    offload: bool,
+    sequential_offload: bool,
 ):
-    """CLI for Wan2.1 video generation with text or image inputs"""
+    """CLI for Wan2.1 video generation with advanced memory options"""
     # Convert dtype string to torch dtype
     dtype_map = {
         "float32": torch.float32,
@@ -177,7 +207,11 @@ def generate_video(
 
     # Initialize pipeline
     generator = Wan21(
-        model_id=model_id, torch_dtype=dtype_map[dtype], quantization=quantization
+        model_id=model_id,
+        torch_dtype=dtype_map[dtype],
+        quantization=quantization,
+        offload=offload,
+        sequential_offload=sequential_offload,
     )
 
     # Generate video
