@@ -112,7 +112,11 @@ class ChatWrapper:
         t0 = timeit.default_timer()
         outputs = self.backend(messages, max_new_tokens=max_new_tokens)
         t1 = timeit.default_timer()
-        assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
+
+        if isinstance(outputs, str):
+            assistant_response = outputs.strip()
+        else:
+            assistant_response = outputs[0]["generated_text"][-1]["content"].strip()
 
         # Add the assistant's response to the conversation history
         self.add_conversation_history(

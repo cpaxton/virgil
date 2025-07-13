@@ -32,6 +32,7 @@ dependencies = [
     "audiocraft",
     "librosa",
     "decord>=0.6.0",
+    "moviepy>=2.0.0",
 ]
 
 [project.urls]

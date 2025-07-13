@@ -10,7 +10,7 @@ import click
     help="Use SigLIP aligner for enhanced image generation",
 )
 def main(use_aligner: bool = False):
-    generator = DiffuserImageGenerator(model="playground")
+    generator = DiffuserImageGenerator(model="playground", height=1024, width=1024)
     aligner = SigLIPAligner()
 
     # Base generation
