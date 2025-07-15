@@ -122,8 +122,8 @@ class FluxImageGenerator:
 
 
 @click.command()
-@click.option("--height", default=512, help="Height of the generated image.")
-@click.option("--width", default=512, help="Width of the generated image.")
+@click.option("--height", default=640, help="Height of the generated image.")
+@click.option("--width", default=800, help="Width of the generated image.")
 @click.option(
     "--quantization", default="int4", help="Quantization method (int4, int8, or None)."
 )
@@ -133,12 +133,14 @@ class FluxImageGenerator:
     default="generated_image.png",
     help="Output filename for the generated image.",
 )
+@click.option("--num-images", "-n", default=1, help="Number of images to generate.")
 def main(
     height: int = 1536,
     width: int = 1536,
     quantization: str = "int4",
     prompt: str = "",
     output: str = "generated_image.png",
+    num_images: int = 1,
 ) -> None:
     """Main function to generate an image using the FluxImageGenerator."""
     generator = FluxImageGenerator(
@@ -146,10 +148,19 @@ def main(
     )
     if len(prompt) == 0:
         prompt = "A beautiful sunset over a calm sea, with vibrant colors reflecting on the water."
-    print("Generating image with prompt:", prompt)
-    image = generator.generate(prompt)
-    print("Saving generated image to:", output)
-    image.save(output)
+
+    if num_images > 1:
+        for i in range(num_images):
+            output_filename = f"{output.split('.')[0]}_{i + 1}.{output.split('.')[-1]}"
+            print(f"Generating image {i + 1}/{num_images} with prompt: {prompt}")
+            image = generator.generate(prompt)
+            print(f"Saving generated image to: {output_filename}")
+            image.save(output_filename)
+    else:
+        print("Generating image with prompt:", prompt)
+        image = generator.generate(prompt)
+        print("Saving generated image to:", output)
+        image.save(output)
 
 
 if __name__ == "__main__":
