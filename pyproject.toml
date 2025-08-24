@@ -33,6 +33,7 @@ dependencies = [
     "librosa",
     "decord>=0.6.0",
     "moviepy>=2.0.0",
+    "numpy<1.28.0",  # Avoid numpy 1.28+ due to compatibility issues
 ]
 
 [project.urls]
