@@ -40,7 +40,11 @@ torch.backends.cudnn.allow_tf32 = True
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image import DiffuserImageGenerator, FluxImageGenerator
 from virgil.utils import load_prompt
-from virgil.utils.weather import get_current_weather
+from virgil.utils.weather import (
+    get_current_weather,
+    validate_api_key,
+    format_weather_message,
+)
 
 
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
@@ -99,6 +103,26 @@ class Friend(DiscordBot):
         self.join_at_random = join_at_random
         self.home_channel = home_channel
         self.weather_api_key = weather_api_key
+        self._weather_api_key_valid = False
+
+        # Validate weather API key if provided
+        if self.weather_api_key:
+            print("Validating weather API key...")
+            self._weather_api_key_valid = validate_api_key(self.weather_api_key)
+            if self._weather_api_key_valid:
+                print("Weather API key is valid.")
+            else:
+                print(
+                    colored(
+                        "Warning: Weather API key appears to be invalid. Weather functionality will be disabled.",
+                        "yellow",
+                    )
+                )
+        else:
+            print(
+                "No weather API key provided. Weather functionality will be disabled."
+            )
+
         super(Friend, self).__init__(token)
 
         # Check to see if memory file exists
@@ -285,22 +309,25 @@ class Friend(DiscordBot):
                     await task.channel.send(
                         "*Sorry, weather API key is not configured.*"
                     )
+                elif not self._weather_api_key_valid:
+                    await task.channel.send(
+                        "*Sorry, weather API key is invalid. Please check your configuration.*"
+                    )
                 else:
                     try:
                         # Parse city from content (could be "London,UK" or just "London")
                         city = content.strip()
                         weather = get_current_weather(self.weather_api_key, city)
-                        weather_message = (
-                            f"Weather in {weather['city']}:\n"
-                            f"- Conditions: {weather['description']}\n"
-                            f"- Temperature: {weather['temperature']}{weather['unit']}\n"
-                            f"- Feels like: {weather['feels_like']}{weather['unit']}\n"
-                            f"- Humidity: {weather['humidity']}%\n"
-                            f"- Wind: {weather['wind_speed']} {weather['wind_unit']}"
-                        )
+                        weather_message = format_weather_message(weather)
                         await task.channel.send(weather_message)
-                    except Exception as e:
+                    except ValueError as e:
+                        # ValueError indicates API issues (invalid key, city not found, etc.)
                         error_msg = f"*Error getting weather: {str(e)}*"
+                        print(colored(f"Weather error: {e}", "red"))
+                        await task.channel.send(error_msg)
+                    except Exception as e:
+                        # Other unexpected errors
+                        error_msg = f"*Unexpected error getting weather: {str(e)}*"
                         print(colored(f"Weather error: {e}", "red"))
                         await task.channel.send(error_msg)
         # except Exception as e:
@@ -381,13 +408,10 @@ class Friend(DiscordBot):
 @click.option(
     "--weather-api-key",
     default=None,
+    envvar="OPENWEATHER_API_KEY",
     help="OpenWeatherMap API key for weather functionality. Get one at https://openweathermap.org/api. Can also be set via OPENWEATHER_API_KEY environment variable.",
 )
 def main(token, backend, max_history_length, prompt, image_generator, weather_api_key):
-    # Check environment variable if not provided via CLI
-    if weather_api_key is None:
-        weather_api_key = os.getenv("OPENWEATHER_API_KEY")
-
     bot = Friend(
         token=token,
         backend=backend,
