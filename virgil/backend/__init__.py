@@ -32,14 +32,20 @@ if torch.cuda.is_available():
 from .base import Backend
 from .ernie import Ernie, get_ernie_model_names
 from .gemma import Gemma, get_gemma_model_names
-from .llama import Llama
+from .llama import Llama, get_llama_model_names
+from .phi import Phi, get_phi_model_names
 from .qwen import Qwen, get_qwen_model_names
+from .smollm import SmolLM, get_smollm_model_names
+from .tinyllama import TinyLlama, get_tinyllama_model_names
 
 backend_list = (
-    ["llama-3.2-1b"]
+    get_llama_model_names()
     + get_gemma_model_names()
     + get_qwen_model_names()
     + get_ernie_model_names()
+    + get_phi_model_names()
+    + get_tinyllama_model_names()
+    + get_smollm_model_names()
 )
 
 
@@ -73,5 +79,11 @@ def get_backend(name: str, **kwargs) -> Backend:
         return Llama(**kwargs)
     elif name.startswith("qwen"):
         return Qwen(**kwargs)
+    elif name.startswith("phi"):
+        return Phi(**kwargs)
+    elif name.startswith("tinyllama"):
+        return TinyLlama(**kwargs)
+    elif name.startswith("smollm"):
+        return SmolLM(**kwargs)
     else:
         raise ValueError(f"Unknown backend: {name}")

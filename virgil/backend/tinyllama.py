@@ -21,26 +21,27 @@ from transformers import BitsAndBytesConfig, pipeline
 
 from virgil.backend.base import Backend
 
-llama_variants = [
-    "meta-llama/Llama-3.2-1B",
-    "meta-llama/Llama-3.2-3B",
-    "meta-llama/Llama-3.1-8B",
+tinyllama_variants = [
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
 ]
 
 name_to_variant = {
-    "llama": "meta-llama/Llama-3.2-1B",
-    "llama-3.2-1b": "meta-llama/Llama-3.2-1B",
-    "llama-3.2-3b": "meta-llama/Llama-3.2-3B",
-    "llama-3.1-8b": "meta-llama/Llama-3.1-8B",
+    "tinyllama": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "tinyllama-1.1b": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "tinyllama-chat": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "tinyllama-intermediate": "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
 }
 
 
-def get_llama_model_names() -> list[str]:
-    """Get a list of available Llama model names."""
+def get_tinyllama_model_names() -> list[str]:
+    """Get a list of available TinyLlama model names."""
     return list(name_to_variant.keys())
 
 
-class Llama(Backend):
+class TinyLlama(Backend):
+    """Use TinyLlama models for text generation."""
+
     def __init__(
         self,
         model_name: str,
@@ -50,28 +51,41 @@ class Llama(Backend):
         quantization: Optional[str] = None,
         model_path: Optional[str] = None,
     ) -> None:
+        """Initialize the TinyLlama backend."""
         if model_path:
-            model_id = model_path
+            variant = model_path
         elif model_name in name_to_variant:
-            model_id = name_to_variant[model_name]
-        elif model_name.startswith("meta-llama/"):
-            model_id = model_name
+            variant = name_to_variant[model_name]
+        elif model_name.startswith("TinyLlama/"):
+            variant = model_name
         else:
-            model_id = model_name  # Assume it's a valid HuggingFace model ID
+            raise ValueError(
+                f"Unknown TinyLlama model: {model_name}. Supported: {list(name_to_variant.keys())}"
+            )
+
+        print(f"Loading TinyLlama variant: {variant}")
+
+        # Default to int8 quantization for TinyLlama (very small model)
+        if quantization is None:
+            quantization = "int8"
 
         model_kwargs = {"dtype": torch.bfloat16}
 
         if quantization:
+            quantization = quantization.lower()
             if quantization == "int8":
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_8bit=True
                 )
             elif quantization == "int4":
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_4bit=True
+                    load_in_4bit=True,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16,
                 )
             else:
-                raise ValueError(f"Unknown quantization: {quantization}")
+                raise ValueError(f"Unknown quantization method: {quantization}")
 
         pipeline_kwargs = {}
         if torch.cuda.is_available():
@@ -79,9 +93,10 @@ class Llama(Backend):
         elif torch.backends.mps.is_available():
             pipeline_kwargs["device"] = "mps"
 
+        print("[TinyLlama] loading the model...")
         self.pipe = pipeline(
             "text-generation",
-            model=model_id,
+            model=variant,
             model_kwargs=model_kwargs,
             **pipeline_kwargs,
         )
