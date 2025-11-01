@@ -7,14 +7,14 @@ name = "virgil"
 version = "0.1.0"
 description = "A library for creating and using AI-powered chatbots and AI-powered storytelling."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Chris Paxton", email = "chris.paxton.cs@gmail.com" }
 ]
 license = { text = "MIT" }
 dependencies = [
-    "transformers>=4.51.0",
-    "diffusers",
+    "transformers>=4.57.1",
+    "diffusers>=0.35.2",
     "sentencepiece",
     "Pillow",
     "protobuf",
@@ -35,12 +35,12 @@ dependencies = [
     "librosa",
     "decord>=0.6.0",
     "moviepy>=2.0.0",
-    "torch>=2.6",
+    "torch>=2.9.0",
     "torchvision",
     "torchaudio",
-    "bitsandbytes>=0.43.0",
-    "accelerate",
-    "autoawq",
+    "bitsandbytes>=0.48.1",
+    "accelerate>=1.11.0",
+    "autoawq>=0.2.9",
 ]
 
 [project.urls]
