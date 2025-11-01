@@ -35,12 +35,15 @@ dependencies = [
     "librosa",
     "decord>=0.6.0",
     "moviepy>=2.0.0",
+
+    # AI dependencies
     "torch>=2.9.0",
     "torchvision",
     "torchaudio",
     "bitsandbytes>=0.48.1",
     "accelerate>=1.11.0",
     "autoawq>=0.2.9",
+    "triton",
 ]
 
 [project.urls]
