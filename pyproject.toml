@@ -7,7 +7,7 @@ name = "virgil"
 version = "0.1.0"
 description = "A library for creating and using AI-powered chatbots and AI-powered storytelling."
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 authors = [
     { name = "Chris Paxton", email = "chris.paxton.cs@gmail.com" }
 ]
@@ -29,7 +29,9 @@ dependencies = [
     "hf_xet",
     "soundfile",
     "datasets",
-    "audiocraft",
+    # audiocraft currently requires torch==2.1.0, which conflicts with other dependencies.
+    # Install it manually in a separate environment if needed.
+    # "audiocraft",
     "librosa",
     "decord>=0.6.0",
     "moviepy>=2.0.0",
@@ -59,7 +61,8 @@ ai = [
     "torchvision",
     "bitsandbytes>=0.43.0",
     "accelerate",
-    "flash-attn",
+    # flash-attn must be installed after torch, e.g. pip install flash-attn --no-build-isolation
+    # "flash-attn",
     "autoawq"
     # "xformers"  # Uncomment if/when needed
 ]
