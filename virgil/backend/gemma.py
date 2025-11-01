@@ -14,88 +14,85 @@
 
 # (c) 2024 by Chris Paxton
 
-import torch
-from transformers import pipeline, BitsAndBytesConfig
 from typing import Optional
+
+import torch
+from transformers import BitsAndBytesConfig, pipeline
+
 from virgil.backend.base import Backend
 
 variants = [
     "google/gemma-2-2b-it",
-    "google/gemma-2-2b-en",
+    "google/gemma-2-9b-it",
     "google/gemma-1-7b-it",
-    "google/gemma-1-7b-en",
     "google/gemma-1-3b-it",
-    "google/gemma-1-3b-en",
-    "google/gemma-3-27b-it",
-    "google/gemma-3-12b-it",
-    "google/gemma-3-1b-it",
 ]
 
-name_to_variant = {}
-
-for variant in variants:
-    name = variant.split("/")[-1]
-    name_to_variant[name] = variant
+name_to_variant = {variant.split("/")[-1]: variant for variant in variants}
 
 
 def get_gemma_model_names() -> list[str]:
-    """Get a list of available Gemma model names.
-
-    Returns:
-        list[str]: List of Gemma model names.
-    """
+    """Get a list of available Gemma model names."""
     return list(name_to_variant.keys())
+
+
+def supports_flash_attention() -> bool:
+    """Check if the current device supports Flash Attention."""
+    if torch.cuda.is_available():
+        major, _ = torch.cuda.get_device_capability()
+        return major >= 8
+    return False
 
 
 class Gemma(Backend):
     def __init__(
         self,
+        model_name: str,
         temperature: float = 0.7,
         top_p: float = 0.9,
         do_sample: bool = True,
-        quantization: Optional[str] = "int8",
+        quantization: Optional[str] = None,
         use_flash_attention: bool = True,
-        variant: str = "google/gemma-3-27b-it",
     ) -> None:
-        """Initialize the Gemma backend.
-
-        Args:
-            temperature (float): Sampling temperature.
-            top_p (float): Top-p sampling parameter.
-            do_sample (bool): Whether to sample or not.
-            quantization (Optional[str]): Optional quantization method.
-            use_flash_attention (bool): Whether to use Flash Attention.
-        """
-
-        if variant not in variants:
+        """Initialize the Gemma backend."""
+        if model_name in name_to_variant:
+            variant = name_to_variant[model_name]
+        elif model_name.startswith("google/"):
+            variant = model_name
+        else:
             raise ValueError(
-                f"Unknown variant: {variant}. Supported variants are: {variants}"
+                f"Unknown Gemma model: {model_name}. Supported: {list(name_to_variant.keys())}"
             )
-        else:
-            print("Loading gemma variant:", variant)
 
-        if quantization is not None:
-            print(f"[Gemma] quantizing the model to {quantization}")
-            if quantization == "int8":
-                quantization_config = BitsAndBytesConfig(load_in_8bit=True)
-            elif quantization == "int4":
-                quantization_config = BitsAndBytesConfig(load_in_4bit=True)
-            else:
-                raise ValueError(f"Unknown quantization method: {quantization}")
-        else:
-            quantization_config = None
+        print(f"Loading Gemma variant: {variant}")
+
+        # Set default quantization if not provided
+        if quantization is None:
+            quantization = "int8" if "2b" in variant else "int4"
 
         model_kwargs = {"torch_dtype": torch.bfloat16}
-        if quantization_config is not None:
-            model_kwargs["quantization_config"] = quantization_config
+        if quantization:
+            print(f"[Gemma] quantizing the model to {quantization}")
+            if quantization == "int8":
+                model_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_8bit=True
+                )
+            elif quantization == "int4":
+                model_kwargs["quantization_config"] = BitsAndBytesConfig(
+                    load_in_4bit=True
+                )
+            else:
+                raise ValueError(f"Unknown quantization method: {quantization}")
 
         if supports_flash_attention() and use_flash_attention:
-            print("[Gemma] using Flash Attention from Flash-Attn")
+            print("[Gemma] using Flash Attention")
             model_kwargs["attn_implementation"] = "flash_attention_2"
 
         pipeline_kwargs = {}
-        if torch.backends.mps.is_available():
-            pipeline_kwargs["device"] = torch.device("mps")
+        if torch.cuda.is_available():
+            pipeline_kwargs["device_map"] = "auto"
+        elif torch.backends.mps.is_available():
+            pipeline_kwargs["device"] = "mps"
 
         print("[Gemma] loading the model...")
         self.pipe = pipeline(
@@ -108,20 +105,8 @@ class Gemma(Backend):
         self.top_p = top_p
         self.do_sample = do_sample
 
-        # print("[Gemma] compile the model for speed...")
-        # self.pipe.model = torch.compile(self.pipe.model, mode="max-autotune", fullgraph=True)
-        # print("...done")
-
     def __call__(self, messages, max_new_tokens: int = 256, *args, **kwargs) -> list:
-        """Generate a response to a list of messages.
-
-        Args:
-            messages (List[str]): A list of messages.
-            max_new_tokens (int): The maximum number of tokens to generate.
-
-        Returns:
-            List[str]: A list of generated responses.
-        """
+        """Generate a response to a list of messages."""
         with torch.no_grad():
             return self.pipe(
                 messages,
@@ -130,20 +115,3 @@ class Gemma(Backend):
                 top_p=self.top_p,
                 do_sample=self.do_sample,
             )
-
-
-if __name__ == "__main__":
-    gemma = Gemma()
-    print(gemma("The meaning of life is:"))
-
-
-def supports_flash_attention() -> bool:
-    """Check if the current device supports Flash Attention.
-
-    Returns:
-        bool: Whether Flash Attention is supported.
-    """
-    if torch.cuda.is_available():
-        major, minor = torch.cuda.get_device_capability()
-        return major >= 8
-    return False

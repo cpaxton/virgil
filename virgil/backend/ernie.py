@@ -1,123 +1,89 @@
 # Copyright 2024 Chris Paxton
-# Adapted for Baidu ERNIE by [Your Name]
+# Adapted for Baidu ERNIE by Chris Paxton
 #
 # Licensed under the Apache License, Version 2.0
 
+from typing import Optional
+
 import torch
 from transformers import (
-    BitsAndBytesConfig,
     AutoModelForCausalLM,
-    AutoTokenizer,
     AutoProcessor,
+    AutoTokenizer,
+    BitsAndBytesConfig,
 )
-from typing import Optional
 
 from virgil.backend.base import Backend
 
 ernie_model_ids = [
-    "baidu/ERNIE-4.5-VL-28B-A3B-PT",  # Post-trained
-    "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",  # Base pre-trained
-    # 21B (no VL) versions
-    "baidu/ERNIE-4.5-21B-A3B-PT",  # Post-trained
-    "baidu/ERNIE-4.5-21B-A3B-Base-Paddle",  # Base pre-trained
-    "baidu/ERNIE-4.5-21B-Base-Paddle",  # Base pre-trained without A3B
-    # Add the 0.3B versions of the models
-    "baidu/ERNIE-4.5-0.3B-Base-Paddle",  # Base pre-trained without A3B
-    "baidu/ERNIE-4.5-0.3B-Base-PT",  # Base pre-trained with A3B
+    "baidu/ERNIE-4.5-VL-28B-A3B-PT",
+    "baidu/ERNIE-4.5-VL-28B-A3B-Base-Paddle",
+    "baidu/ERNIE-4.5-21B-A3B-PT",
+    "baidu/ERNIE-4.5-21B-A3B-Base-Paddle",
+    "baidu/ERNIE-4.5-21B-Base-Paddle",
+    "baidu/ERNIE-4.5-0.3B-Base-Paddle",
+    "baidu/ERNIE-4.5-0.3B-Base-PT",
 ]
 
-ernie_name_to_id = {}
-
-for name in ernie_model_ids:
-    # Extract the model name from the ID
-    model_name = name.split("/")[-1]
-    # Normalize the name to lowercase
-    normalized_name = model_name.lower()
-    # Map the normalized name to the model ID
-    ernie_name_to_id[normalized_name] = name
+ernie_name_to_id = {name.split("/")[-1].lower(): name for name in ernie_model_ids}
 
 
 def get_ernie_model_id(name: str) -> Optional[str]:
-    """Get the ERNIE model ID from its name.
-
-    Args:
-        name (str): The name of the ERNIE model.
-
-    Returns:
-        Optional[str]: The HuggingFace model ID if found, otherwise None.
-    """
-    return ernie_name_to_id.get(name.lower(), None)
+    """Get the ERNIE model ID from its name."""
+    return ernie_name_to_id.get(name.lower())
 
 
 def get_ernie_model_names() -> list[str]:
-    """Get a list of available ERNIE model names.
-
-    Returns:
-        list[str]: List of ERNIE model names.
-    """
+    """Get a list of available ERNIE model names."""
     return list(ernie_name_to_id.keys())
 
 
 class Ernie(Backend):
-    """Use the Baidu ERNIE 4.5-VL-28B-A3B model for multimodal generation."""
+    """Use the Baidu ERNIE model for multimodal generation."""
 
     def __init__(
         self,
-        model_name: Optional[str] = None,
+        model_name: str,
         quantization: Optional[str] = "int4",
         temperature: float = 0.7,
         top_p: float = 0.9,
         do_sample: bool = True,
         model_path: Optional[str] = None,
     ) -> None:
-        """Initialize the ERNIE backend.
+        """Initialize the ERNIE backend."""
+        model_id = get_ernie_model_id(model_name)
+        if model_id is None:
+            if model_name in ernie_model_ids:
+                model_id = model_name
+            else:
+                raise ValueError(
+                    f"Unknown ERNIE model: {model_name}. Supported: {list(ernie_name_to_id.keys())}"
+                )
 
-        Args:
-            model_name (Optional[str]): The HuggingFace model ID to use.
-            quantization (Optional[str]): Quantization method ("int4", "int8", or None).
-            temperature (float): Sampling temperature.
-            top_p (float): Top-p sampling parameter.
-            do_sample (bool): Whether to sample or not.
-            model_path (str): Local path to model weights (optional).
-        """
-        if model_name is None:
-            model_name = ernie_model_ids[0]
-
-        model_id = model_path or model_name
+        if model_path:
+            model_id = model_path
 
         model_kwargs = {"torch_dtype": "auto", "trust_remote_code": True}
 
-        quantization_config = None
-        if quantization is not None:
+        if quantization:
             quantization = quantization.lower()
             if quantization in ["int8", "int4"]:
-                try:
-                    import bitsandbytes  # noqa: F401
-                except ImportError:
-                    raise ImportError(
-                        "bitsandbytes required for int4/int8 quantization: pip install bitsandbytes"
-                    )
-                quantization_config = BitsAndBytesConfig(
+                model_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_4bit=(quantization == "int4"),
                     load_in_8bit=(quantization == "int8"),
                     bnb_4bit_use_double_quant=True,
                     bnb_4bit_quant_type="nf4",
                     bnb_4bit_compute_dtype=torch.bfloat16,
                 )
-                model_kwargs["quantization_config"] = quantization_config
             else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
 
         if torch.cuda.is_available():
             model_kwargs["device_map"] = "auto"
         elif torch.backends.mps.is_available():
-            model_kwargs["device"] = "mps"
+            model_kwargs["device_map"] = "mps"
 
-        # Load model, tokenizer, and processor
-        self.model = AutoModelForCausalLM.from_pretrained(
-            model_id,
-            **model_kwargs,
-        )
+        self.model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_id, use_fast=True, trust_remote_code=True
         )
@@ -129,106 +95,35 @@ class Ernie(Backend):
 
     def __call__(
         self, messages, images=None, max_new_tokens: int = 128, *args, **kwargs
-    ) -> list:
-        """
-        Generate a response to a list of messages, optionally with images.
-
-        Args:
-            messages (List[str] or List[dict]): List of messages or multimodal message dicts.
-            images (List[str] or None): List of image URLs or local paths.
-            max_new_tokens (int): Maximum number of tokens to generate.
-
-        Returns:
-            List[str]: Generated responses.
-        """
-        # Prepare input for ERNIE's multimodal API
+    ) -> str:
+        """Generate a response to a list of messages, optionally with images."""
         if isinstance(messages, str):
-            messages = [messages]
+            messages = [{"role": "user", "content": messages}]
 
-        # For multimodal, use the chat template and processor
-        chat_messages = []
         if images:
-            chat_messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": messages[0]},
-                        {"type": "image_url", "image_url": {"url": images[0]}},
-                    ],
-                }
-            )
+            content = [{"type": "text", "text": messages[0]["content"]}]
+            for image_url in images:
+                content.append({"type": "image_url", "image_url": {"url": image_url}})
+            chat_messages = [{"role": "user", "content": content}]
         else:
-            chat_messages.append(
-                {
-                    "role": "user",
-                    "content": [{"type": "text", "text": messages[0]}],
-                }
-            )
-
-        # Validate and clean chat_messages
-        for msg in chat_messages:
-            content = msg.get("content")
-            if isinstance(content, list):
-                msg["content"] = " ".join(str(item) for item in content)
-            elif not isinstance(content, str):
-                msg["content"] = str(content) if content is not None else ""
+            chat_messages = messages
 
         text = self.processor.apply_chat_template(
             chat_messages,
             tokenize=False,
             add_generation_prompt=True,
-            enable_thinking=False,  # Ensure this is a valid argument
         )
 
-        # image_inputs, video_inputs = self.processor.process_vision_info(chat_messages)
-        inputs = self.processor(
-            text=[text],
-            # images=image_inputs,
-            # videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        )
-
+        inputs = self.processor(text=[text], padding=True, return_tensors="pt")
         device = next(self.model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
         with torch.no_grad():
             generated_ids = self.model.generate(
-                inputs=inputs["input_ids"],
-                attention_mask=inputs.get("attention_mask"),
+                **inputs,
                 max_new_tokens=max_new_tokens,
                 temperature=self.temperature,
                 top_p=self.top_p,
                 do_sample=self.do_sample,
             )
-
-            # Handle different output formats
-            if hasattr(generated_ids, "sequences"):
-                # Newer Hugging Face output format
-                token_ids = generated_ids.sequences[0]
-            elif isinstance(generated_ids, (list, tuple)):
-                # Tuple output (scores, ids) format
-                token_ids = generated_ids[0][0]
-            elif generated_ids.dim() == 2:
-                # Batch dimension present
-                token_ids = generated_ids[0]
-            else:
-                # Already flat tensor
-                token_ids = generated_ids
-
-            # Decode to text
-            output_text = self.processor.decode(token_ids, skip_special_tokens=True)
-
-        return output_text
-
-
-if __name__ == "__main__":
-    llm = Ernie(model_name="baidu/ERNIE-4.5-VL-28B-A3B-PT", quantization="int4")
-    print(
-        llm(
-            "Describe the image.",
-            images=[
-                "https://paddlenlp.bj.bcebos.com/datasets/paddlemix/demo_images/example1.jpg"
-            ],
-        )
-    )
+            return self.processor.decode(generated_ids[0], skip_special_tokens=True)

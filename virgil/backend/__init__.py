@@ -13,127 +13,65 @@
 # limitations under the License.
 
 # (c) 2024 by Chris Paxton
-import logging
-
 import torch
-from .gemma import Gemma, get_gemma_model_names
+
+# Set recommended torch settings for TF32
+if torch.cuda.is_available():
+    # For Ampere and later GPUs, this allows PyTorch to use the TensorFloat32 (TF32) tensor cores.
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    # New API for controlling TF32 precision, available in newer PyTorch versions
+    if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
+        torch.backends.cuda.matmul.fp32_precision = "high"
+    if hasattr(torch.backends.cudnn, "conv") and hasattr(
+        torch.backends.cudnn.conv, "fp32_precision"
+    ):
+        torch.backends.cudnn.conv.fp32_precision = "high"
+
+
 from .base import Backend
+from .ernie import Ernie, get_ernie_model_names
+from .gemma import Gemma, get_gemma_model_names
 from .llama import Llama
-from .qwen import (
-    Qwen,
-    qwen_sizes,
-    qwen_specializations,
-    qwen_releases,
-    qwen25_sizes,
-    qwen30_sizes,
-)
-from .ernie import Ernie, get_ernie_model_id, get_ernie_model_names
-
-qwens = []
-qwens = [
-    f"qwen{release}-{size}-{spec}"
-    for size in qwen_sizes
-    for spec in qwen_specializations
-    for release in qwen_releases
-]
-
+from .qwen import Qwen, get_qwen_model_names
 
 backend_list = (
-    [
-        "llama-3.2-1B",
-        "qwen",
-    ]
+    ["llama-3.2-1b"]
     + get_gemma_model_names()
-    + qwens
+    + get_qwen_model_names()
     + get_ernie_model_names()
 )
 
 
-def get_backend(name: str, use_flash_attention: bool = False, **kwargs) -> Backend:
-    """Get a backend by name.
+def get_backend(name: str, **kwargs) -> Backend:
+    """
+    Get a backend by name.
+
+    This function acts as a factory for creating backend instances. It determines the
+    correct backend class based on the model name and passes along any additional
+    keyword arguments to the class's constructor.
 
     Args:
-        name (str): The name of the backend.
-        use_flash_attention (bool): Whether to use Flash Attention. Defaults to False. Only used for Gemma.
+        name (str): The name of the backend (e.g., "gemma-2-9b-it", "qwen3-8b").
+        **kwargs: Additional arguments to pass to the backend constructor, such as
+                  `quantization`, `temperature`, etc.
 
     Returns:
-        Backend: The backend instance, used for interfacing with an LLM.
+        Backend: An instance of the requested backend.
+
+    Raises:
+        ValueError: If the backend name is unknown.
     """
     name = name.lower()
+    kwargs["model_name"] = name
+
     if name.startswith("gemma"):
-        if name == "gemma2b" or name == "gemma-2b-it":
-            gemma_kwargs = kwargs
-            gemma_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
-            gemma_kwargs["use_flash_attention"] = (
-                True if torch.cuda.is_available() else False
-            )
-            gemma_kwargs["variant"] = "google/gemma-2-2b-it"
-        else:
-            gemma_kwargs = kwargs
-            gemma_kwargs["quantization"] = "int4" if torch.cuda.is_available() else None
-            gemma_kwargs["use_flash_attention"] = (
-                True if torch.cuda.is_available() else False
-            )
-            if not name.endswith("-it"):
-                name += "-it"
-            gemma_kwargs["variant"] = "google/" + name
-        return Gemma(**gemma_kwargs)
-    if name.startswith("ernie"):
-        # ERNIE models are named like "ernie-4.5-vl-28b-a3b"
-        model_id = get_ernie_model_id(name)
-        return Ernie(model_name=model_id, **kwargs)
-    elif name == "llama" or name == "llama-3.2-1B":
-        return Llama(model_name="meta-llama/Llama-3.2-1B", **kwargs)
+        return Gemma(**kwargs)
+    elif name.startswith("ernie"):
+        return Ernie(**kwargs)
+    elif name.startswith("llama"):
+        return Llama(**kwargs)
     elif name.startswith("qwen"):
-        # get the size and specialization
-        # This lets us use the same model for different sizes and specializations (e.g. 1B-Instruct, 1B-Coder, 1B-Math)
-
-        # TODO: process this better
-        if name == "qwen":
-            size = "3B"
-            specialization = "Instruct"
-            release = "3"
-        else:
-            release = "2.5"
-            size = "1.5B"
-            specialization = "Instruct"
-
-            # Parse qwen{release}-{size}-{specialization} or qwen{release}-{size}
-            # e.g. qwen3-1.5B-Instruct, qwen2.5-7B-Coder, qwen2.5-14B-Math
-            parts = name.split("-")
-            if len(parts) == 3:
-                release = parts[0][4:]
-                size = parts[1]
-                specialization = parts[2].capitalize()
-                logging.info(f"Using Qwen model: Qwen{release}-{size}-{specialization}")
-
-        if specialization == "Deepseek":
-            model_name = f"deepseek-ai/DeepSeek-R1-Distill-Qwen-{size}"
-        else:
-            if release == "2.5":
-                if size.upper() not in qwen25_sizes:
-                    raise ValueError(
-                        f"Unknown size: {size}. Available sizes for Qwen 2.5: {qwen25_sizes}"
-                    )
-                if specialization not in qwen_specializations:
-                    raise ValueError(
-                        f"Unknown specialization: {specialization}. Available specializations: {qwen_specializations}"
-                    )
-                model_name = f"Qwen/Qwen{release}-{size}-{specialization}"
-            elif release == "3":
-                # No specializations
-                if size.upper() not in qwen30_sizes:
-                    raise ValueError(
-                        f"Unknown size: {size}. Available sizes for Qwen 3: {qwen30_sizes}"
-                    )
-                model_name = f"Qwen/Qwen{release}-{size}"
-            else:
-                raise ValueError(
-                    f"Unknown release: {release}. Available releases: {qwen_releases}"
-                )
-
-        qwen_kwargs = kwargs
-        # qwen_kwargs["quantization"] = "int8" if torch.cuda.is_available() else None
-        return Qwen(model_name=model_name, **qwen_kwargs)
+        return Qwen(**kwargs)
     else:
         raise ValueError(f"Unknown backend: {name}")
