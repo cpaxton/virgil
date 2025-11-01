@@ -4,7 +4,35 @@ A simple set of tools and scripts for generating fun and compelling AI-generated
 
 It's named after the AI from Mass Effect. Or maybe the Roman poet.
 
-[Check the installation guide](docs/install.md) for more information on how to install and use Virgil.
+## Installation
+
+This project uses `uv` for dependency management, which is a fast, modern replacement for `pip` and `venv`.
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/cpaxton/virgil.git
+    cd virgil
+    ```
+
+2.  **Install `uv`:**
+    If you don't have `uv` installed, you can install it with the following command. For other installation options, see the [official `uv` installation guide](https://astral.sh/docs/uv/installation).
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+
+3.  **Create and activate a virtual environment:**
+    ```bash
+    uv venv
+    source .venv/bin/activate
+    ```
+
+4.  **Install dependencies:**
+    This command installs the project in editable mode (`-e`) along with all development dependencies.
+    ```bash
+    uv pip install -e .[dev]
+    ```
+
+That's it! The project is now set up and ready to use.
 
 ## Usage
 
