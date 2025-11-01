@@ -3756,6 +3756,9 @@ name = "virgil"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "accelerate" },
+    { name = "autoawq" },
+    { name = "bitsandbytes" },
     { name = "click" },
     { name = "datasets" },
     { name = "decord" },
@@ -3774,19 +3777,16 @@ dependencies = [
     { name = "sentencepiece" },
     { name = "soundfile" },
     { name = "termcolor" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "torchaudio", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "torchaudio", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "transformers" },
 ]
 
 [package.optional-dependencies]
-ai = [
-    { name = "accelerate" },
-    { name = "autoawq" },
-    { name = "bitsandbytes" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-]
 dev = [
     { name = "black" },
     { name = "codespell" },
@@ -3797,20 +3797,12 @@ dev = [
     { name = "pre-commit" },
     { name = "pytest" },
 ]
-torch = [
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "torch", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "torchaudio", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "torchaudio", version = "2.9.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-]
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", marker = "extra == 'ai'" },
-    { name = "autoawq", marker = "extra == 'ai'" },
-    { name = "bitsandbytes", marker = "extra == 'ai'", specifier = ">=0.43.0" },
+    { name = "accelerate" },
+    { name = "autoawq" },
+    { name = "bitsandbytes", specifier = ">=0.43.0" },
     { name = "black", marker = "extra == 'dev'" },
     { name = "click" },
     { name = "codespell", marker = "extra == 'dev'" },
@@ -3837,14 +3829,12 @@ requires-dist = [
     { name = "sentencepiece" },
     { name = "soundfile" },
     { name = "termcolor" },
-    { name = "torch", marker = "extra == 'ai'", specifier = ">=2.6" },
-    { name = "torch", marker = "extra == 'torch'", specifier = ">=2.6" },
-    { name = "torchaudio", marker = "extra == 'torch'" },
-    { name = "torchvision", marker = "extra == 'ai'" },
-    { name = "torchvision", marker = "extra == 'torch'" },
+    { name = "torch", specifier = ">=2.6" },
+    { name = "torchaudio" },
+    { name = "torchvision" },
     { name = "transformers", specifier = ">=4.51.0" },
 ]
-provides-extras = ["torch", "dev", "ai"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "virtualenv"
