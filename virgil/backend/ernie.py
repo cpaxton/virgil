@@ -63,7 +63,7 @@ class Ernie(Backend):
         if model_path:
             model_id = model_path
 
-        model_kwargs = {"torch_dtype": "auto", "trust_remote_code": True}
+        model_kwargs = {"dtype": "auto", "trust_remote_code": True}
 
         if quantization:
             quantization = quantization.lower()

@@ -70,7 +70,7 @@ class Gemma(Backend):
         if quantization is None:
             quantization = "int8" if "2b" in variant else "int4"
 
-        model_kwargs = {"torch_dtype": torch.bfloat16}
+        model_kwargs = {"dtype": torch.bfloat16}
         if quantization:
             print(f"[Gemma] quantizing the model to {quantization}")
             if quantization == "int8":

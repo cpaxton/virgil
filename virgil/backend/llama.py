@@ -36,7 +36,7 @@ class Llama(Backend):
         else:
             model_id = model_name  # Assume it's a valid HuggingFace model ID
 
-        model_kwargs = {"torch_dtype": torch.bfloat16}
+        model_kwargs = {"dtype": torch.bfloat16}
 
         if quantization:
             if quantization == "int8":

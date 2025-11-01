@@ -22,11 +22,11 @@ if torch.cuda.is_available():
     torch.backends.cudnn.allow_tf32 = True
     # New API for controlling TF32 precision, available in newer PyTorch versions
     if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
-        torch.backends.cuda.matmul.fp32_precision = "high"
+        torch.backends.cuda.matmul.fp32_precision = "tf32"
     if hasattr(torch.backends.cudnn, "conv") and hasattr(
         torch.backends.cudnn.conv, "fp32_precision"
     ):
-        torch.backends.cudnn.conv.fp32_precision = "high"
+        torch.backends.cudnn.conv.fp32_precision = "tf32"
 
 
 from .base import Backend

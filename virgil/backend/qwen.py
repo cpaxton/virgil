@@ -63,7 +63,7 @@ class Qwen(Backend):
 
         print(f"Loading model: {model_id}")
 
-        model_kwargs = {"torch_dtype": "auto"}
+        model_kwargs = {"dtype": "auto"}
         if quantization:
             quantization = quantization.lower()
             if quantization in ["int8", "int4"]:

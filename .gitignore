@@ -20,3 +20,15 @@ memory.txt
 
 # Friend image
 generated_image.png
+
+# Add image generations and video files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.webp
