@@ -40,6 +40,7 @@ torch.backends.cudnn.allow_tf32 = True
 from virgil.friend.parser import ChatbotActionParser
 from virgil.image import DiffuserImageGenerator, FluxImageGenerator
 from virgil.utils import load_prompt
+from virgil.utils.weather import get_current_weather
 
 
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
@@ -72,6 +73,7 @@ class Friend(DiscordBot):
         max_history_length: int = 25,
         prompt_filename: str = "prompt.txt",
         home_channel: str = "ask-a-robot",
+        weather_api_key: Optional[str] = None,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -96,6 +98,7 @@ class Friend(DiscordBot):
         self.sent_prompt = False
         self.join_at_random = join_at_random
         self.home_channel = home_channel
+        self.weather_api_key = weather_api_key
         super(Friend, self).__init__(token)
 
         # Check to see if memory file exists
@@ -276,6 +279,30 @@ class Friend(DiscordBot):
                         file.write(line + "\n")
 
                 await task.channel.send("*Forgetting: " + content + "*")
+            elif action == "weather":
+                print("Getting weather for:", content)
+                if not self.weather_api_key:
+                    await task.channel.send(
+                        "*Sorry, weather API key is not configured.*"
+                    )
+                else:
+                    try:
+                        # Parse city from content (could be "London,UK" or just "London")
+                        city = content.strip()
+                        weather = get_current_weather(self.weather_api_key, city)
+                        weather_message = (
+                            f"Weather in {weather['city']}:\n"
+                            f"- Conditions: {weather['description']}\n"
+                            f"- Temperature: {weather['temperature']}{weather['unit']}\n"
+                            f"- Feels like: {weather['feels_like']}{weather['unit']}\n"
+                            f"- Humidity: {weather['humidity']}%\n"
+                            f"- Wind: {weather['wind_speed']} {weather['wind_unit']}"
+                        )
+                        await task.channel.send(weather_message)
+                    except Exception as e:
+                        error_msg = f"*Error getting weather: {str(e)}*"
+                        print(colored(f"Weather error: {e}", "red"))
+                        await task.channel.send(error_msg)
         # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
@@ -351,13 +378,23 @@ class Friend(DiscordBot):
     help="The image generator to use.",
     type=click.Choice(["diffuser", "flux"], case_sensitive=False),
 )
-def main(token, backend, max_history_length, prompt, image_generator):
+@click.option(
+    "--weather-api-key",
+    default=None,
+    help="OpenWeatherMap API key for weather functionality. Get one at https://openweathermap.org/api. Can also be set via OPENWEATHER_API_KEY environment variable.",
+)
+def main(token, backend, max_history_length, prompt, image_generator, weather_api_key):
+    # Check environment variable if not provided via CLI
+    if weather_api_key is None:
+        weather_api_key = os.getenv("OPENWEATHER_API_KEY")
+
     bot = Friend(
         token=token,
         backend=backend,
         max_history_length=max_history_length,
         prompt_filename=prompt,
         image_generator=image_generator,
+        weather_api_key=weather_api_key,
     )
 
     @bot.client.command(name="summon", help="Summon the bot to a channel.")

@@ -7,6 +7,7 @@ You have the following actions available to you:
 <imagine></imagine> - to generate an image - use this when someone asks you to draw something or create an image. Image descriptions should be short, and avoid use of names or specific people or characters, unless they are well-known public figures. Be descriptive and concise.
 <remember></remember> - to remember something for later and write it to a permanent memory - use this sparingly, but when someone says something that seems important or is distinctive.
 <forget></forget> - to forget something from your memory (must be an exact match).
+<weather></weather> - to get current weather information for a city. Put the city name (and optionally country code) inside the tags, e.g., <weather>London,UK</weather> or <weather>New York,US</weather>. Use this when someone asks about the weather in a specific location.
 
 Always Use people's names. For example, if you received this message:
 Chris P on #general: Hello!
@@ -58,6 +59,13 @@ Julian on #food: Forget that I love pizza!
 
 Respond:
 <forget>Julian loves pizza.</forget>
+
+You can get weather information using the <weather></weather> action. For example, if you received this message:
+Chris P on #general: What's the weather like in London?
+
+Respond:
+<weather>London,UK</weather>
+<say>The weather in London is currently [weather information will be displayed here].</say>
 
 To send code, include it in the say tags. For example:
 Chris P on #general: Write hello world in python.
