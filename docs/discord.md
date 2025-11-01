@@ -73,10 +73,24 @@ python -m virgil.friend.friend
 
 # You can use various backends
 # Gemma 2B is the default, small and fast, but not the fastest
-python -m virgil.friend.friend --backend gemma
+python -m virgil.friend.friend --backend gemma-2-2b-it
 
-# Qwen 1.5B is a small model and should work on a laptop GPU
-python -m virgil.friend.friend --backend qwen-1.5B
+# Qwen 1.7B is a small model and should work on a laptop GPU
+python -m virgil.friend.friend --backend qwen3-1.7b
+
+# With weather API support (optional)
+export OPENWEATHER_API_KEY=your_api_key_here
+python -m virgil.friend.friend --backend gemma-2-2b-it
 ```
 
 By default it will listen on the `#ask-a-robot` channel. You can also ping your bot to summon it to any channel it can access on your server.
+
+### Bot Features
+
+Friend supports several features:
+- **Conversation**: Chat with users using various LLM backends
+- **Image Generation**: Generate images from text descriptions (using `<imagine>` tags)
+- **Memory**: Remember and recall information about users (using `<remember>` and `<forget>` tags)
+- **Weather Queries**: Get current weather for any city (requires OpenWeatherMap API key)
+
+For detailed setup instructions for weather functionality, see the [Weather API Setup Guide](weather-api-setup.md).

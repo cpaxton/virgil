@@ -21,30 +21,27 @@ from transformers import BitsAndBytesConfig, pipeline
 
 from virgil.backend.base import Backend
 
-variants = [
-    "google/gemma-2-2b-it",
-    "google/gemma-2-9b-it",
-    "google/gemma-1-7b-it",
-    "google/gemma-1-3b-it",
+tinyllama_variants = [
+    "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
 ]
 
-name_to_variant = {variant.split("/")[-1]: variant for variant in variants}
+name_to_variant = {
+    "tinyllama": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "tinyllama-1.1b": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "tinyllama-chat": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "tinyllama-intermediate": "TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+}
 
 
-def get_gemma_model_names() -> list[str]:
-    """Get a list of available Gemma model names."""
+def get_tinyllama_model_names() -> list[str]:
+    """Get a list of available TinyLlama model names."""
     return list(name_to_variant.keys())
 
 
-def supports_flash_attention() -> bool:
-    """Check if the current device supports Flash Attention."""
-    if torch.cuda.is_available():
-        major, _ = torch.cuda.get_device_capability()
-        return major >= 8
-    return False
+class TinyLlama(Backend):
+    """Use TinyLlama models for text generation."""
 
-
-class Gemma(Backend):
     def __init__(
         self,
         model_name: str,
@@ -52,41 +49,43 @@ class Gemma(Backend):
         top_p: float = 0.9,
         do_sample: bool = True,
         quantization: Optional[str] = None,
-        use_flash_attention: bool = True,
+        model_path: Optional[str] = None,
     ) -> None:
-        """Initialize the Gemma backend."""
-        if model_name in name_to_variant:
+        """Initialize the TinyLlama backend."""
+        if model_path:
+            variant = model_path
+        elif model_name in name_to_variant:
             variant = name_to_variant[model_name]
-        elif model_name.startswith("google/"):
+        elif model_name.startswith("TinyLlama/"):
             variant = model_name
         else:
             raise ValueError(
-                f"Unknown Gemma model: {model_name}. Supported: {list(name_to_variant.keys())}"
+                f"Unknown TinyLlama model: {model_name}. Supported: {list(name_to_variant.keys())}"
             )
 
-        print(f"Loading Gemma variant: {variant}")
+        print(f"Loading TinyLlama variant: {variant}")
 
-        # Set default quantization if not provided
+        # Default to int8 quantization for TinyLlama (very small model)
         if quantization is None:
-            quantization = "int8" if "2b" in variant else "int4"
+            quantization = "int8"
 
         model_kwargs = {"dtype": torch.bfloat16}
+
         if quantization:
-            print(f"[Gemma] quantizing the model to {quantization}")
+            quantization = quantization.lower()
             if quantization == "int8":
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_8bit=True
                 )
             elif quantization == "int4":
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_4bit=True
+                    load_in_4bit=True,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16,
                 )
             else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
-
-        if supports_flash_attention() and use_flash_attention:
-            print("[Gemma] using Flash Attention")
-            model_kwargs["attn_implementation"] = "flash_attention_2"
 
         pipeline_kwargs = {}
         if torch.cuda.is_available():
@@ -94,7 +93,7 @@ class Gemma(Backend):
         elif torch.backends.mps.is_available():
             pipeline_kwargs["device"] = "mps"
 
-        print("[Gemma] loading the model...")
+        print("[TinyLlama] loading the model...")
         self.pipe = pipeline(
             "text-generation",
             model=variant,

@@ -21,30 +21,29 @@ from transformers import BitsAndBytesConfig, pipeline
 
 from virgil.backend.base import Backend
 
-variants = [
-    "google/gemma-2-2b-it",
-    "google/gemma-2-9b-it",
-    "google/gemma-1-7b-it",
-    "google/gemma-1-3b-it",
+smollm_variants = [
+    "huggingface/SmolLM-135M-Instruct",
+    "huggingface/SmolLM-360M-Instruct",
+    "huggingface/SmolLM-1.7B-Instruct",
+    "huggingface/SmolLM-2.7B-Instruct",
 ]
 
-name_to_variant = {variant.split("/")[-1]: variant for variant in variants}
+name_to_variant = {
+    "smollm-135m": "huggingface/SmolLM-135M-Instruct",
+    "smollm-360m": "huggingface/SmolLM-360M-Instruct",
+    "smollm-1.7b": "huggingface/SmolLM-1.7B-Instruct",
+    "smollm-2.7b": "huggingface/SmolLM-2.7B-Instruct",
+}
 
 
-def get_gemma_model_names() -> list[str]:
-    """Get a list of available Gemma model names."""
+def get_smollm_model_names() -> list[str]:
+    """Get a list of available SmolLM model names."""
     return list(name_to_variant.keys())
 
 
-def supports_flash_attention() -> bool:
-    """Check if the current device supports Flash Attention."""
-    if torch.cuda.is_available():
-        major, _ = torch.cuda.get_device_capability()
-        return major >= 8
-    return False
+class SmolLM(Backend):
+    """Use HuggingFace SmolLM models for text generation."""
 
-
-class Gemma(Backend):
     def __init__(
         self,
         model_name: str,
@@ -52,41 +51,41 @@ class Gemma(Backend):
         top_p: float = 0.9,
         do_sample: bool = True,
         quantization: Optional[str] = None,
-        use_flash_attention: bool = True,
+        model_path: Optional[str] = None,
     ) -> None:
-        """Initialize the Gemma backend."""
-        if model_name in name_to_variant:
+        """Initialize the SmolLM backend."""
+        if model_path:
+            variant = model_path
+        elif model_name in name_to_variant:
             variant = name_to_variant[model_name]
-        elif model_name.startswith("google/"):
+        elif model_name.startswith("huggingface/"):
             variant = model_name
         else:
             raise ValueError(
-                f"Unknown Gemma model: {model_name}. Supported: {list(name_to_variant.keys())}"
+                f"Unknown SmolLM model: {model_name}. Supported: {list(name_to_variant.keys())}"
             )
 
-        print(f"Loading Gemma variant: {variant}")
+        print(f"Loading SmolLM variant: {variant}")
 
-        # Set default quantization if not provided
-        if quantization is None:
-            quantization = "int8" if "2b" in variant else "int4"
-
+        # SmolLM models are very small, so quantization is optional
+        # but can still be useful for larger variants
         model_kwargs = {"dtype": torch.bfloat16}
+
         if quantization:
-            print(f"[Gemma] quantizing the model to {quantization}")
+            quantization = quantization.lower()
             if quantization == "int8":
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_8bit=True
                 )
             elif quantization == "int4":
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_4bit=True
+                    load_in_4bit=True,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16,
                 )
             else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
-
-        if supports_flash_attention() and use_flash_attention:
-            print("[Gemma] using Flash Attention")
-            model_kwargs["attn_implementation"] = "flash_attention_2"
 
         pipeline_kwargs = {}
         if torch.cuda.is_available():
@@ -94,7 +93,7 @@ class Gemma(Backend):
         elif torch.backends.mps.is_available():
             pipeline_kwargs["device"] = "mps"
 
-        print("[Gemma] loading the model...")
+        print("[SmolLM] loading the model...")
         self.pipe = pipeline(
             "text-generation",
             model=variant,

@@ -17,6 +17,31 @@ virgil/__pycache__
 
 # Friend memory
 memory.txt
+*memory.txt
+
+# Scripts with secrets
+*.sh
+
+# Generated quizes
+quiz/*
+
+# Generated images
+images/*
+
+# Generated videos
+videos/*
 
 # Friend image
 generated_image.png
+
+# Add image generations and video files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.webp

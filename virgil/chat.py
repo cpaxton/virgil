@@ -151,7 +151,7 @@ class ChatWrapper:
 @click.option(
     "--backend",
     "--model",
-    default="gemma-3-12b-it",
+    default="gemma-2-2b-it",
     help="The backend to use.",
     type=click.Choice(backend_list, case_sensitive=False),
 )

@@ -17,76 +17,80 @@
 from typing import Optional
 
 import torch
-from transformers import BitsAndBytesConfig, pipeline
+from transformers import (
+    BitsAndBytesConfig,
+    pipeline,
+)
 
 from virgil.backend.base import Backend
 
-variants = [
-    "google/gemma-2-2b-it",
-    "google/gemma-2-9b-it",
-    "google/gemma-1-7b-it",
-    "google/gemma-1-3b-it",
+phi_variants = [
+    "microsoft/Phi-3-mini-4k-instruct",
+    "microsoft/Phi-3-mini-128k-instruct",
+    "microsoft/Phi-3-small-8k-instruct",
+    "microsoft/Phi-3-small-128k-instruct",
+    "microsoft/Phi-3-medium-4k-instruct",
+    "microsoft/Phi-3-medium-128k-instruct",
 ]
 
-name_to_variant = {variant.split("/")[-1]: variant for variant in variants}
+name_to_variant = {
+    "phi-3-mini": "microsoft/Phi-3-mini-4k-instruct",
+    "phi-3-mini-4k": "microsoft/Phi-3-mini-4k-instruct",
+    "phi-3-mini-128k": "microsoft/Phi-3-mini-128k-instruct",
+    "phi-3-small": "microsoft/Phi-3-small-8k-instruct",
+    "phi-3-small-8k": "microsoft/Phi-3-small-8k-instruct",
+    "phi-3-small-128k": "microsoft/Phi-3-small-128k-instruct",
+    "phi-3-medium": "microsoft/Phi-3-medium-4k-instruct",
+    "phi-3-medium-4k": "microsoft/Phi-3-medium-4k-instruct",
+    "phi-3-medium-128k": "microsoft/Phi-3-medium-128k-instruct",
+}
 
 
-def get_gemma_model_names() -> list[str]:
-    """Get a list of available Gemma model names."""
+def get_phi_model_names() -> list[str]:
+    """Get a list of available Phi model names."""
     return list(name_to_variant.keys())
 
 
-def supports_flash_attention() -> bool:
-    """Check if the current device supports Flash Attention."""
-    if torch.cuda.is_available():
-        major, _ = torch.cuda.get_device_capability()
-        return major >= 8
-    return False
+class Phi(Backend):
+    """Use Microsoft Phi-3 models for text generation."""
 
-
-class Gemma(Backend):
     def __init__(
         self,
         model_name: str,
         temperature: float = 0.7,
         top_p: float = 0.9,
         do_sample: bool = True,
-        quantization: Optional[str] = None,
-        use_flash_attention: bool = True,
+        quantization: Optional[str] = "int4",
+        model_path: Optional[str] = None,
     ) -> None:
-        """Initialize the Gemma backend."""
-        if model_name in name_to_variant:
+        """Initialize the Phi backend."""
+        if model_path:
+            variant = model_path
+        elif model_name in name_to_variant:
             variant = name_to_variant[model_name]
-        elif model_name.startswith("google/"):
+        elif model_name.startswith("microsoft/"):
             variant = model_name
         else:
             raise ValueError(
-                f"Unknown Gemma model: {model_name}. Supported: {list(name_to_variant.keys())}"
+                f"Unknown Phi model: {model_name}. Supported: {list(name_to_variant.keys())}"
             )
 
-        print(f"Loading Gemma variant: {variant}")
+        print(f"Loading Phi variant: {variant}")
 
-        # Set default quantization if not provided
-        if quantization is None:
-            quantization = "int8" if "2b" in variant else "int4"
+        model_kwargs = {"dtype": torch.bfloat16, "trust_remote_code": True}
 
-        model_kwargs = {"dtype": torch.bfloat16}
         if quantization:
-            print(f"[Gemma] quantizing the model to {quantization}")
-            if quantization == "int8":
+            quantization = quantization.lower()
+            if quantization in ["int8", "int4"]:
                 model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_8bit=True
-                )
-            elif quantization == "int4":
-                model_kwargs["quantization_config"] = BitsAndBytesConfig(
-                    load_in_4bit=True
+                    load_in_4bit=(quantization == "int4"),
+                    load_in_8bit=(quantization == "int8"),
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                    bnb_4bit_compute_dtype=torch.bfloat16,
                 )
             else:
                 raise ValueError(f"Unknown quantization method: {quantization}")
-
-        if supports_flash_attention() and use_flash_attention:
-            print("[Gemma] using Flash Attention")
-            model_kwargs["attn_implementation"] = "flash_attention_2"
 
         pipeline_kwargs = {}
         if torch.cuda.is_available():
@@ -94,7 +98,7 @@ class Gemma(Backend):
         elif torch.backends.mps.is_available():
             pipeline_kwargs["device"] = "mps"
 
-        print("[Gemma] loading the model...")
+        print("[Phi] loading the model...")
         self.pipe = pipeline(
             "text-generation",
             model=variant,

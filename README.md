@@ -4,7 +4,35 @@ A simple set of tools and scripts for generating fun and compelling AI-generated
 
 It's named after the AI from Mass Effect. Or maybe the Roman poet.
 
-[Check the installation guide](docs/install.md) for more information on how to install and use Virgil.
+## Installation
+
+This project uses `uv` for dependency management, which is a fast, modern replacement for `pip` and `venv`.
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/cpaxton/virgil.git
+    cd virgil
+    ```
+
+2.  **Install `uv`:**
+    If you don't have `uv` installed, you can install it with the following command. For other installation options, see the [official `uv` installation guide](https://astral.sh/docs/uv/installation).
+    ```bash
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    ```
+
+3.  **Create and activate a virtual environment:**
+    ```bash
+    uv venv
+    source .venv/bin/activate
+    ```
+
+4.  **Install dependencies:**
+    This command installs the project in editable mode (`-e`) along with all development dependencies.
+    ```bash
+    uv pip install -e .[dev]
+    ```
+
+That's it! The project is now set up and ready to use.
 
 ## Usage
 
@@ -66,17 +94,20 @@ You can then navigate to `http://0.0.0.0:8000/` to view the quiz in your browser
 
 ### Friend
 
-Friend is a simple chatbot which can use various backends to generate text on Discord. After installing `virgil`:
+Friend is a simple chatbot which can use various backends to generate text on Discord. It supports conversation, image generation, memory, and weather queries. After installing `virgil`:
 
 ```bash
 python -m virgil.friend.friend
 
 # You can use various backends
 # Gemma 2B is the default, small and fast, but not the fastest
-python -m virgil.friend.friend --backend gemma
+python -m virgil.friend.friend --backend gemma-2-2b-it
 
 # Qwen 1.5B is a small model and should work on a laptop GPU
-python -m virgil.friend.friend --backend qwen-1.5B
+python -m virgil.friend.friend --backend qwen3-1.7b
+
+# With weather API support
+python -m virgil.friend.friend --backend gemma-2-2b-it --weather-api-key YOUR_API_KEY
 ```
 
 #### Discord Setup for Friend
@@ -96,6 +127,24 @@ https://discord.com/oauth2/authorize?client_id=$TOKEN&scope=bot
 ```
 
 where `$TOKEN` is the client ID of your bot. This can be found either in the provided URL on the "Installation" page, or explicitly on the "Oath2" page. Then you need to set permissions for the bot properly and create an install link. For more detailed instructions, see the [Discord setup guide](docs/discord.md).
+
+#### Weather API Setup for Friend
+
+Friend can provide weather information when configured with an OpenWeatherMap API key. This is optional - the bot works fine without it, but weather queries will be disabled.
+
+**Quick Setup:**
+
+1. Get a free API key from [OpenWeatherMap](https://openweathermap.org/api) (no credit card required)
+2. Set it as an environment variable:
+   ```bash
+   export OPENWEATHER_API_KEY=your_api_key_here
+   ```
+3. Or pass it as a command-line argument:
+   ```bash
+   python -m virgil.friend.friend --weather-api-key your_api_key_here
+   ```
+
+The bot will automatically validate the API key on startup. For detailed setup instructions, troubleshooting, and security best practices, see the [Weather API Setup Guide](docs/weather-api-setup.md).
 
 ### Labyrinth
 
