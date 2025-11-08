@@ -185,7 +185,12 @@ class Friend(DiscordBot):
         self.client.close = new_close
 
     async def say_goodbye(self):
-        """Sends a goodbye message to all active channels."""
+        """Sends a goodbye message to all channels the bot is active in.
+
+        This method is called automatically when the bot is shut down via Ctrl+C,
+        ensuring a graceful exit. It iterates through all channels in the
+        `allowed_channels` list and sends a final message.
+        """
         print("Saying goodbye to active channels...")
         goodbye_message = "I have to go now. Goodbye!"
 
