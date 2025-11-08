@@ -15,8 +15,38 @@
 # (c) 2024 by Chris Paxton
 
 from .base import ImageGenerator
-from .diffuser import DiffuserImageGenerator
-from .flux import FluxImageGenerator
+
+# Lazy imports to avoid RuntimeWarning when running modules as __main__
+# Import these only when needed, not at module level
+_diffuser = None
+_flux = None
+
+
+def _get_diffuser():
+    global _diffuser
+    if _diffuser is None:
+        from .diffuser import DiffuserImageGenerator
+
+        _diffuser = DiffuserImageGenerator
+    return _diffuser
+
+
+def _get_flux():
+    global _flux
+    if _flux is None:
+        from .flux import FluxImageGenerator
+
+        _flux = FluxImageGenerator
+    return _flux
+
+
+def __getattr__(name):
+    """Lazy import for module-level attributes."""
+    if name == "DiffuserImageGenerator":
+        return _get_diffuser()
+    elif name == "FluxImageGenerator":
+        return _get_flux()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
@@ -31,14 +61,14 @@ def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
         ImageGenerator: The created image generator.
     """
     if generator == "diffuser":
-        return DiffuserImageGenerator(**kwargs)
+        return _get_diffuser()(**kwargs)
     else:
         raise ValueError(f"Unknown image generator: {generator}")
 
 
 __all__ = [
-    ImageGenerator,
-    DiffuserImageGenerator,
-    FluxImageGenerator,
-    create_image_generator,
+    "ImageGenerator",
+    "DiffuserImageGenerator",
+    "FluxImageGenerator",
+    "create_image_generator",
 ]

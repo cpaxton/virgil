@@ -19,8 +19,8 @@
 from PIL import Image
 import torch
 from diffusers import AutoPipelineForText2Image
-from virgil.image.base import ImageGenerator
-from virgil.image.siglip import SigLIPAligner
+from .base import ImageGenerator
+from .siglip import SigLIPAligner
 import virgil.utils.log as log
 import click
 from diffusers import BitsAndBytesConfig
