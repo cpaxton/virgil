@@ -20,9 +20,14 @@ from pathlib import Path
 
 
 def get_docs_directory() -> str:
-    """Get the path to the docs directory."""
+    """
+    Get the path to the docs directory.
+
+    Returns the path to the `docs/` directory at the project root.
+    """
     # Get the virgil package directory
     virgil_dir = Path(__file__).parent.parent
+    # Reference the docs/ directory at the project root
     docs_dir = virgil_dir.parent / "docs"
     return str(docs_dir)
 
