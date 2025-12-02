@@ -6,7 +6,7 @@ model_name = "deepseek-ai/DeepSeek-R1-0528-Qwen3-8b"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 model = AutoModelForCausalLM.from_pretrained(
     model_name,
-    torch_dtype=torch.bfloat16,  # Efficient on modern GPUs
+    dtype=torch.bfloat16,  # Efficient on modern GPUs
     device_map="auto",
     trust_remote_code=True,
 )

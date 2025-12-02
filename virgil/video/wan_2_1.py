@@ -27,7 +27,7 @@ class Wan21(VideoBackend):
     def __init__(
         self,
         model_id: str = "Wan-AI/Wan2.1-T2V-14B",
-        torch_dtype: torch.dtype = torch.float16,
+        dtype: torch.dtype = torch.float16,
         variant: str = "fp16",
     ):
         """
@@ -35,12 +35,12 @@ class Wan21(VideoBackend):
 
         Args:
             model_id (str): The ID of the model to use.
-            torch_dtype (torch.dtype): The torch data type to use.
+            dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
         """
         self.pipe = DiffusionPipeline.from_pretrained(
             model_id,
-            torch_dtype=torch_dtype,
+            dtype=dtype,
             variant=variant,
         )
         self.pipe.to("cuda")

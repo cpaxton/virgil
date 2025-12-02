@@ -34,6 +34,16 @@ This project uses `uv` for dependency management, which is a fast, modern replac
 
 That's it! The project is now set up and ready to use.
 
+## Documentation
+
+Additional documentation is available in the [`docs/`](docs/) directory, including:
+
+- [Installation Guide](docs/install.md) - Detailed installation instructions
+- [Discord Setup Guide](docs/discord.md) - How to set up and run the Friend Discord bot
+- [Weather API Setup Guide](docs/weather-api-setup.md) - How to configure weather queries for Friend bot
+- [Model Testing Guide](docs/testing-models.md) - How to test different LLM backends with Virgil
+- [Model Quick Reference](docs/model-quick-reference.md) - Quick list of all available models
+
 ## Usage
 
 - [Chat](#chat): A simple chatbot test with no prompt. The raw LLM experience, useful for development.
