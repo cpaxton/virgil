@@ -76,7 +76,6 @@ class FluxImageGenerator:
             "black-forest-labs/FLUX.1-dev",
             subfolder="transformer",
             quantization_config=diffusers_quant_config,
-            dtype=torch.float16,
         )
 
         self.pipe = FluxPipeline.from_pretrained(
