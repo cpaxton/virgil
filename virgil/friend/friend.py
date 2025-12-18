@@ -45,6 +45,10 @@ from virgil.utils.weather import (
     validate_api_key,
     format_weather_message,
 )
+from virgil.services.image_service import VirgilImageService
+from virgil.services.message_service import DiscordMessageService
+from virgil.mcp.server import VirgilMCPServer
+import asyncio
 
 
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
@@ -78,6 +82,7 @@ class Friend(DiscordBot):
         prompt_filename: str = "prompt.txt",
         home_channel: str = "ask-a-robot",
         weather_api_key: Optional[str] = None,
+        enable_mcp: bool = False,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -148,7 +153,7 @@ class Friend(DiscordBot):
             if image_generator.lower() == "diffuser":
                 # This worked well as of 2024-10-22 with the diffusers library
                 # self.image_generator = DiffuserImageGenerator(height=512, width=512, num_inference_steps=20, guidance_scale=0.0, model="turbo", xformers=False)
-                self.image_generator = DiffuserImageGenerator(
+                image_gen = DiffuserImageGenerator(
                     height=512,
                     width=512,
                     num_inference_steps=4,
@@ -157,13 +162,28 @@ class Friend(DiscordBot):
                     xformers=False,
                 )
             elif image_generator.lower() == "flux":
-                self.image_generator = FluxImageGenerator(height=512, width=512)
+                image_gen = FluxImageGenerator(height=512, width=512)
         else:
-            self.image_generator = image_generator
+            image_gen = image_generator
+
+        # Keep image_generator for backward compatibility
+        self.image_generator = image_gen
+
+        # Initialize services
+        self.image_service = VirgilImageService(image_gen)
+
+        # Initialize message service with Discord-specific functions
+        # Note: We'll set this up after the client is ready in on_ready()
+        self.message_service = None
 
         self.parser = ChatbotActionParser(self.chat)
 
         self._chat_lock = threading.Lock()  # Lock for chat access
+
+        # MCP server support
+        self.enable_mcp = enable_mcp
+        self.mcp_server = None
+        self._mcp_task = None
 
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
@@ -175,6 +195,33 @@ class Friend(DiscordBot):
         print("Bot User IDL", self.client.user.id)
         self._user_name = self.client.user.name
         self._user_id = self.client.user.id
+
+        # Initialize message service now that client is ready
+        def get_channel(channel_id: int):
+            return self.client.get_channel(channel_id)
+
+        def get_user(user_id: int):
+            return self.client.get_user(user_id)
+
+        self.message_service = DiscordMessageService(
+            discord_channel_getter=get_channel,
+            discord_user_getter=get_user,
+        )
+
+        # Initialize MCP server if enabled
+        if self.enable_mcp:
+            try:
+                self.mcp_server = VirgilMCPServer(
+                    image_service=self.image_service,
+                    message_service=self.message_service,
+                )
+                print("MCP server initialized successfully.")
+                # Start MCP server in background
+                self._start_mcp_server()
+            except Exception as e:
+                print(colored(f"Failed to initialize MCP server: {e}", "yellow"))
+                print("Continuing without MCP server...")
+
         self.prompt = self.raw_prompt.format(
             username=self._user_name,
             user_id=self._user_id,
@@ -212,6 +259,23 @@ class Friend(DiscordBot):
         self.process_queue.start()
 
         print("Loaded conversation history:", len(self.chat))
+
+    def _start_mcp_server(self):
+        """Start the MCP server in a background task."""
+        if not self.mcp_server:
+            return
+
+        # Note: MCP server via stdio typically runs as a subprocess invoked by MCP clients.
+        # Running it alongside Discord bot in the same process is complex because both
+        # need to handle stdin/stdout. For now, we'll just initialize it and log a message.
+        # The --mcp-only mode is the recommended way to run Friend as an MCP server.
+        print(
+            colored(
+                "MCP server initialized. Note: Running MCP alongside Discord bot "
+                "is experimental. Use --mcp-only for standalone MCP server mode.",
+                "yellow",
+            )
+        )
         if len(self.chat) == 0:
             print(" -> we will resend the prompt at the appropriate time.")
             print()
@@ -257,24 +321,24 @@ class Friend(DiscordBot):
                 time.sleep(0.1)  # Wait for message to be sent
                 print("Generating image for prompt:", content)
                 with self._chat_lock:
-                    image = self.image_generator.generate(content)
+                    image = self.image_service.generate_image(content)
                 image.save("generated_image.png")
 
-                # Send an image
+                # Send an image using the message service
                 print(" - Sending content:", image)
-                # This should be a Discord file
-                # Create a BytesIO object
-                byte_arr = io.BytesIO()
-
-                # Save the image to the BytesIO object
-                image.save(byte_arr, format="PNG")  # Save as PNG
-                print(" - Image saved to byte array")
-
-                # Move the cursor to the beginning of the BytesIO object
-                byte_arr.seek(0)
-
-                file = discord.File(byte_arr, filename="image.png")
-                await task.channel.send(file=file)
+                if self.message_service:
+                    await self.message_service.send_image(
+                        image,
+                        channel_id=str(task.channel.id),
+                        caption=None,
+                    )
+                else:
+                    # Fallback to direct Discord send if service not initialized
+                    byte_arr = io.BytesIO()
+                    image.save(byte_arr, format="PNG")
+                    byte_arr.seek(0)
+                    file = discord.File(byte_arr, filename="image.png")
+                    await task.channel.send(file=file)
             elif action == "remember":
                 print("Remembering:", content)
                 # Add this to memory
@@ -411,26 +475,83 @@ class Friend(DiscordBot):
     envvar="OPENWEATHER_API_KEY",
     help="OpenWeatherMap API key for weather functionality. Get one at https://openweathermap.org/api. Can also be set via OPENWEATHER_API_KEY environment variable.",
 )
-def main(token, backend, max_history_length, prompt, image_generator, weather_api_key):
-    bot = Friend(
-        token=token,
-        backend=backend,
-        max_history_length=max_history_length,
-        prompt_filename=prompt,
-        image_generator=image_generator,
-        weather_api_key=weather_api_key,
-    )
+@click.option(
+    "--enable-mcp",
+    is_flag=True,
+    default=False,
+    help="Enable MCP server alongside Discord bot (experimental).",
+)
+@click.option(
+    "--mcp-only",
+    is_flag=True,
+    default=False,
+    help="Run as MCP server only (no Discord bot). Exposes Friend capabilities via MCP protocol.",
+)
+def main(
+    token,
+    backend,
+    max_history_length,
+    prompt,
+    image_generator,
+    weather_api_key,
+    enable_mcp,
+    mcp_only,
+):
+    if mcp_only:
+        # Run as MCP server only
+        print("Starting Friend as MCP server only...")
 
-    @bot.client.command(name="summon", help="Summon the bot to a channel.")
-    async def summon(ctx):
-        """Summon the bot to a channel."""
-        print("Summoning the bot.")
-        print(" -> Channel name:", ctx.channel.name)
-        print(" -> Channel ID:", ctx.channel.id)
-        bot.allowed_channels.visit(ctx.channel)
-        await ctx.send("Hello! I am here to help you.")
+        # Initialize image generator
+        if image_generator.lower() == "diffuser":
+            image_gen = DiffuserImageGenerator(
+                height=512,
+                width=512,
+                num_inference_steps=4,
+                guidance_scale=0.0,
+                model="turbo",
+                xformers=False,
+            )
+        elif image_generator.lower() == "flux":
+            image_gen = FluxImageGenerator(height=512, width=512)
+        else:
+            image_gen = image_generator
 
-    bot.run()
+        # Create services
+        image_service = VirgilImageService(image_gen)
+
+        # Create MCP server (without message service since no Discord)
+        try:
+            mcp_server = VirgilMCPServer(
+                image_service=image_service,
+                message_service=None,  # No Discord messaging in MCP-only mode
+            )
+            print("MCP server initialized. Starting...")
+            asyncio.run(mcp_server.run())
+        except Exception as e:
+            print(colored(f"Failed to start MCP server: {e}", "red"))
+            raise
+    else:
+        # Run as Discord bot (with optional MCP)
+        bot = Friend(
+            token=token,
+            backend=backend,
+            max_history_length=max_history_length,
+            prompt_filename=prompt,
+            image_generator=image_generator,
+            weather_api_key=weather_api_key,
+            enable_mcp=enable_mcp,
+        )
+
+        @bot.client.command(name="summon", help="Summon the bot to a channel.")
+        async def summon(ctx):
+            """Summon the bot to a channel."""
+            print("Summoning the bot.")
+            print(" -> Channel name:", ctx.channel.name)
+            print(" -> Channel ID:", ctx.channel.id)
+            bot.allowed_channels.visit(ctx.channel)
+            await ctx.send("Hello! I am here to help you.")
+
+        bot.run()
 
 
 if __name__ == "__main__":
