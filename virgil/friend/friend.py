@@ -328,10 +328,9 @@ class Friend(DiscordBot):
             except Exception:
                 pass
 
-            # Try to send goodbye messages (non-blocking)
+            # Try to send goodbye messages before closing
             try:
                 if self.client and self.client.is_ready():
-                    # Schedule goodbye messages but don't wait
                     loop = None
                     try:
                         loop = asyncio.get_event_loop()
@@ -339,19 +338,22 @@ class Friend(DiscordBot):
                         pass
 
                     if loop and loop.is_running():
-                        # Schedule without waiting
-                        asyncio.run_coroutine_threadsafe(
+                        # Schedule goodbye messages and wait briefly for them to send
+                        future = asyncio.run_coroutine_threadsafe(
                             asyncio.wait_for(
                                 self._send_goodbye_messages(), timeout=2.0
                             ),
                             loop,
                         )
-                        # Give a brief moment for messages to send
-                        time.sleep(0.5)
-            except Exception:
-                pass
+                        # Wait for messages to send (with timeout)
+                        try:
+                            future.result(timeout=2.5)
+                        except Exception:
+                            pass  # Timeout or error, continue with shutdown
+            except Exception as e:
+                print(f"Error in shutdown handler: {e}")
 
-            # Exit immediately
+            # Exit
             sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
@@ -365,16 +367,26 @@ class Friend(DiscordBot):
                 return
 
             goodbye_message = "Goodbye! 👋"
+            sent_count = 0
 
             # Send to all channels the bot is in
             for guild in self.client.guilds:
                 for channel in guild.text_channels:
                     if channel in self.allowed_channels:
                         try:
-                            await channel.send(goodbye_message)
-                            print(f"Sent goodbye to {channel.name}")
+                            # Check if channel is accessible before sending
+                            if channel.permissions_for(guild.me).send_messages:
+                                await channel.send(goodbye_message)
+                                print(f"Sent goodbye to {channel.name}")
+                                sent_count += 1
+                        except discord.errors.HTTPException as e:
+                            # Session closed or other HTTP error
+                            print(f"Could not send goodbye to {channel.name}: {e}")
                         except Exception as e:
                             print(f"Error sending goodbye to {channel.name}: {e}")
+
+            if sent_count > 0:
+                print(f"Sent goodbye messages to {sent_count} channel(s)")
         except Exception as e:
             print(f"Error in goodbye handler: {e}")
 
@@ -615,14 +627,47 @@ class Friend(DiscordBot):
                     async def format_and_save_reminder():
                         try:
                             with self._chat_lock:
-                                formatted_message = self.chat.prompt(
+                                formatted_response = self.chat.prompt(
                                     reminder_prompt,
                                     verbose=False,
                                     assistant_history_prefix="",
                                 )
 
-                            # Update reminder with formatted message
-                            reminder.message = formatted_message.strip()
+                            # Extract plain text from the formatted response
+                            # Remove any action tags and thinking tags
+                            formatted_message = formatted_response.strip()
+
+                            # Remove <think>...</think> tags
+                            import re
+
+                            formatted_message = re.sub(
+                                r"<think>.*?</think>",
+                                "",
+                                formatted_message,
+                                flags=re.DOTALL,
+                            )
+
+                            # Extract content from <say> tags if present, otherwise use as-is
+                            say_match = re.search(
+                                r"<say>(.*?)</say>", formatted_message, re.DOTALL
+                            )
+                            if say_match:
+                                formatted_message = say_match.group(1).strip()
+
+                            # Remove any remaining tags
+                            formatted_message = re.sub(
+                                r"<[^>]+>", "", formatted_message
+                            )
+
+                            # Clean up whitespace
+                            formatted_message = " ".join(formatted_message.split())
+
+                            # Use formatted message if we got something meaningful, otherwise use original
+                            if formatted_message and len(formatted_message) > 3:
+                                reminder.message = formatted_message
+                            else:
+                                reminder.message = reminder_message
+
                             self.reminder_manager._save_reminders()
                         except Exception as e:
                             print(f"Error formatting reminder message: {e}")
@@ -925,6 +970,44 @@ class Friend(DiscordBot):
         print("Current history length:", len(self.chat))
         # print(" -> Response:", response)
         return None
+
+    def run(self):
+        """Override run to handle shutdown gracefully with goodbye messages."""
+        self.running = True
+
+        async def _main():
+            try:
+                async with self.client as bot:
+                    await bot.start(self.token)
+            except KeyboardInterrupt:
+                print("\nKeyboard interrupt received. Sending goodbye messages...")
+                # Send goodbye messages before closing
+                try:
+                    if self.client and self.client.is_ready():
+                        await asyncio.wait_for(
+                            self._send_goodbye_messages(), timeout=3.0
+                        )
+                except asyncio.TimeoutError:
+                    print("Timeout sending goodbye messages")
+                except Exception as e:
+                    print(f"Error sending goodbye messages: {e}")
+                # Stop background tasks
+                try:
+                    self.reminder_manager.stop()
+                    self.scheduler.stop()
+                except Exception:
+                    pass
+            finally:
+                self.running = False
+
+        try:
+            asyncio.run(_main())
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+            self.running = False
+        except Exception as e:
+            print(f"Error in bot run: {e}")
+            self.running = False
 
 
 @click.command()

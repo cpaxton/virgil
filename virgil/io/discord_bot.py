@@ -300,8 +300,8 @@ class DiscordBot:
                     await bot.start(self.token)
             except KeyboardInterrupt:
                 print("\nKeyboard interrupt received. Shutting down...")
-                # Give time for cleanup
-                await asyncio.sleep(1)
+                # Give time for cleanup and goodbye messages
+                await asyncio.sleep(2)
             finally:
                 self.running = False
 
@@ -310,6 +310,9 @@ class DiscordBot:
             asyncio.run(_main())
         except KeyboardInterrupt:
             print("\nShutting down...")
+            self.running = False
+        except Exception as e:
+            print(f"Error in bot run: {e}")
             self.running = False
 
     def __del__(self):
