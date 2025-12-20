@@ -44,11 +44,18 @@ def read_discord_token_from_env():
 
 @dataclass
 class Task:
-    message: discord.Message
+    message: discord.Message  # Can be discord.Message or str (text to prompt AI)
     channel: discord.TextChannel
     content: str
     explicit: bool = False
     t: float = None
+    attachments: list = None  # List of image attachments
+    reminder_info: dict = None  # Reminder information
+    user_id: int = None  # User ID for reminders
+    user_name: str = None  # User name for reminders
+    original_message: discord.Message = (
+        None  # Original Discord message object (if available)
+    )
 
 
 class DiscordBot:
@@ -90,11 +97,27 @@ class DiscordBot:
         message: Optional[str] = None,
         content: Optional[str] = None,
         explicit: bool = False,
+        attachments: Optional[list] = None,
+        reminder_info: Optional[dict] = None,
+        user_id: Optional[int] = None,
+        user_name: Optional[str] = None,
+        original_message: Optional[discord.Message] = None,
     ):
         """Add a message to the queue to send."""
         # print("Adding task to queue:", message, channel.name, content)
         self.task_queue.put(
-            Task(message, channel, content, explicit=explicit, t=timeit.default_timer())
+            Task(
+                message,
+                channel,
+                content,
+                explicit=explicit,
+                t=timeit.default_timer(),
+                attachments=attachments,
+                reminder_info=reminder_info,
+                user_id=user_id,
+                user_name=user_name,
+                original_message=original_message,
+            )
         )
         # print( "Queue length after push:", self.task_queue.qsize())
 
@@ -203,7 +226,7 @@ class DiscordBot:
             self._started = False
             self._user_name = self.client.user.name
             self._user_id = self.client.user.id
-            return self.on_ready()
+            await self.on_ready()
 
         @client.event
         async def on_message(message: discord.Message):
@@ -277,11 +300,25 @@ class DiscordBot:
         self.running = True
 
         async def _main():
-            async with self.client as bot:
-                await bot.start(self.token)
+            try:
+                async with self.client as bot:
+                    await bot.start(self.token)
+            except KeyboardInterrupt:
+                print("\nKeyboard interrupt received. Shutting down...")
+                # Give time for cleanup and goodbye messages
+                await asyncio.sleep(2)
+            finally:
+                self.running = False
 
-        # self.client.start(self.token)
-        asyncio.run(_main())
+        try:
+            # self.client.start(self.token)
+            asyncio.run(_main())
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+            self.running = False
+        except Exception as e:
+            print(f"Error in bot run: {e}")
+            self.running = False
 
     def __del__(self):
         self.running = False

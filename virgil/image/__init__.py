@@ -15,6 +15,9 @@
 # (c) 2024 by Chris Paxton
 
 from .base import ImageGenerator
+from .diffuser import DiffuserImageGenerator
+from .flux import FluxImageGenerator
+from .qwen_layered import QwenLayeredImageGenerator
 
 # Lazy imports to avoid RuntimeWarning when running modules as __main__
 # Import these only when needed, not at module level
@@ -61,7 +64,11 @@ def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
         ImageGenerator: The created image generator.
     """
     if generator == "diffuser":
-        return _get_diffuser()(**kwargs)
+        return DiffuserImageGenerator(**kwargs)
+    elif generator == "flux":
+        return FluxImageGenerator(**kwargs)
+    elif generator == "qwen-layered" or generator == "qwen_layered":
+        return QwenLayeredImageGenerator(**kwargs)
     else:
         raise ValueError(f"Unknown image generator: {generator}")
 
@@ -70,5 +77,6 @@ __all__ = [
     "ImageGenerator",
     "DiffuserImageGenerator",
     "FluxImageGenerator",
+    "QwenLayeredImageGenerator",
     "create_image_generator",
 ]

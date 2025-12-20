@@ -25,7 +25,7 @@ def extract_tags(
     tags: List[str],
     allow_unmatched: bool = True,
     prune_thoughts: bool = True,
-) -> List[Tuple[str, str]]:
+) -> List[Tuple[str, str, dict]]:
     """Extracts specified tags and their content from the given text.
 
     Args:
@@ -35,13 +35,15 @@ def extract_tags(
         prune_thoughts (bool): Whether to ignore all tags before the first </think> tag.
 
     Returns:
-        List[Tuple[str, str]]: A list of tuples containing the tag and its content.
+        List[Tuple[str, str, dict]]: A list of tuples containing (tag, content, attributes).
+        Attributes is a dict of attribute name-value pairs.
     """
     result = []
 
-    # Create a pattern that matches any of the given tags
+    # Create a pattern that matches any of the given tags with optional attributes
     tag_pattern = "|".join(map(re.escape, tags))
-    pattern = f"<({tag_pattern})>(.*?)</\\1>"
+    # Pattern matches: <tag attr="value">content</tag> or <tag>content</tag>
+    pattern = f"<({tag_pattern})([^>]*)>(.*?)</\\1>"
 
     if prune_thoughts:
         # Remove all content before the first </think> tag
@@ -53,8 +55,19 @@ def extract_tags(
     # Extract and store matches in the order they appear
     for match in matches:
         tag = match.group(1)
-        content = match.group(2).strip()
-        result.append((tag, content))
+        attr_string = match.group(2).strip()
+        content = match.group(3).strip()
+
+        # Parse attributes (e.g., time="12:31:00" or time='12:31:00')
+        attributes = {}
+        if attr_string:
+            # Match attribute="value" or attribute='value'
+            attr_pattern = r'(\w+)=["\']([^"\']+)["\']'
+            attr_matches = re.findall(attr_pattern, attr_string)
+            for attr_name, attr_value in attr_matches:
+                attributes[attr_name] = attr_value
+
+        result.append((tag, content, attributes))
 
     if allow_unmatched:
         # Remove all matched content from the text
@@ -62,28 +75,43 @@ def extract_tags(
 
         # Check for an unmatched <tag> at the end
         text += "</end>"  # Add a closing tag for unmatched tags
-        unmatched_pattern = f"<({tag_pattern})>(?!.*?</end>)"
+        unmatched_pattern = f"<({tag_pattern})([^>]*)>(?!.*?</end>)"
         if re.search(unmatched_pattern, text):
             print(colored("Warning: Unmatched opening tag found.", "yellow"))
             matches = re.finditer(unmatched_pattern, text)
             for match in matches:
                 tag = match.group(1)
+                attr_string = match.group(2).strip()
                 content = text[match.start() :].strip()
                 # Remove initial tag from content
-                content = content.replace(f"<{tag}>", "").strip()
-            # remove </end> from content
-            content = content.replace("</end>", "")
+                content = content.replace(f"<{tag}", "").strip()
+                # Remove attributes if present
+                if attr_string:
+                    content = re.sub(r"[^>]*>", "", content, count=1)
+                else:
+                    content = content.replace(">", "", 1)
+                # remove </end> from content
+                content = content.replace("</end>", "")
 
-            # always remove dangling tags in content
-            content = re.sub(r"<[^>]+>", "", content)
-            result.append((tag, content))
+                # always remove dangling tags in content
+                content = re.sub(r"<[^>]+>", "", content)
+
+                # Parse attributes for unmatched tag
+                attributes = {}
+                if attr_string:
+                    attr_pattern = r'(\w+)=["\']([^"\']+)["\']'
+                    attr_matches = re.findall(attr_pattern, attr_string)
+                    for attr_name, attr_value in attr_matches:
+                        attributes[attr_name] = attr_value
+
+                result.append((tag, content, attributes))
 
     # if nothing at all was parsed, just say whatever was in the text
     if len(result) == 0:
         # remove any dangling tags
         text = re.sub(r"<[^>]+>", "", text)
 
-        result.append(("say", text.strip()))
+        result.append(("say", text.strip(), {}))
 
     return result
 
@@ -101,7 +129,18 @@ class ChatbotActionParser(Parser):
         Returns:
             Optional[List[str, Any]]: A list of parsed text. Each element is a tuple of (action, content).
         """
-        tags_to_extract = ["say", "remember", "imagine", "think", "weather", "help"]
+        tags_to_extract = [
+            "say",
+            "remember",
+            "imagine",
+            "think",
+            "weather",
+            "edit_image",
+            "remind",
+            "schedule",
+            "show_schedule",
+            "help",
+        ]
         extracted_tags = extract_tags(text, tags_to_extract, prune_thoughts=True)
 
         return extracted_tags

@@ -54,9 +54,13 @@ class ChannelList:
         return self.is_valid(channel)
 
     def __iter__(self):
-        return chain(
-            self.home_channels, (vc.channel for vc in self.visiting_channels.values())
-        )
+        # Return all home channels and valid visiting channels
+        valid_visiting = [
+            channel
+            for channel, expiration in self.visiting_channels.items()
+            if expiration > timeit.default_timer()
+        ]
+        return chain(self.home_channels, valid_visiting)
 
     def __len__(self):
         return len(self.home_channels) + len(self.visiting_channels)
