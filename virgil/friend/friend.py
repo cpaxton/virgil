@@ -60,6 +60,12 @@ from virgil.services.message_service import DiscordMessageService
 from virgil.mcp.server import VirgilMCPServer
 import asyncio
 from datetime import datetime, timedelta
+from virgil.utils.docs import (
+    list_available_docs,
+    get_doc_content,
+    format_doc_summary,
+    get_available_docs,
+)
 
 
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
@@ -80,7 +86,11 @@ def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
 
 
 class Friend(DiscordBot):
-    """Friend is a simple discord bot, which chats with you if you are on its server. Be patient with it, it's very stupid."""
+    """Friend is a simple discord bot, which chats with you if you are on its server.
+
+    Be patient with it, it's very stupid. It will say goodbye in all active
+    channels when it is shut down via Ctrl+C.
+    """
 
     def __init__(
         self,
@@ -217,6 +227,38 @@ class Friend(DiscordBot):
 
         # Shutdown handling
         self._shutdown_handler_setup = False
+
+        # Monkey-patch the client's close method to say goodbye on shutdown
+        original_close = self.client.close
+
+        async def new_close():
+            await self.say_goodbye()
+            await original_close()
+
+        self.client.close = new_close
+
+    async def say_goodbye(self):
+        """Sends a goodbye message to all channels the bot is active in.
+
+        This method is called automatically when the bot is shut down via Ctrl+C,
+        ensuring a graceful exit. It iterates through all channels in the
+        `allowed_channels` list and sends a final message.
+        """
+        print("Saying goodbye to active channels...")
+        goodbye_message = "I have to go now. Goodbye!"
+
+        channels_to_notify = set()
+        if self.allowed_channels:
+            for channel in self.allowed_channels:
+                channels_to_notify.add(channel)
+
+        for channel in channels_to_notify:
+            try:
+                await channel.send(goodbye_message)
+            except Exception as e:
+                print(
+                    f"Could not send goodbye message to channel '{channel.name}': {e}"
+                )
 
     async def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
@@ -642,6 +684,8 @@ class Friend(DiscordBot):
                 await self._handle_remind_action(task, content, attributes)
             elif action == "schedule":
                 await self._handle_schedule_action(task, content)
+            elif action == "help":
+                await self._handle_help_action(task, content)
 
     def _parse_reminder_time(self, time_str: str, content: str) -> Optional[dict]:
         """
@@ -909,6 +953,37 @@ class Friend(DiscordBot):
             traceback.print_exc()
             await task.channel.send(error_msg)
 
+    async def _handle_help_action(self, task: Task, content: str):
+        """Handle the 'help' action - retrieve documentation."""
+        print("Help requested:", content)
+        if not content or content.strip() == "":
+            # List all available docs
+            help_text = list_available_docs()
+            help_text += "\n\n**Usage:** Ask for help with a specific topic, e.g., `help discord` or `help models`"
+            await task.channel.send(help_text)
+        else:
+            # Get specific doc
+            doc_name = content.strip().lower()
+            available_docs = get_available_docs()
+
+            if doc_name in available_docs:
+                doc_summary = format_doc_summary(doc_name, max_length=1800)
+                if doc_summary:
+                    # Split into chunks if too long
+                    while len(doc_summary) > 0:
+                        chunk = doc_summary[:1800]
+                        await task.channel.send(chunk)
+                        doc_summary = doc_summary[1800:]
+                else:
+                    await task.channel.send(
+                        f"*Error loading documentation for: {doc_name}*"
+                    )
+            else:
+                error_msg = (
+                    f"*Documentation topic '{doc_name}' not found.*\n\n"
+                    f"Available topics: {', '.join(sorted(available_docs.keys()))}"
+                )
+                await task.channel.send(error_msg)
         # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
@@ -1140,8 +1215,8 @@ Message to post:"""
         print("Channel ID:", channel_id)
         # datetime = message.created_at
 
-        timestamp = message.created_at.timestamp()
-        print("Timestamp:", timestamp)
+        timestamp = message.created_at
+        print(f"Timestamp: {timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
 
         # Check if this channel is in the whitelist
         if self.join_at_random and channel_id not in self.allowed_channels:

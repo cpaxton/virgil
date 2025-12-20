@@ -27,18 +27,18 @@ class HunyuanVideo2(VideoBackend):
     def __init__(
         self,
         model_id: str = "Tencent-Hunyuan/HunyuanVideo",
-        torch_dtype: torch.dtype = torch.float16,
+        dtype: torch.dtype = torch.float16,
     ):
         """
         Initialize the HunyuanVideo2 backend.
 
         Args:
             model_id (str): The ID of the model to use.
-            torch_dtype (torch.dtype): The torch data type to use.
+            dtype (torch.dtype): The torch data type to use.
         """
         self.pipe = DiffusionPipeline.from_pretrained(
             model_id,
-            torch_dtype=torch_dtype,
+            dtype=dtype,
         )
         self.pipe.to("cuda")
 

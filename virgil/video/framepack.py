@@ -31,7 +31,7 @@ class Framepack(VideoBackend):
     def __init__(
         self,
         # model_id: str = "cerspense/zeroscope_v2_576w",  # Updated default model
-        # torch_dtype: torch.dtype = torch.float16,
+        # dtype: torch.dtype = torch.float16,
         # variant: str = "fp16",
     ):
         """
@@ -39,12 +39,12 @@ class Framepack(VideoBackend):
 
         Args:
             model_id (str): The ID of the model to use.
-            torch_dtype (torch.dtype): The torch data type to use.
+            dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
         """
 
         transformer = HunyuanVideoFramepackTransformer3DModel.from_pretrained(
-            "lllyasviel/FramePackI2V_HY", torch_dtype=torch.bfloat16
+            "lllyasviel/FramePackI2V_HY", dtype=torch.bfloat16
         )
         feature_extractor = SiglipImageProcessor.from_pretrained(
             "lllyasviel/flux_redux_bfl", subfolder="feature_extractor"
@@ -52,14 +52,14 @@ class Framepack(VideoBackend):
         image_encoder = SiglipVisionModel.from_pretrained(
             "lllyasviel/flux_redux_bfl",
             subfolder="image_encoder",
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
         self.pipe = HunyuanVideoFramepackPipeline.from_pretrained(
             "hunyuanvideo-community/HunyuanVideo",
             transformer=transformer,
             feature_extractor=feature_extractor,
             image_encoder=image_encoder,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
         self.pipe.to("cuda")
 
