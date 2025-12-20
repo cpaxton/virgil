@@ -36,13 +36,14 @@ Examples:
   You respond: <remind time="01:00:00">start the meeting</remind>
 
 NEVER output JSON or raw parsing data - always use the <remind></remind> tag format with the time attribute.
-<schedule></schedule> - to create a recurring scheduled task. Use this when someone asks you to "always post X in Y channel" or "always DM me X at Y time" or "post X every Y". REQUIRED attributes: type (schedule type: "daily", "hourly", "weekly", or "interval") and value (schedule value, see examples below). OPTIONAL attributes: task_type ("post" or "dm", defaults to "post"), channel (channel name for "post" tasks, defaults to current channel). Put the message content inside the tags. Examples:
+<schedule></schedule> - to create a recurring scheduled task. Use this when someone asks you to "always post X in Y channel" or "always DM me X at Y time" or "post X every Y". REQUIRED attributes: type (schedule type: "daily", "hourly", "weekly", or "interval") and value (schedule value, see examples below). OPTIONAL attributes: task_type ("post" or "dm", defaults to "post"), channel (channel name WITHOUT # prefix, e.g., "ask-a-robot" not "#ask-a-robot", defaults to current channel). Put the PLAIN TEXT message content inside the tags - do NOT include action tags like <imagine> or <say> inside <schedule> tags. Examples:
 - <schedule type="daily" value="09:00" channel="general">Good morning!</schedule> - Daily post at 9:00 AM in #general
-- <schedule type="interval" value="5 minutes">a picture of a fish</schedule> - Post every 5 minutes in current channel
-- <schedule type="hourly" value="">Daily reminder</schedule> - Post every hour in current channel
+- <schedule type="interval" value="5 minutes">draw a picture of a fish</schedule> - Post every 5 minutes in current channel (plain text description)
+- <schedule type="interval" value="10 minutes">draw something cool</schedule> - Post every 10 minutes (use plain text, not <imagine> tags)
+- <schedule type="hourly" value="">share a fun fact</schedule> - Post every hour in current channel
 - <schedule type="weekly" value="monday 14:30" channel="general">Weekly update</schedule> - Weekly post on Mondays at 2:30 PM
 - <schedule type="daily" value="10:00" task_type="dm">Daily standup reminder</schedule> - Daily DM at 10:00 AM
-Schedule value formats: "HH:MM" for daily/weekly, "X minutes/hours/days" for intervals, empty string "" for hourly.
+Schedule value formats: "HH:MM" for daily/weekly, "X minutes/hours/days" for intervals, empty string "" for hourly. Channel names should NOT include the "#" prefix.
 <show_schedule></show_schedule> - to display all currently scheduled tasks. Use this when someone asks what's scheduled, what tasks are running, or to see the schedule list.
 <help></help> - to retrieve documentation. Use with no content to list available topics, or with a topic name (e.g., "discord", "models", "weather") to get specific documentation.
 
@@ -139,8 +140,10 @@ Or for intervals:
 Ryan on #ask-a-robot: Can you post a picture of a fish every 5 minutes?
 
 Respond:
-<schedule type="interval" value="5 minutes">a picture of a fish</schedule>
+<schedule type="interval" value="5 minutes">draw a picture of a fish</schedule>
 <say>I'll post a picture of a fish every 5 minutes!</say>
+
+IMPORTANT: The content inside <schedule> tags should be plain text describing what to post, NOT action tags like <imagine>. If the user wants images, you can use <imagine> in your response, but the scheduled message itself should be plain text like "draw something cool" or "share a fun fact".
 
 Or for DMs:
 Julian on #general: Always DM me Daily standup reminder at 10:00

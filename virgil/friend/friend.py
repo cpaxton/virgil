@@ -961,6 +961,19 @@ class Friend(DiscordBot):
         task_type = attributes.get("task_type", "post")  # Default to "post"
         channel_name = attributes.get("channel")  # Optional channel name
 
+        # Strip "#" prefix from channel name if present
+        if channel_name and channel_name.startswith("#"):
+            channel_name = channel_name[1:]
+
+        # Extract plain text from content, removing any action tags
+        # The content should be the message to schedule, not action tags
+        schedule_message = content.strip() if content else ""
+        # Remove any action tags that might have leaked in
+        import re
+
+        schedule_message = re.sub(r"<[^>]+>", "", schedule_message)
+        schedule_message = " ".join(schedule_message.split()).strip()
+
         # Validate required attributes
         if not schedule_type:
             await task.channel.send(
@@ -986,13 +999,24 @@ class Friend(DiscordBot):
 
                 if channel_name:
                     # Try to find channel by name
+                    print(f"Looking for channel: '{channel_name}' (after stripping #)")
                     for ch in self.client.get_all_channels():
                         if ch.name == channel_name:
                             channel = ch
+                            print(f"Found channel: {ch.name} (ID: {ch.id})")
                             break
                     if not channel:
+                        # List available channels for debugging
+                        available_channels = [
+                            ch.name
+                            for ch in self.client.get_all_channels()
+                            if isinstance(ch, discord.TextChannel)
+                        ]
+                        print(
+                            f"Available channels: {available_channels[:10]}"
+                        )  # Show first 10
                         await task.channel.send(
-                            f"*Could not find channel '{channel_name}'. Please check the channel name.*"
+                            f"*Could not find channel '{channel_name}'. Available channels: {', '.join(available_channels[:5])}*"
                         )
                         return
                 else:
@@ -1002,7 +1026,7 @@ class Friend(DiscordBot):
 
                 scheduled_task = self.scheduler.add_task(
                     task_type="post",
-                    message=content.strip() if content else "",
+                    message=schedule_message,
                     schedule_type=schedule_type,
                     schedule_value=schedule_value,
                     channel_id=channel.id,
@@ -1011,7 +1035,7 @@ class Friend(DiscordBot):
                 # Terminal output
                 print(f"✓ Scheduled task created: ID={scheduled_task.task_id}")
                 print("  Type: post")
-                print(f"  Message: {content.strip() if content else '(empty)'}")
+                print(f"  Message: {schedule_message}")
                 print(f"  Channel: #{channel_name} (ID: {channel.id})")
                 print(f"  Schedule: {schedule_type} - {schedule_value}")
                 print(f"  Next execution: {scheduled_task.next_execution}")
@@ -1022,7 +1046,7 @@ class Friend(DiscordBot):
                     schedule_desc += f" ({schedule_value})"
 
                 await task.channel.send(
-                    f"✓ Scheduled task created! I'll post '{content.strip() if content else 'message'}' "
+                    f"✓ Scheduled task created! I'll post '{schedule_message}' "
                     f"in #{channel_name} {schedule_desc}."
                 )
 
@@ -1037,7 +1061,7 @@ class Friend(DiscordBot):
 
                 scheduled_task = self.scheduler.add_task(
                     task_type="dm",
-                    message=content.strip() if content else "",
+                    message=schedule_message,
                     schedule_type=schedule_type,
                     schedule_value=schedule_value,
                     user_id=user_id_to_use,
@@ -1046,7 +1070,7 @@ class Friend(DiscordBot):
                 # Terminal output
                 print(f"✓ Scheduled task created: ID={scheduled_task.task_id}")
                 print("  Type: dm")
-                print(f"  Message: {content.strip() if content else '(empty)'}")
+                print(f"  Message: {schedule_message}")
                 print(f"  User: {user_name_to_use} (ID: {user_id_to_use})")
                 print(f"  Schedule: {schedule_type} - {schedule_value}")
                 print(f"  Next execution: {scheduled_task.next_execution}")
@@ -1057,7 +1081,7 @@ class Friend(DiscordBot):
                     schedule_desc += f" ({schedule_value})"
 
                 await task.channel.send(
-                    f"✓ Scheduled DM created! I'll DM you '{content.strip() if content else 'message'}' "
+                    f"✓ Scheduled DM created! I'll DM you '{schedule_message}' "
                     f"{schedule_desc}."
                 )
             else:
