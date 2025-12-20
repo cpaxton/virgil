@@ -284,12 +284,18 @@ class Friend(DiscordBot):
 
     async def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
-        print(f"{self.client.user} has connected to Discord!")
+        print(
+            colored(
+                f"✅ {self.client.user} has connected to Discord!",
+                "green",
+                attrs=["bold"],
+            )
+        )
         guild_count = 0
 
-        print("Bot User name:", self.client.user.name)
-        print("Bot Global name:", self.client.user.global_name)
-        print("Bot User IDL", self.client.user.id)
+        print(colored(f"Bot User name: {self.client.user.name}", "cyan"))
+        print(colored(f"Bot Global name: {self.client.user.global_name}", "cyan"))
+        print(colored(f"Bot User ID: {self.client.user.id}", "cyan"))
         self._user_name = self.client.user.name
         self._user_id = self.client.user.id
 
@@ -336,35 +342,46 @@ class Friend(DiscordBot):
         # LOOPS THROUGH ALL THE GUILD / SERVERS THAT THE BOT IS ASSOCIATED WITH.
         for guild in self.client.guilds:
             # PRINT THE SERVER'S ID AND NAME.
-            print(f"Joining Server {guild.id} (name: {guild.name})")
+            print(colored(f"🔗 Joining Server {guild.id} (name: {guild.name})", "blue"))
 
             # INCREMENTS THE GUILD COUNTER.
             guild_count = guild_count + 1
 
             for channel in guild.text_channels:
                 if channel.name == self.home_channel:
-                    print(f"Adding home channel {channel} to the allowed channels.")
+                    print(
+                        colored(
+                            f"🏠 Adding home channel {channel} to the allowed channels.",
+                            "green",
+                        )
+                    )
                     self.allowed_channels.add_home(channel)
                     break
 
         print(self.allowed_channels)
 
         # PRINTS HOW MANY GUILDS / SERVERS THE BOT IS IN.
-        print("This bot is in " + str(guild_count) + " guild(s).")
+        print(colored(f"📊 This bot is in {guild_count} guild(s).", "cyan"))
 
-        print("Starting the message processing queue.")
+        print(colored("🚀 Starting the message processing queue.", "green"))
         self.process_queue.start()
 
         # Start reminder manager (background task checks every 10 seconds)
         self.reminder_manager.start()
         print(
-            "Reminder system started - background task checking every 10 seconds for due reminders."
+            colored(
+                "⏰ Reminder system started - background task checking every 10 seconds for due reminders.",
+                "yellow",
+            )
         )
 
         # Start scheduler (background task checks every 30 seconds)
         self.scheduler.start()
         print(
-            "Scheduler system started - background task checking every 30 seconds for due scheduled tasks."
+            colored(
+                "📅 Scheduler system started - background task checking every 30 seconds for due scheduled tasks.",
+                "yellow",
+            )
         )
 
         # Setup shutdown handler
@@ -514,13 +531,13 @@ class Friend(DiscordBot):
         """
         await task.channel.send("*Imagining: " + content + "...*")
         time.sleep(0.1)  # Wait for message to be sent
-        print("Generating image for prompt:", content)
+        print(colored(f"🎨 Generating image for prompt: {content}", "magenta"))
         with self._chat_lock:
             image = self.image_service.generate_image(content)
         image.save("generated_image.png")
 
         # Send an image using the message service
-        print(" - Sending content:", image)
+        print(colored("  ✓ Sending image to channel", "green"))
         if self.message_service:
             await self.message_service.send_image(
                 image,
@@ -542,7 +559,7 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: The content to remember.
         """
-        print("Remembering:", content)
+        print(colored(f"💾 Remembering: {content}", "blue"))
         # Add this to memory
         self.memory.append(content)
 
@@ -560,7 +577,7 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: The content to forget.
         """
-        print("Forgetting:", content)
+        print(colored(f"🗑️  Forgetting: {content}", "red"))
 
         # Remove this from memory
         try:
@@ -582,7 +599,7 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: The city/location to get weather for.
         """
-        print("Getting weather for:", content)
+        print(colored(f"🌤️  Getting weather for: {content}", "cyan"))
         if not self.weather_api_key:
             await task.channel.send("*Sorry, weather API key is not configured.*")
         elif not self._weather_api_key_valid:
@@ -632,7 +649,7 @@ class Friend(DiscordBot):
         attachment = task.attachments[0]
         try:
             await task.channel.send(f"*Editing image: {attachment.filename}...*")
-            print(f"Downloading image: {attachment.url}")
+            print(colored(f"📥 Downloading image: {attachment.filename}", "cyan"))
 
             # Download image using Discord's attachment URL
             try:
@@ -651,7 +668,7 @@ class Friend(DiscordBot):
 
             # Edit the image with Qwen Image Layered
             edit_prompt = content if content else "enhance this image"
-            print(f"Editing image with prompt: {edit_prompt}")
+            print(colored(f"🎨 Editing image with prompt: {edit_prompt}", "magenta"))
 
             with self._chat_lock:
                 edited_image = self.image_generator.generate(
@@ -662,7 +679,7 @@ class Friend(DiscordBot):
             edited_image.save("edited_image.png")
 
             # Send the edited image
-            print(" - Sending edited image")
+            print(colored("  ✓ Sending edited image", "green"))
             if self.message_service:
                 await self.message_service.send_image(
                     edited_image,
@@ -697,9 +714,15 @@ class Friend(DiscordBot):
             task: The task containing message, channel, and context information.
         """
         print()
-        print("-" * 40)
-        print("Handling task from channel:", task.channel.name)
-        print("Handling task: message = \n", task.message)
+        print(colored("-" * 40, "cyan"))
+        print(
+            colored(
+                f"📨 Handling task from channel: {task.channel.name}",
+                "cyan",
+                attrs=["bold"],
+            )
+        )
+        print(colored(f"Message: {task.message}", "white"))
 
         text = task.message
         try:
@@ -719,15 +742,43 @@ class Friend(DiscordBot):
             )  # f"{self._user_name} on #{channel_name}: ")
         action_plan = self.parser.parse(response)
         print()
-        print("Action plan:", action_plan)
-        for item in action_plan:
+        print(
+            colored(
+                f"📋 Action plan ({len(action_plan)} action(s)):",
+                "yellow",
+                attrs=["bold"],
+            )
+        )
+        for idx, item in enumerate(action_plan, 1):
             # Handle both old format (action, content) and new format (action, content, attributes)
             if len(item) == 3:
                 action, content, attributes = item
             else:
                 action, content = item
                 attributes = {}
-            print(f"Action: {action}, Content: {content}, Attributes: {attributes}")
+            # Color code different action types
+            action_colors = {
+                "say": "green",
+                "imagine": "magenta",
+                "remember": "blue",
+                "forget": "red",
+                "weather": "cyan",
+                "edit_image": "magenta",
+                "remind": "yellow",
+                "schedule": "yellow",
+                "show_schedule": "cyan",
+                "help": "blue",
+            }
+            action_color = action_colors.get(action, "white")
+            print(colored(f"  [{idx}] Action: {action}", action_color, attrs=["bold"]))
+            if content:
+                # Truncate long content for display
+                content_display = (
+                    content[:100] + "..." if len(content) > 100 else content
+                )
+                print(colored(f"      Content: {content_display}", "white"))
+            if attributes:
+                print(colored(f"      Attributes: {attributes}", "grey"))
             # Route to appropriate action handler
             if action == "say":
                 await self._handle_say_action(task, content)
@@ -833,7 +884,7 @@ class Friend(DiscordBot):
         reminder_info_to_use = self._parse_reminder_time(time_str, content)
 
         if not reminder_info_to_use:
-            print(f"Error parsing time attribute '{time_str}'")
+            print(colored(f"❌ Error parsing time attribute '{time_str}'", "red"))
             await task.channel.send(
                 f"*Error: Could not parse time '{time_str}'. Please use format like '00:30:00' for 30 minutes or '2025-12-20 15:00:00' for absolute time.*"
             )
@@ -999,11 +1050,21 @@ class Friend(DiscordBot):
 
                 if channel_name:
                     # Try to find channel by name
-                    print(f"Looking for channel: '{channel_name}' (after stripping #)")
+                    print(
+                        colored(
+                            f"🔍 Looking for channel: '{channel_name}' (after stripping #)",
+                            "cyan",
+                        )
+                    )
                     for ch in self.client.get_all_channels():
                         if ch.name == channel_name:
                             channel = ch
-                            print(f"Found channel: {ch.name} (ID: {ch.id})")
+                            print(
+                                colored(
+                                    f"  ✓ Found channel: {ch.name} (ID: {ch.id})",
+                                    "green",
+                                )
+                            )
                             break
                     if not channel:
                         # List available channels for debugging
@@ -1013,7 +1074,9 @@ class Friend(DiscordBot):
                             if isinstance(ch, discord.TextChannel)
                         ]
                         print(
-                            f"Available channels: {available_channels[:10]}"
+                            colored(
+                                f"Available channels: {available_channels[:10]}", "grey"
+                            )
                         )  # Show first 10
                         await task.channel.send(
                             f"*Could not find channel '{channel_name}'. Available channels: {', '.join(available_channels[:5])}*"
@@ -1033,12 +1096,24 @@ class Friend(DiscordBot):
                     channel_name=channel.name,
                 )
                 # Terminal output
-                print(f"✓ Scheduled task created: ID={scheduled_task.task_id}")
-                print("  Type: post")
-                print(f"  Message: {schedule_message}")
-                print(f"  Channel: #{channel_name} (ID: {channel.id})")
-                print(f"  Schedule: {schedule_type} - {schedule_value}")
-                print(f"  Next execution: {scheduled_task.next_execution}")
+                print(
+                    colored(
+                        f"✓ Scheduled task created: ID={scheduled_task.task_id}",
+                        "green",
+                        attrs=["bold"],
+                    )
+                )
+                print(colored("  Type: post", "cyan"))
+                print(colored(f"  Message: {schedule_message}", "white"))
+                print(colored(f"  Channel: #{channel_name} (ID: {channel.id})", "cyan"))
+                print(
+                    colored(f"  Schedule: {schedule_type} - {schedule_value}", "yellow")
+                )
+                print(
+                    colored(
+                        f"  Next execution: {scheduled_task.next_execution}", "grey"
+                    )
+                )
 
                 # Format schedule description for user
                 schedule_desc = f"{schedule_type}"
@@ -1068,12 +1143,28 @@ class Friend(DiscordBot):
                     user_name=user_name_to_use,
                 )
                 # Terminal output
-                print(f"✓ Scheduled task created: ID={scheduled_task.task_id}")
-                print("  Type: dm")
-                print(f"  Message: {schedule_message}")
-                print(f"  User: {user_name_to_use} (ID: {user_id_to_use})")
-                print(f"  Schedule: {schedule_type} - {schedule_value}")
-                print(f"  Next execution: {scheduled_task.next_execution}")
+                print(
+                    colored(
+                        f"✓ Scheduled task created: ID={scheduled_task.task_id}",
+                        "green",
+                        attrs=["bold"],
+                    )
+                )
+                print(colored("  Type: dm", "cyan"))
+                print(colored(f"  Message: {schedule_message}", "white"))
+                print(
+                    colored(
+                        f"  User: {user_name_to_use} (ID: {user_id_to_use})", "cyan"
+                    )
+                )
+                print(
+                    colored(f"  Schedule: {schedule_type} - {schedule_value}", "yellow")
+                )
+                print(
+                    colored(
+                        f"  Next execution: {scheduled_task.next_execution}", "grey"
+                    )
+                )
 
                 # Format schedule description for user
                 schedule_desc = f"{schedule_type}"
@@ -1106,7 +1197,13 @@ class Friend(DiscordBot):
             return
 
         # Terminal output
-        print(f"📅 Showing {len(all_tasks)} scheduled task(s):")
+        print(
+            colored(
+                f"📅 Showing {len(all_tasks)} scheduled task(s):",
+                "cyan",
+                attrs=["bold"],
+            )
+        )
 
         # Format tasks for display
         task_lines = []
@@ -1151,11 +1248,17 @@ class Friend(DiscordBot):
             task_lines.append(task_info)
 
             # Terminal output
-            print(f"  Task {task_item.task_id}: {task_item.task_type} → {location}")
-            print(f"    Message: {task_item.message}")
-            print(f"    Schedule: {schedule_desc}")
-            print(f"    Next execution: {next_exec}")
-            print(f"    Status: {status}")
+            status_color = "green" if task_item.enabled else "red"
+            print(
+                colored(
+                    f"  Task {task_item.task_id}: {task_item.task_type} → {location}",
+                    "cyan",
+                )
+            )
+            print(colored(f"    Message: {task_item.message}", "white"))
+            print(colored(f"    Schedule: {schedule_desc}", "yellow"))
+            print(colored(f"    Next execution: {next_exec}", "grey"))
+            print(colored(f"    Status: {status}", status_color))
 
         # Send to channel (split into chunks if too long)
         response = (
@@ -1180,7 +1283,12 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: Optional topic name. If empty, lists all available topics.
         """
-        print("Help requested:", content)
+        print(
+            colored(
+                f"❓ Help requested: {content if content else '(list all topics)'}",
+                "blue",
+            )
+        )
         if not content or content.strip() == "":
             # List all available docs
             help_text = list_available_docs()
@@ -1271,7 +1379,10 @@ Reminder message:"""
                         message = f"🔔 <@{reminder.user_id}> Reminder: {final_message}"
                         await channel.send(message)
                         print(
-                            f"Reminder executed: Sent to channel {reminder.channel_name}"
+                            colored(
+                                f"🔔 Reminder executed: Sent to channel {reminder.channel_name}",
+                                "green",
+                            )
                         )
                     else:
                         # Fallback to DM if we can't send to channel
@@ -1280,7 +1391,10 @@ Reminder message:"""
                             message = f"🔔 Reminder (from #{reminder.channel_name}): {final_message}"
                             await user.send(message)
                             print(
-                                f"Reminder executed: Sent DM to {reminder.user_name} (couldn't send to channel)"
+                                colored(
+                                    f"🔔 Reminder executed: Sent DM to {reminder.user_name} (couldn't send to channel)",
+                                    "yellow",
+                                )
                             )
                         else:
                             print(
@@ -1296,7 +1410,12 @@ Reminder message:"""
                 if user:
                     message = f"🔔 Reminder: {final_message}"
                     await user.send(message)
-                    print(f"Reminder executed: Sent DM to {reminder.user_name}")
+                    print(
+                        colored(
+                            f"🔔 Reminder executed: Sent DM to {reminder.user_name}",
+                            "green",
+                        )
+                    )
                 else:
                     print(
                         f"Warning: Could not find user {reminder.user_id} for reminder"
@@ -1389,7 +1508,10 @@ Message to post:"""
                         if channel.permissions_for(channel.guild.me).send_messages:
                             await channel.send(final_message)
                             print(
-                                f"Scheduled task executed: Posted to channel {task.channel_name}"
+                                colored(
+                                    f"📅 Scheduled task executed: Posted to channel {task.channel_name}",
+                                    "green",
+                                )
                             )
                         else:
                             print(
@@ -1410,7 +1532,12 @@ Message to post:"""
                     user = self.client.get_user(task.user_id)
                     if user:
                         await user.send(final_message)
-                        print(f"Scheduled task executed: Sent DM to {task.user_name}")
+                        print(
+                            colored(
+                                f"📅 Scheduled task executed: Sent DM to {task.user_name}",
+                                "green",
+                            )
+                        )
                     else:
                         print(
                             f"Warning: Could not find user {task.user_id} for scheduled task"
@@ -1480,7 +1607,10 @@ Message to post:"""
                 ):
                     image_attachments.append(attachment)
                     print(
-                        f"Found image attachment: {attachment.filename} ({attachment.content_type})"
+                        colored(
+                            f"🖼️  Found image attachment: {attachment.filename} ({attachment.content_type})",
+                            "cyan",
+                        )
                     )
 
         # Check for reminder/schedule keywords in the message (for context only, not auto-parsing)
