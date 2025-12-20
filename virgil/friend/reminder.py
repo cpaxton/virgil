@@ -190,7 +190,22 @@ class ReminderManager:
         """Start the reminder checking loop."""
         if not self._running:
             self._running = True
-            self._task = asyncio.create_task(self._check_reminders_loop())
+            # Get the current event loop
+            try:
+                loop = asyncio.get_running_loop()
+                self._task = loop.create_task(self._check_reminders_loop())
+            except RuntimeError:
+                # No running loop - this will be called from async context
+                # Try to get event loop
+                try:
+                    loop = asyncio.get_event_loop()
+                    if loop.is_running():
+                        self._task = loop.create_task(self._check_reminders_loop())
+                    else:
+                        # Store flag to start when loop is available
+                        self._pending_start = True
+                except RuntimeError:
+                    self._pending_start = True
 
     def stop(self):
         """Stop the reminder checking loop."""

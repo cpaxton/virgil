@@ -44,7 +44,7 @@ def read_discord_token_from_env():
 
 @dataclass
 class Task:
-    message: discord.Message
+    message: discord.Message  # Can be discord.Message or str (text to prompt AI)
     channel: discord.TextChannel
     content: str
     explicit: bool = False
@@ -53,6 +53,9 @@ class Task:
     reminder_info: dict = None  # Reminder information
     user_id: int = None  # User ID for reminders
     user_name: str = None  # User name for reminders
+    original_message: discord.Message = (
+        None  # Original Discord message object (if available)
+    )
 
 
 class DiscordBot:
@@ -98,6 +101,7 @@ class DiscordBot:
         reminder_info: Optional[dict] = None,
         user_id: Optional[int] = None,
         user_name: Optional[str] = None,
+        original_message: Optional[discord.Message] = None,
     ):
         """Add a message to the queue to send."""
         # print("Adding task to queue:", message, channel.name, content)
@@ -112,6 +116,7 @@ class DiscordBot:
                 reminder_info=reminder_info,
                 user_id=user_id,
                 user_name=user_name,
+                original_message=original_message,
             )
         )
         # print( "Queue length after push:", self.task_queue.qsize())

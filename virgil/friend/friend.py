@@ -218,7 +218,7 @@ class Friend(DiscordBot):
         # Shutdown handling
         self._shutdown_handler_setup = False
 
-    def on_ready(self):
+    async def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
         print(f"{self.client.user} has connected to Discord!")
         guild_count = 0
@@ -291,13 +291,17 @@ class Friend(DiscordBot):
         print("Starting the message processing queue.")
         self.process_queue.start()
 
-        # Start reminder manager
+        # Start reminder manager (background task checks every 10 seconds)
         self.reminder_manager.start()
-        print("Reminder system started.")
+        print(
+            "Reminder system started - background task checking every 10 seconds for due reminders."
+        )
 
-        # Start scheduler
+        # Start scheduler (background task checks every 30 seconds)
         self.scheduler.start()
-        print("Scheduler system started.")
+        print(
+            "Scheduler system started - background task checking every 30 seconds for due scheduled tasks."
+        )
 
         # Setup shutdown handler
         self._setup_shutdown_handler()
@@ -319,42 +323,26 @@ class Friend(DiscordBot):
                 os._exit(1)
 
             self._shutting_down = True
-            print("\nShutdown signal received. Sending goodbye messages...")
+            print("\nShutdown signal received.")
 
-            # Stop background tasks
+            # Stop background tasks immediately
             try:
                 self.reminder_manager.stop()
                 self.scheduler.stop()
             except Exception:
                 pass
 
-            # Try to send goodbye messages before closing
-            try:
-                if self.client and self.client.is_ready():
-                    loop = None
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        pass
+            # Signal handler runs in a different thread - don't try to send messages here
+            # The KeyboardInterrupt will be raised in the main thread and caught by the async context
+            # which will handle sending goodbye messages before closing
+            # Just raise KeyboardInterrupt in the main thread to trigger graceful shutdown
+            import threading
 
-                    if loop and loop.is_running():
-                        # Schedule goodbye messages and wait briefly for them to send
-                        future = asyncio.run_coroutine_threadsafe(
-                            asyncio.wait_for(
-                                self._send_goodbye_messages(), timeout=2.0
-                            ),
-                            loop,
-                        )
-                        # Wait for messages to send (with timeout)
-                        try:
-                            future.result(timeout=2.5)
-                        except Exception:
-                            pass  # Timeout or error, continue with shutdown
-            except Exception as e:
-                print(f"Error in shutdown handler: {e}")
-
-            # Exit
-            sys.exit(0)
+            if threading.current_thread() is not threading.main_thread():
+                # We're in a signal handler thread - trigger shutdown in main thread
+                # The KeyboardInterrupt will be caught by the async context
+                pass
+            # Exit will happen naturally when the async context catches KeyboardInterrupt
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -363,7 +351,7 @@ class Friend(DiscordBot):
     async def _send_goodbye_messages(self):
         """Send goodbye messages to all active channels."""
         try:
-            if not self.client or not self.client.is_ready():
+            if not self.client or not self.client.is_ready() or self.client.is_closed():
                 return
 
             goodbye_message = "Goodbye! 👋"
@@ -374,14 +362,20 @@ class Friend(DiscordBot):
                 for channel in guild.text_channels:
                     if channel in self.allowed_channels:
                         try:
-                            # Check if channel is accessible before sending
+                            # Check if client is still connected and channel is accessible
+                            if self.client.is_closed():
+                                break
                             if channel.permissions_for(guild.me).send_messages:
                                 await channel.send(goodbye_message)
                                 print(f"Sent goodbye to {channel.name}")
                                 sent_count += 1
-                        except discord.errors.HTTPException as e:
-                            # Session closed or other HTTP error
-                            print(f"Could not send goodbye to {channel.name}: {e}")
+                        except (
+                            discord.errors.HTTPException,
+                            discord.errors.ConnectionClosed,
+                        ) as e:
+                            # Session closed or connection error - stop trying
+                            print(f"Connection closed, stopping goodbye messages: {e}")
+                            break
                         except Exception as e:
                             print(f"Error sending goodbye to {channel.name}: {e}")
 
@@ -825,9 +819,11 @@ class Friend(DiscordBot):
                 if content:
                     schedule_info = parse_schedule_command(content)
 
-                # If not found, try parsing from original message
-                if not schedule_info and task.message.content:
-                    schedule_info = parse_schedule_command(task.message.content)
+                # If not found, try parsing from original message (if available)
+                if not schedule_info and task.original_message:
+                    schedule_info = parse_schedule_command(
+                        task.original_message.content
+                    )
 
                 if schedule_info:
                     try:
@@ -860,14 +856,23 @@ class Friend(DiscordBot):
                                 )
 
                         elif schedule_info["task_type"] == "dm":
+                            # Get user info - use task.user_id/user_name if available, otherwise from original message
+                            user_id_to_use = task.user_id
+                            user_name_to_use = task.user_name
+                            if not user_id_to_use and task.original_message:
+                                user_id_to_use = task.original_message.author.id
+                            if not user_name_to_use and task.original_message:
+                                user_name_to_use = (
+                                    task.original_message.author.display_name
+                                )
+
                             self.scheduler.add_task(
                                 task_type="dm",
                                 message=schedule_info["message"],
                                 schedule_type=schedule_info["schedule_type"],
                                 schedule_value=schedule_info["schedule_value"],
-                                user_id=task.user_id or task.message.author.id,
-                                user_name=task.user_name
-                                or task.message.author.display_name,
+                                user_id=user_id_to_use,
+                                user_name=user_name_to_use,
                             )
                             await task.channel.send(
                                 f"✓ Scheduled DM created! I'll DM you '{schedule_info['message']}' "
@@ -1206,6 +1211,7 @@ Message to post:"""
             reminder_info=None,  # Don't auto-parse reminders - only create when AI uses <remind>
             user_id=message.author.id,
             user_name=sender_name,
+            original_message=message,  # Store original Discord message object
         )
 
         print("Current task queue: ", self.task_queue.qsize())
@@ -1223,14 +1229,23 @@ Message to post:"""
                     await bot.start(self.token)
             except KeyboardInterrupt:
                 print("\nKeyboard interrupt received. Sending goodbye messages...")
-                # Send goodbye messages before closing
+                # Send goodbye messages before closing (client is still open here in async context)
                 try:
-                    if self.client and self.client.is_ready():
+                    if (
+                        self.client
+                        and self.client.is_ready()
+                        and not self.client.is_closed()
+                    ):
                         await asyncio.wait_for(
                             self._send_goodbye_messages(), timeout=3.0
                         )
                 except asyncio.TimeoutError:
                     print("Timeout sending goodbye messages")
+                except (
+                    discord.errors.ConnectionClosed,
+                    discord.errors.HTTPException,
+                ) as e:
+                    print(f"Connection already closed, skipping goodbye messages: {e}")
                 except Exception as e:
                     print(f"Error sending goodbye messages: {e}")
                 # Stop background tasks
@@ -1239,6 +1254,11 @@ Message to post:"""
                     self.scheduler.stop()
                 except Exception:
                     pass
+            except Exception as e:
+                print(f"Error in bot main loop: {e}")
+                import traceback
+
+                traceback.print_exc()
             finally:
                 self.running = False
 
