@@ -41,7 +41,7 @@ torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder
-from virgil.friend.scheduler import Scheduler, ScheduledTask, parse_schedule_command
+from virgil.friend.scheduler import Scheduler, ScheduledTask
 from virgil.image import (
     DiffuserImageGenerator,
     FluxImageGenerator,
@@ -744,7 +744,9 @@ class Friend(DiscordBot):
             elif action == "remind":
                 await self._handle_remind_action(task, content, attributes)
             elif action == "schedule":
-                await self._handle_schedule_action(task, content)
+                await self._handle_schedule_action(task, content, attributes)
+            elif action == "show_schedule":
+                await self._handle_show_schedule_action(task, content)
             elif action == "help":
                 await self._handle_help_action(task, content)
 
@@ -941,56 +943,90 @@ class Friend(DiscordBot):
                 f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
             )
 
-    async def _handle_schedule_action(self, task: Task, content: str):
-        """Handle the 'schedule' action - create a scheduled task."""
-        # Parse schedule command from content or user's message
-        schedule_info = None
+    async def _handle_schedule_action(self, task: Task, content: str, attributes: dict):
+        """Handle the 'schedule' action - create a scheduled task.
 
-        # Try to parse from AI's content first
-        if content:
-            schedule_info = parse_schedule_command(content)
+        Args:
+            task: The task containing channel and context information.
+            content: The message/content to schedule.
+            attributes: Dictionary containing schedule attributes:
+                - type: Schedule type ("daily", "hourly", "weekly", "interval")
+                - value: Schedule value (e.g., "14:30", "5 minutes", "monday 14:30")
+                - task_type: "post" or "dm" (optional, defaults to "post")
+                - channel: Channel name for "post" tasks (optional, uses current channel if not specified)
+        """
+        # LLM should provide type and value attributes - we don't parse user messages
+        schedule_type = attributes.get("type")
+        schedule_value = attributes.get("value")
+        task_type = attributes.get("task_type", "post")  # Default to "post"
+        channel_name = attributes.get("channel")  # Optional channel name
 
-        # If not found, try parsing from original message (if available)
-        if not schedule_info and task.original_message:
-            schedule_info = parse_schedule_command(task.original_message.content)
-
-        if not schedule_info:
+        # Validate required attributes
+        if not schedule_type:
             await task.channel.send(
-                "*I couldn't parse the schedule command. "
-                "Try: 'always post X in Y channel at 14:30' or 'always DM me X at 14:30'*"
+                "*Error: The <schedule> tag requires a 'type' attribute. "
+                'Please use format like <schedule type="interval" value="5 minutes">message</schedule> '
+                'or <schedule type="daily" value="14:30" channel="general">message</schedule>.*'
+            )
+            return
+
+        if not schedule_value:
+            await task.channel.send(
+                "*Error: The <schedule> tag requires a 'value' attribute. "
+                'Please use format like <schedule type="interval" value="5 minutes">message</schedule> '
+                'or <schedule type="daily" value="14:30">message</schedule>.*'
             )
             return
 
         try:
             # Create scheduled task
-            if schedule_info["task_type"] == "post":
-                # Find channel by name
+            if task_type == "post":
+                # Find channel by name, or use current channel if not specified
                 channel = None
-                channel_name = schedule_info.get("channel_name", "")
-                for ch in self.client.get_all_channels():
-                    if ch.name == channel_name:
-                        channel = ch
-                        break
 
-                if channel:
-                    self.scheduler.add_task(
-                        task_type="post",
-                        message=schedule_info["message"],
-                        schedule_type=schedule_info["schedule_type"],
-                        schedule_value=schedule_info["schedule_value"],
-                        channel_id=channel.id,
-                        channel_name=channel.name,
-                    )
-                    await task.channel.send(
-                        f"✓ Scheduled task created! I'll post '{schedule_info['message']}' "
-                        f"in #{channel_name} {schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
-                    )
+                if channel_name:
+                    # Try to find channel by name
+                    for ch in self.client.get_all_channels():
+                        if ch.name == channel_name:
+                            channel = ch
+                            break
+                    if not channel:
+                        await task.channel.send(
+                            f"*Could not find channel '{channel_name}'. Please check the channel name.*"
+                        )
+                        return
                 else:
-                    await task.channel.send(
-                        f"*Could not find channel '{channel_name}'. Please check the channel name.*"
-                    )
+                    # Use current channel
+                    channel = task.channel
+                    channel_name = channel.name
 
-            elif schedule_info["task_type"] == "dm":
+                scheduled_task = self.scheduler.add_task(
+                    task_type="post",
+                    message=content.strip() if content else "",
+                    schedule_type=schedule_type,
+                    schedule_value=schedule_value,
+                    channel_id=channel.id,
+                    channel_name=channel.name,
+                )
+                # Terminal output
+                print(f"✓ Scheduled task created: ID={scheduled_task.task_id}")
+                print("  Type: post")
+                print(f"  Message: {content.strip() if content else '(empty)'}")
+                print(f"  Channel: #{channel_name} (ID: {channel.id})")
+                print(f"  Schedule: {schedule_type} - {schedule_value}")
+                print(f"  Next execution: {scheduled_task.next_execution}")
+
+                # Format schedule description for user
+                schedule_desc = f"{schedule_type}"
+                if schedule_value:
+                    schedule_desc += f" ({schedule_value})"
+
+                await task.channel.send(
+                    f"✓ Scheduled task created! I'll post '{content.strip() if content else 'message'}' "
+                    f"in #{channel_name} {schedule_desc}."
+                )
+
+            elif task_type == "dm":
                 # Get user info - use task.user_id/user_name if available, otherwise from original message
                 user_id_to_use = task.user_id
                 user_name_to_use = task.user_name
@@ -999,18 +1035,36 @@ class Friend(DiscordBot):
                 if not user_name_to_use and task.original_message:
                     user_name_to_use = task.original_message.author.display_name
 
-                self.scheduler.add_task(
+                scheduled_task = self.scheduler.add_task(
                     task_type="dm",
-                    message=schedule_info["message"],
-                    schedule_type=schedule_info["schedule_type"],
-                    schedule_value=schedule_info["schedule_value"],
+                    message=content.strip() if content else "",
+                    schedule_type=schedule_type,
+                    schedule_value=schedule_value,
                     user_id=user_id_to_use,
                     user_name=user_name_to_use,
                 )
+                # Terminal output
+                print(f"✓ Scheduled task created: ID={scheduled_task.task_id}")
+                print("  Type: dm")
+                print(f"  Message: {content.strip() if content else '(empty)'}")
+                print(f"  User: {user_name_to_use} (ID: {user_id_to_use})")
+                print(f"  Schedule: {schedule_type} - {schedule_value}")
+                print(f"  Next execution: {scheduled_task.next_execution}")
+
+                # Format schedule description for user
+                schedule_desc = f"{schedule_type}"
+                if schedule_value:
+                    schedule_desc += f" ({schedule_value})"
+
                 await task.channel.send(
-                    f"✓ Scheduled DM created! I'll DM you '{schedule_info['message']}' "
-                    f"{schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
+                    f"✓ Scheduled DM created! I'll DM you '{content.strip() if content else 'message'}' "
+                    f"{schedule_desc}."
                 )
+            else:
+                await task.channel.send(
+                    f"*Error: Invalid task_type '{task_type}'. Must be 'post' or 'dm'.*"
+                )
+                return
         except Exception as e:
             error_msg = f"*Error creating schedule: {str(e)}*"
             print(colored(f"Schedule error: {e}", "red"))
@@ -1018,6 +1072,82 @@ class Friend(DiscordBot):
 
             traceback.print_exc()
             await task.channel.send(error_msg)
+
+    async def _handle_show_schedule_action(self, task: Task, content: str):
+        """Handle the 'show_schedule' action - display all scheduled tasks."""
+        all_tasks = self.scheduler.get_all_tasks()
+
+        if not all_tasks:
+            await task.channel.send("*No scheduled tasks found.*")
+            return
+
+        # Terminal output
+        print(f"📅 Showing {len(all_tasks)} scheduled task(s):")
+
+        # Format tasks for display
+        task_lines = []
+        for task_item in all_tasks:
+            if task_item.enabled:
+                status = "✓ Enabled"
+            else:
+                status = "✗ Disabled"
+
+            if task_item.task_type == "post":
+                location = (
+                    f"#{task_item.channel_name}"
+                    if task_item.channel_name
+                    else "unknown channel"
+                )
+            else:
+                location = (
+                    f"DM to {task_item.user_name}"
+                    if task_item.user_name
+                    else "unknown user"
+                )
+
+            schedule_desc = f"{task_item.schedule_type}"
+            if task_item.schedule_value:
+                schedule_desc += f" ({task_item.schedule_value})"
+
+            next_exec = "N/A"
+            if task_item.next_execution:
+                try:
+                    next_dt = datetime.fromisoformat(task_item.next_execution)
+                    next_exec = next_dt.strftime("%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    next_exec = task_item.next_execution
+
+            task_info = (
+                f"**ID: {task_item.task_id}** - {status}\n"
+                f"  Type: {task_item.task_type} → {location}\n"
+                f"  Message: {task_item.message[:50]}{'...' if len(task_item.message) > 50 else ''}\n"
+                f"  Schedule: {schedule_desc}\n"
+                f"  Next execution: {next_exec}"
+            )
+            task_lines.append(task_info)
+
+            # Terminal output
+            print(f"  Task {task_item.task_id}: {task_item.task_type} → {location}")
+            print(f"    Message: {task_item.message}")
+            print(f"    Schedule: {schedule_desc}")
+            print(f"    Next execution: {next_exec}")
+            print(f"    Status: {status}")
+
+        # Send to channel (split into chunks if too long)
+        response = (
+            f"**📅 Scheduled Tasks ({len(all_tasks)} total):**\n\n"
+            + "\n\n".join(task_lines)
+        )
+
+        # Split into chunks if too long (Discord limit is 2000 chars)
+        while len(response) > 0:
+            chunk = response[:1900]
+            # Try to break at a task boundary
+            last_newline = chunk.rfind("\n\n")
+            if last_newline > 1000:  # Only break if we have a reasonable chunk
+                chunk = response[:last_newline]
+            await task.channel.send(chunk)
+            response = response[len(chunk) :].lstrip()
 
     async def _handle_help_action(self, task: Task, content: str):
         """Handle the 'help' action - retrieve documentation.
@@ -1330,10 +1460,10 @@ Message to post:"""
                     )
 
         # Check for reminder/schedule keywords in the message (for context only, not auto-parsing)
-        # Reminders should only be created when Friend explicitly uses <remind> action
-        schedule_info = None
+        # Reminders and schedules should only be created when Friend explicitly uses <remind> or <schedule> actions
         message_content = message.content
         has_reminder_keywords = False
+        has_schedule_keywords = False
         if message_content:
             # Check if message contains reminder keywords (for context hint only)
             reminder_keywords = ["remind", "reminder", "remind me", "remind us"]
@@ -1341,10 +1471,19 @@ Message to post:"""
                 keyword in message_content.lower() for keyword in reminder_keywords
             )
 
-            # Check for schedule commands (these are still auto-parsed for context)
-            parsed_schedule = parse_schedule_command(message_content)
-            if parsed_schedule:
-                schedule_info = parsed_schedule
+            # Check if message contains schedule keywords (for context hint only)
+            schedule_keywords = [
+                "schedule",
+                "always post",
+                "always dm",
+                "every",
+                "hourly",
+                "daily",
+                "weekly",
+            ]
+            has_schedule_keywords = any(
+                keyword in message_content.lower() for keyword in schedule_keywords
+            )
 
         # Construct the text to prompt the AI
         # Include note about images if present
@@ -1354,14 +1493,14 @@ Message to post:"""
         if has_reminder_keywords:
             # Hint to AI that user mentioned a reminder, but don't auto-parse
             text += " [User mentioned a reminder - use <remind> action if you want to create one]"
-        if schedule_info:
-            text += f" [User requested a scheduled task: {schedule_info['task_type']} '{schedule_info['message']}' {schedule_info['schedule_type']} at {schedule_info['schedule_value']}]"
+        if has_schedule_keywords:
+            # Hint to AI that user mentioned scheduling, but don't auto-parse
+            text += " [User mentioned scheduling - use <schedule> action with type and value attributes if you want to create one]"
 
         self.push_task(
             channel=message.channel,
             message=text,
             attachments=image_attachments,
-            reminder_info=None,  # Don't auto-parse reminders - only create when AI uses <remind>
             user_id=message.author.id,
             user_name=sender_name,
             original_message=message,  # Store original Discord message object

@@ -314,6 +314,10 @@ class Scheduler:
             if task.enabled and task.user_id == user_id
         ]
 
+    def get_all_tasks(self) -> List[ScheduledTask]:
+        """Get all scheduled tasks."""
+        return list(self.tasks.values())
+
     def remove_task(self, task_id: str):
         """Remove a scheduled task."""
         if task_id in self.tasks:
@@ -424,10 +428,13 @@ def parse_schedule_command(text: str) -> Optional[dict]:
     text_lower = text.lower().strip()
 
     # Pattern: "always post <message> in <channel> channel [at <time>|every <interval>]"
+    # Also handle: "post <message> every <interval>" (assumes current channel)
     post_patterns = [
         r"always\s+post\s+(.+?)\s+in\s+(.+?)\s+channel\s+(?:at\s+)?(.+)",
         r"always\s+post\s+(.+?)\s+in\s+(.+?)\s+channel",
         r"schedule\s+post\s+(.+?)\s+in\s+(.+?)\s+channel\s+(?:at\s+)?(.+)",
+        r"post\s+(.+?)\s+every\s+(.+)",  # "post X every Y" (uses current channel)
+        r"can\s+you\s+post\s+(.+?)\s+every\s+(.+)",  # "can you post X every Y"
     ]
 
     # Pattern: "always DM me <message> at <time>" or "always DM me <message> every <interval>"
@@ -437,26 +444,52 @@ def parse_schedule_command(text: str) -> Optional[dict]:
     ]
 
     # Try post patterns
-    for pattern in post_patterns:
+    for i, pattern in enumerate(post_patterns):
         match = re.search(pattern, text_lower)
         if match:
-            if len(match.groups()) == 3:
-                message, channel, schedule = match.groups()
+            groups = match.groups()
+            if len(groups) == 3:
+                message, channel, schedule = groups
                 schedule = schedule.strip()
+            elif len(groups) == 2:
+                message, schedule_or_channel = groups
+                # Patterns that end with "every" (indices 3, 4) always have schedule as second group
+                # Patterns with "in ... channel" (indices 0, 1, 2) have channel as second group
+                if i >= 3:  # Patterns like "post X every Y" or "can you post X every Y"
+                    # Second group is always the schedule
+                    schedule = schedule_or_channel.strip()
+                    channel = None  # Will use current channel
+                else:
+                    # Check if second group looks like a schedule (contains time patterns, intervals, etc.)
+                    if re.search(
+                        r"\d+\s*(?:minute|min|m|hour|hr|h|day|d|second|sec|s)|at\s+\d|hourly|daily|weekly|every",
+                        schedule_or_channel.lower(),
+                    ):
+                        # It's a schedule, channel is current channel (will be set later)
+                        schedule = schedule_or_channel.strip()
+                        channel = None  # Will use current channel
+                    else:
+                        # It's a channel name, use default schedule
+                        channel = schedule_or_channel.strip()
+                        schedule = "daily 09:00"  # Default to daily at 9 AM
             else:
-                message, channel = match.groups()
-                schedule = "daily 09:00"  # Default to daily at 9 AM
+                continue
 
             # Parse schedule
             schedule_info = _parse_schedule(schedule)
             if schedule_info:
-                return {
+                result = {
                     "task_type": "post",
                     "message": message.strip(),
-                    "channel_name": channel.strip(),
                     "schedule_type": schedule_info["type"],
                     "schedule_value": schedule_info["value"],
                 }
+                if channel:
+                    result["channel_name"] = channel.strip()
+                else:
+                    # Channel will be set from current context
+                    result["channel_name"] = None
+                return result
 
     # Try DM patterns
     for pattern in dm_patterns:
@@ -500,7 +533,8 @@ def _parse_schedule(schedule_str: str) -> Optional[dict]:
         day, hour, minute = weekly_match.groups()
         return {"type": "weekly", "value": f"{day} {hour}:{minute}"}
 
-    # Interval: "every 1 hour", "every 30 mins", etc.
+    # Interval: "every 1 hour", "every 30 mins", "5 minutes", etc.
+    # First try with "every" prefix
     interval_match = re.search(r"every\s+(.+)", schedule_lower)
     if interval_match:
         interval_str = interval_match.group(1)
@@ -509,5 +543,16 @@ def _parse_schedule(schedule_str: str) -> Optional[dict]:
             r"\d+\s*(?:minute|min|m|hour|hr|h|day|d|second|sec|s)", interval_str
         ):
             return {"type": "interval", "value": interval_str}
+
+    # Also try without "every" prefix (e.g., "5 minutes", "30 seconds")
+    # Match the full interval including number and unit
+    interval_match_no_prefix = re.search(
+        r"(\d+)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|seconds?|secs?|s)",
+        schedule_lower,
+    )
+    if interval_match_no_prefix:
+        # Use the matched portion directly to preserve original format
+        interval_str = interval_match_no_prefix.group(0)
+        return {"type": "interval", "value": interval_str}
 
     return None
