@@ -33,7 +33,7 @@ class LTXVideo(VideoBackend):
     def __init__(
         self,
         model_id: str = "lightricks/ltx-video",
-        torch_dtype: torch.dtype = torch.float16,
+        dtype: torch.dtype = torch.float16,
         variant: str = "fp16",
     ):
         """
@@ -41,7 +41,7 @@ class LTXVideo(VideoBackend):
 
         Args:
             model_id (str): The ID of the model to use.
-            torch_dtype (torch.dtype): The torch data type to use.
+            dtype (torch.dtype): The torch data type to use.
             variant (str): The model variant to use (e.g., "fp16").
         """
 
@@ -50,7 +50,7 @@ class LTXVideo(VideoBackend):
             "Lightricks/LTX-Video",
             subfolder="text_encoder",
             quantization_config=quant_config,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
 
         quant_config = DiffusersBitsAndBytesConfig(load_in_8bit=True)
@@ -58,14 +58,14 @@ class LTXVideo(VideoBackend):
             "Lightricks/LTX-Video",
             subfolder="transformer",
             quantization_config=quant_config,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
 
         self.pipe = LTXPipeline.from_pretrained(
             "Lightricks/LTX-Video",
             text_encoder=text_encoder_8bit,
             transformer=transformer_8bit,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
         # TODO: this may not be supported in bitsandbytes
         # self.pipe.to("cuda")

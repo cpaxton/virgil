@@ -19,8 +19,8 @@
 from PIL import Image
 import torch
 from diffusers import AutoPipelineForText2Image
-from virgil.image.base import ImageGenerator
-from virgil.image.siglip import SigLIPAligner
+from .base import ImageGenerator
+from .siglip import SigLIPAligner
 import virgil.utils.log as log
 import click
 from diffusers import BitsAndBytesConfig
@@ -133,7 +133,7 @@ class DiffuserImageGenerator(ImageGenerator):
             transformer = FluxTransformer2DModel.from_pretrained(
                 "fused_transformer",
                 quantization_config=quant_config,
-                torch_dtype=bnb_4bit_compute_dtype,
+                dtype=bnb_4bit_compute_dtype,
             )
 
         print(f"[Diffuser] Loading model: {model_name}")
@@ -141,7 +141,7 @@ class DiffuserImageGenerator(ImageGenerator):
             # Load pipeline with quantization config
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
-                torch_dtype=load_dtype,
+                dtype=load_dtype,
                 variant="fp16",
                 use_safetensors=True,
                 quantization_config=quant_config,  # Correct parameter name
@@ -155,7 +155,7 @@ class DiffuserImageGenerator(ImageGenerator):
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
                 model_name,
                 transformer=transformer,
-                torch_dtype=torch.float16,
+                dtype=torch.float16,
                 variant="fp16",
                 use_safetensors=True,
                 **pipeline_kwargs,

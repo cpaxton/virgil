@@ -69,21 +69,20 @@ class FluxImageGenerator:
             "black-forest-labs/FLUX.1-dev",
             subfolder="text_encoder_2",
             quantization_config=transformers_quant_config,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
 
         transformer = FluxTransformer2DModel.from_pretrained(
             "black-forest-labs/FLUX.1-dev",
             subfolder="transformer",
             quantization_config=diffusers_quant_config,
-            torch_dtype=torch.float16,
         )
 
         self.pipe = FluxPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-dev",
             transformer=transformer,
             text_encoder_2=text_encoder,
-            torch_dtype=torch.float16,
+            dtype=torch.float16,
         )
 
         self.cpu_offload = cpu_offload
