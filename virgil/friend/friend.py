@@ -874,12 +874,17 @@ class Friend(DiscordBot):
         # Format the reminder message in background to avoid blocking
         async def format_and_save_reminder():
             try:
-                with self._chat_lock:
-                    formatted_response = self.chat.prompt(
-                        reminder_prompt,
-                        verbose=False,
-                        assistant_history_prefix="",
-                    )
+                # Run the blocking chat.prompt() call in a thread executor to avoid blocking the event loop
+                def _prompt_with_lock():
+                    with self._chat_lock:
+                        return self.chat.prompt(
+                            reminder_prompt,
+                            verbose=False,
+                            assistant_history_prefix="",
+                        )
+
+                loop = asyncio.get_event_loop()
+                formatted_response = await loop.run_in_executor(None, _prompt_with_lock)
 
                 # Extract plain text from the formatted response
                 formatted_message = self._extract_plain_text_from_llm_response(
@@ -1055,12 +1060,17 @@ Generate a friendly, contextual reminder message. Be creative and interesting - 
 Reminder message:"""
 
             try:
-                with self._chat_lock:
-                    generated_message = self.chat.prompt(
-                        reminder_prompt,
-                        verbose=False,
-                        assistant_history_prefix="",
-                    )
+                # Run the blocking chat.prompt() call in a thread executor to avoid blocking the event loop
+                def _prompt_with_lock():
+                    with self._chat_lock:
+                        return self.chat.prompt(
+                            reminder_prompt,
+                            verbose=False,
+                            assistant_history_prefix="",
+                        )
+
+                loop = asyncio.get_event_loop()
+                generated_message = await loop.run_in_executor(None, _prompt_with_lock)
 
                 # Extract plain text from response
                 generated_message = self._extract_plain_text_from_llm_response(
@@ -1169,12 +1179,17 @@ Generate a friendly, contextual message. Be creative and interesting - you can s
 Message to post:"""
 
             try:
-                with self._chat_lock:
-                    generated_message = self.chat.prompt(
-                        task_prompt,
-                        verbose=False,
-                        assistant_history_prefix="",
-                    )
+                # Run the blocking chat.prompt() call in a thread executor to avoid blocking the event loop
+                def _prompt_with_lock():
+                    with self._chat_lock:
+                        return self.chat.prompt(
+                            task_prompt,
+                            verbose=False,
+                            assistant_history_prefix="",
+                        )
+
+                loop = asyncio.get_event_loop()
+                generated_message = await loop.run_in_executor(None, _prompt_with_lock)
 
                 # Extract plain text from response
                 generated_message = self._extract_plain_text_from_llm_response(
