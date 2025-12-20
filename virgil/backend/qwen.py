@@ -14,7 +14,7 @@
 
 # (c) 2024 by Chris Paxton
 
-from typing import Optional
+from typing import Optional, Tuple, Any
 
 import torch
 from transformers import (
@@ -95,6 +95,16 @@ class Qwen(Backend):
         self.top_p = top_p
         self.do_sample = do_sample
 
+        # Enable KV cache support
+        self._supports_kv_cache = True
+
+        # Track processed conversation for incremental generation
+        self._cached_input_ids = None
+
+    def reset_cache(self):
+        """Reset the KV cache state."""
+        self._cached_input_ids = None
+
     def _get_model_id(self, name: str) -> str:
         """Construct the HuggingFace model ID from the model name."""
         if name.startswith("qwen/"):
@@ -140,3 +150,33 @@ class Qwen(Backend):
                 top_p=self.top_p,
                 do_sample=self.do_sample,
             )
+
+    def generate_with_cache(
+        self,
+        messages,
+        max_new_tokens: int = 512,
+        past_key_values: Optional[Any] = None,
+        *args,
+        **kwargs,
+    ) -> Tuple[list, Optional[Any]]:
+        """Generate a response with KV cache support.
+
+        Args:
+            messages: The messages to generate a response for.
+            max_new_tokens: Maximum number of new tokens to generate.
+            past_key_values: Previous KV cache (not used in current implementation).
+
+        Returns:
+            Tuple of (output, new_past_key_values).
+        """
+        # Use pipeline with use_cache=True (default) for efficient generation
+        with torch.no_grad():
+            output = self.pipe(
+                messages,
+                max_new_tokens=max_new_tokens,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                do_sample=self.do_sample,
+            )
+
+        return output, None

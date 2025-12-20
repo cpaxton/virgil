@@ -36,7 +36,11 @@ from virgil.backend import Backend, backend_list
 
 class ChatWrapper:
     def __init__(
-        self, backend: Backend, max_history_length: int = 50, preserve: int = 2
+        self,
+        backend: Backend,
+        max_history_length: int = 50,
+        preserve: int = 2,
+        use_kv_cache: bool = True,
     ) -> None:
         self.backend = backend
         self.max_history_length = max_history_length
@@ -46,6 +50,15 @@ class ChatWrapper:
                 f"Preserve must be less than or equal to max_history_length. Got preserve={self.preserve} and max_history_length={self.max_history_length}"
             )
         self.conversation_history = []
+        # KV cache management
+        self.use_kv_cache = use_kv_cache and self.backend.supports_kv_cache()
+        if self.use_kv_cache:
+            self.backend.enable_kv_cache(True)
+            self._past_key_values = None
+            self._processed_message_count = 0
+        else:
+            self._past_key_values = None
+            self._processed_message_count = 0
 
     def add_conversation_history(self, role: str, content: str, verbose: bool = False):
         """Add a message to the conversation history.
@@ -86,6 +99,8 @@ class ChatWrapper:
     def clear(self):
         """Clear the conversation history."""
         self.conversation_history = []
+        self._past_key_values = None
+        self._processed_message_count = 0
 
     def __len__(self):
         return len(self.conversation_history)
@@ -110,7 +125,38 @@ class ChatWrapper:
 
         messages = self.conversation_history.copy()
         t0 = timeit.default_timer()
-        outputs = self.backend(messages, max_new_tokens=max_new_tokens)
+
+        # Use KV cache if available and enabled
+        if self.use_kv_cache:
+            # Check if we need to reset cache (history was trimmed)
+            current_message_count = len(self.conversation_history)
+            if current_message_count < self._processed_message_count:
+                # History was trimmed, reset cache
+                if verbose:
+                    print(colored("History trimmed, resetting KV cache", "yellow"))
+                self._past_key_values = None
+                self._processed_message_count = 0
+                # Reset backend cache if it has a reset method
+                if hasattr(self.backend, "reset_cache"):
+                    self.backend.reset_cache()
+
+            # Use incremental generation with KV cache
+            outputs, new_past_key_values = self.backend.generate_with_cache(
+                messages,
+                max_new_tokens=max_new_tokens,
+                past_key_values=self._past_key_values,
+            )
+
+            # Update cache for next time
+            if new_past_key_values is not None:
+                self._past_key_values = new_past_key_values
+                self._processed_message_count = (
+                    current_message_count + 1
+                )  # +1 for assistant response
+        else:
+            # Fall back to regular generation
+            outputs = self.backend(messages, max_new_tokens=max_new_tokens)
+
         t1 = timeit.default_timer()
 
         if isinstance(outputs, str):
@@ -131,6 +177,8 @@ class ChatWrapper:
             print(colored("Response:\n", "blue") + assistant_response)
             print("----------------")
             print(f"Generator time taken: {t1 - t0:.2f} seconds")
+            if self.use_kv_cache:
+                print(colored("KV cache: enabled", "green"))
             print("----------------")
 
         return assistant_response

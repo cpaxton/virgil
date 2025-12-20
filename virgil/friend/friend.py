@@ -1322,25 +1322,135 @@ class Friend(DiscordBot):
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
 
+    async def _execute_action_plan(self, task: Task, response: str):
+        """Execute an action plan parsed from an LLM response.
+
+        Args:
+            task: The Task object containing channel and context information.
+            response: The LLM response that may contain action tags.
+        """
+        # Parse the response into action plan
+        action_plan = self.parser.parse(response)
+
+        print()
+        print(
+            colored(
+                f"📋 Executing action plan ({len(action_plan)} action(s)):",
+                "yellow",
+                attrs=["bold"],
+            )
+        )
+
+        for idx, item in enumerate(action_plan, 1):
+            # Handle both old format (action, content) and new format (action, content, attributes)
+            if len(item) == 3:
+                action, content, attributes = item
+            else:
+                action, content = item
+                attributes = {}
+
+            # Color code different action types
+            action_colors = {
+                "say": "green",
+                "imagine": "magenta",
+                "remember": "blue",
+                "forget": "red",
+                "weather": "cyan",
+                "edit_image": "magenta",
+                "remind": "yellow",
+                "schedule": "yellow",
+                "show_schedule": "cyan",
+                "help": "blue",
+            }
+            action_color = action_colors.get(action, "white")
+            print(colored(f"  [{idx}] Action: {action}", action_color, attrs=["bold"]))
+            if content:
+                # Truncate long content for display
+                content_display = (
+                    content[:100] + "..." if len(content) > 100 else content
+                )
+                print(colored(f"      Content: {content_display}", "white"))
+            if attributes:
+                print(colored(f"      Attributes: {attributes}", "grey"))
+
+            # Route to appropriate action handler
+            try:
+                if action == "say":
+                    await self._handle_say_action(task, content)
+                elif action == "imagine":
+                    await self._handle_imagine_action(task, content)
+                elif action == "remember":
+                    await self._handle_remember_action(task, content)
+                elif action == "forget":
+                    await self._handle_forget_action(task, content)
+                elif action == "weather":
+                    await self._handle_weather_action(task, content)
+                elif action == "edit_image":
+                    await self._handle_edit_image_action(task, content)
+                elif action == "remind":
+                    await self._handle_remind_action(task, content, attributes)
+                elif action == "schedule":
+                    await self._handle_schedule_action(task, content, attributes)
+                elif action == "show_schedule":
+                    await self._handle_show_schedule_action(task, content)
+                elif action == "help":
+                    await self._handle_help_action(task, content)
+            except Exception as e:
+                print(colored(f"Error executing action {action}: {e}", "red"))
+                import traceback
+
+                traceback.print_exc()
+
     async def _execute_reminder(self, reminder: Reminder):
         """
-        Execute a reminder by sending a message to the appropriate channel/user.
-        Uses LLM to generate contextual message based on current time and reminder context.
+        Execute a reminder by generating an LLM response and executing any actions.
+        The LLM can use action tags like <say>, <imagine>, <weather>, etc. to perform
+        complex actions, not just send text.
 
         Args:
             reminder: The Reminder object to execute
         """
         try:
-            # Generate contextual message using LLM
+            # Get the target channel or user
+            channel = None
+            user = None
+
+            if reminder.channel_id:
+                channel = self.client.get_channel(reminder.channel_id)
+            else:
+                user = self.client.get_user(reminder.user_id)
+
+            # Create a Task object for action execution
+            # Use channel if available, otherwise create a dummy channel reference for DM context
+            if channel:
+                task_channel = channel
+            elif user:
+                # For DMs, we'll need to handle differently - create a minimal task
+                # that can be used for action execution
+                # We'll send actions via DM methods
+                task_channel = None  # Will handle DM case separately
+            else:
+                print(
+                    f"Warning: Could not find channel or user for reminder {reminder.reminder_id}"
+                )
+                return
+
+            # Generate contextual response using LLM with action tag support
             current_time = datetime.now()
             time_str = current_time.strftime("%I:%M %p on %B %d, %Y")
 
             reminder_prompt = f"""Time: {time_str}
 According to schedule, you should remind {reminder.user_name} about: "{reminder.message}"
 
-Generate a friendly, contextual reminder message. Be creative and interesting - you can share a fun fact, make a joke, or add context based on the time of day. Keep it concise (1-2 sentences max). Return ONLY the message text, no tags or formatting.
+Generate a friendly, contextual reminder. You can:
+- Use <say> tags to send text messages
+- Use <imagine> tags to generate images
+- Use <weather> tags to get weather information
+- Use any other available actions
 
-Reminder message:"""
+Be creative and interesting - you can share a fun fact, make a joke, add context based on the time of day, or even generate images or check weather. Keep it concise but engaging.
+
+Your response:"""
 
             try:
                 # Run the blocking chat.prompt() call in a thread executor to avoid blocking the event loop
@@ -1353,95 +1463,128 @@ Reminder message:"""
                         )
 
                 loop = asyncio.get_event_loop()
-                generated_message = await loop.run_in_executor(None, _prompt_with_lock)
+                llm_response = await loop.run_in_executor(None, _prompt_with_lock)
 
-                # Extract plain text from response
-                generated_message = self._extract_plain_text_from_llm_response(
-                    generated_message
-                )
-
-                # Use generated message if meaningful, otherwise fall back to original
-                if generated_message and len(generated_message) > 3:
-                    final_message = generated_message
-                else:
-                    final_message = reminder.message
-            except Exception as e:
-                print(f"Error generating reminder message with LLM: {e}")
-                final_message = reminder.message
-
-            # Format the reminder message
-            if reminder.channel_id:
-                # Send to channel
-                channel = self.client.get_channel(reminder.channel_id)
-                if channel:
-                    # Check if we can send messages to this channel
-                    if channel.permissions_for(channel.guild.me).send_messages:
-                        message = f"🔔 <@{reminder.user_id}> Reminder: {final_message}"
-                        await channel.send(message)
-                        print(
-                            colored(
-                                f"🔔 Reminder executed: Sent to channel {reminder.channel_name}",
-                                "green",
-                            )
-                        )
-                    else:
-                        # Fallback to DM if we can't send to channel
-                        user = self.client.get_user(reminder.user_id)
-                        if user:
-                            message = f"🔔 Reminder (from #{reminder.channel_name}): {final_message}"
-                            await user.send(message)
-                            print(
-                                colored(
-                                    f"🔔 Reminder executed: Sent DM to {reminder.user_name} (couldn't send to channel)",
-                                    "yellow",
-                                )
-                            )
-                        else:
-                            print(
-                                f"Warning: Could not send reminder to channel or user {reminder.user_id}"
-                            )
-                else:
-                    print(
-                        f"Warning: Could not find channel {reminder.channel_id} for reminder"
+                # Parse and execute action plan
+                if task_channel:
+                    # Create a Task object for channel-based execution
+                    task = Task(
+                        message="",  # Not used for reminders
+                        channel=task_channel,
+                        content="",
+                        user_id=reminder.user_id,
+                        user_name=reminder.user_name,
                     )
-            else:
-                # Send DM to user
-                user = self.client.get_user(reminder.user_id)
-                if user:
-                    message = f"🔔 Reminder: {final_message}"
-                    await user.send(message)
+                    await self._execute_action_plan(task, llm_response)
+                elif user:
+                    # For DMs, parse and execute actions
+                    # Some actions (like imagine, weather) work better in channels,
+                    # but we'll try to execute what we can
+                    action_plan = self.parser.parse(llm_response)
+
                     print(
                         colored(
-                            f"🔔 Reminder executed: Sent DM to {reminder.user_name}",
-                            "green",
+                            f"🔔 Executing reminder actions for DM to {reminder.user_name}",
+                            "cyan",
                         )
                     )
-                else:
-                    print(
-                        f"Warning: Could not find user {reminder.user_id} for reminder"
-                    )
-        except discord.errors.Forbidden:
-            # Permission denied - try DM as fallback
-            try:
-                user = self.client.get_user(reminder.user_id)
-                if user:
-                    channel_info = (
-                        f" (from #{reminder.channel_name})"
-                        if reminder.channel_name
-                        else ""
-                    )
-                    message = f"🔔 Reminder{channel_info}: {final_message}"
-                    await user.send(message)
-                    print(
-                        f"Reminder executed: Sent DM to {reminder.user_name} (permission denied for channel)"
-                    )
-            except Exception as e2:
-                print(
-                    colored(
-                        f"Error executing reminder (fallback DM also failed): {e2}",
-                        "red",
-                    )
-                )
+
+                    # Execute actions with DM-friendly handling
+                    for item in action_plan:
+                        if len(item) == 3:
+                            action, content, _attributes = item
+                        else:
+                            action, content = item
+
+                        try:
+                            if action == "say":
+                                # Send DM with reminder prefix
+                                await user.send(f"🔔 Reminder: {content}")
+                            elif action == "imagine":
+                                # Generate image and send via DM
+                                print(
+                                    colored(
+                                        f"🎨 Generating image for reminder: {content}",
+                                        "magenta",
+                                    )
+                                )
+                                with self._chat_lock:
+                                    image = self.image_service.generate_image(content)
+
+                                if self.message_service:
+                                    await self.message_service.send_image(
+                                        image,
+                                        channel_id=None,  # DM
+                                        user_id=reminder.user_id,
+                                        caption=f"🔔 Reminder image: {content}",
+                                    )
+                                else:
+                                    # Fallback: convert to bytes and send
+                                    byte_arr = io.BytesIO()
+                                    image.save(byte_arr, format="PNG")
+                                    byte_arr.seek(0)
+                                    file = discord.File(
+                                        byte_arr, filename="reminder_image.png"
+                                    )
+                                    await user.send(
+                                        f"🔔 Reminder image: {content}", file=file
+                                    )
+                            elif action == "weather":
+                                # Get weather and send via DM
+                                if self.weather_api_key and self._weather_api_key_valid:
+                                    try:
+                                        weather = get_current_weather(
+                                            self.weather_api_key, content
+                                        )
+                                        weather_message = format_weather_message(
+                                            weather
+                                        )
+                                        await user.send(
+                                            f"🔔 Reminder - Weather: {weather_message}"
+                                        )
+                                    except Exception as e:
+                                        await user.send(
+                                            f"🔔 Reminder: {reminder.message}\n(Weather lookup failed: {e})"
+                                        )
+                                else:
+                                    await user.send(
+                                        f"🔔 Reminder: {reminder.message}\n(Weather API not configured)"
+                                    )
+                            else:
+                                # For other actions, send a text summary
+                                await user.send(
+                                    f"🔔 Reminder: {reminder.message}\n(Action '{action}' executed: {content[:100]})"
+                                )
+                        except Exception as e:
+                            print(
+                                colored(
+                                    f"Error executing reminder action {action} in DM: {e}",
+                                    "red",
+                                )
+                            )
+                            # Fallback to text reminder
+                            await user.send(f"🔔 Reminder: {reminder.message}")
+
+            except Exception as e:
+                print(f"Error generating/executing reminder with LLM: {e}")
+                import traceback
+
+                traceback.print_exc()
+
+                # Fallback to simple text message
+                if channel:
+                    try:
+                        if channel.permissions_for(channel.guild.me).send_messages:
+                            await channel.send(
+                                f"🔔 <@{reminder.user_id}> Reminder: {reminder.message}"
+                            )
+                    except Exception:
+                        user = self.client.get_user(reminder.user_id)
+                        if user:
+                            await user.send(f"🔔 Reminder: {reminder.message}")
+                elif user:
+                    await user.send(f"🔔 Reminder: {reminder.message}")
+
         except Exception as e:
             print(colored(f"Error executing reminder: {e}", "red"))
             import traceback
@@ -1450,14 +1593,15 @@ Reminder message:"""
 
     async def _execute_scheduled_task(self, task: ScheduledTask):
         """
-        Execute a scheduled task by sending a message to the appropriate channel/user.
-        Uses LLM to generate contextual message based on current time and schedule context.
+        Execute a scheduled task by generating an LLM response and executing any actions.
+        The LLM can use action tags like <say>, <imagine>, <weather>, etc. to perform
+        complex actions, not just send text.
 
         Args:
             task: The ScheduledTask object to execute
         """
         try:
-            # Generate contextual message using LLM
+            # Generate contextual response using LLM with action tag support
             current_time = datetime.now()
             time_str = current_time.strftime("%I:%M %p on %B %d, %Y")
 
@@ -1468,9 +1612,15 @@ Reminder message:"""
             task_prompt = f"""Time: {time_str}
 According to schedule ({schedule_context}), you should post: "{task.message}"
 
-Generate a friendly, contextual message. Be creative and interesting - you can share a fun fact, make a joke, add context based on the time of day, or expand on the original message. Keep it concise (1-3 sentences max). Return ONLY the message text, no tags or formatting.
+Generate a friendly, contextual response. You can:
+- Use <say> tags to send text messages
+- Use <imagine> tags to generate images
+- Use <weather> tags to get weather information
+- Use any other available actions
 
-Message to post:"""
+Be creative and interesting - you can share a fun fact, make a joke, add context based on the time of day, generate images, check weather, or expand on the original message. Keep it engaging.
+
+Your response:"""
 
             try:
                 # Run the blocking chat.prompt() call in a thread executor to avoid blocking the event loop
@@ -1483,67 +1633,103 @@ Message to post:"""
                         )
 
                 loop = asyncio.get_event_loop()
-                generated_message = await loop.run_in_executor(None, _prompt_with_lock)
+                llm_response = await loop.run_in_executor(None, _prompt_with_lock)
 
-                # Extract plain text from response
-                generated_message = self._extract_plain_text_from_llm_response(
-                    generated_message
-                )
+                # Parse and execute action plan
+                if task.task_type == "post":
+                    # Post to channel
+                    if task.channel_id:
+                        channel = self.client.get_channel(task.channel_id)
+                        if channel:
+                            # Check permissions
+                            if channel.permissions_for(channel.guild.me).send_messages:
+                                # Create a Task object for action execution
+                                exec_task = Task(
+                                    message="",  # Not used for scheduled tasks
+                                    channel=channel,
+                                    content="",
+                                    user_id=None,  # Scheduled tasks don't have a specific user
+                                    user_name="System",
+                                )
+                                await self._execute_action_plan(exec_task, llm_response)
+                                print(
+                                    colored(
+                                        f"📅 Scheduled task executed: Posted to channel {task.channel_name}",
+                                        "green",
+                                    )
+                                )
+                            else:
+                                print(
+                                    f"Warning: No permission to send to channel {task.channel_name}"
+                                )
+                        else:
+                            print(
+                                f"Warning: Could not find channel {task.channel_id} for scheduled task"
+                            )
+                    else:
+                        print(
+                            f"Warning: Scheduled post task {task.task_id} has no channel_id"
+                        )
 
-                # Use generated message if meaningful, otherwise fall back to original
-                if generated_message and len(generated_message) > 3:
-                    final_message = generated_message
-                else:
-                    final_message = task.message
-            except Exception as e:
-                print(f"Error generating scheduled task message with LLM: {e}")
-                final_message = task.message
+                elif task.task_type == "dm":
+                    # Send DM to user
+                    if task.user_id:
+                        user = self.client.get_user(task.user_id)
+                        if user:
+                            # Parse actions
+                            action_plan = self.parser.parse(llm_response)
 
-            if task.task_type == "post":
-                # Post to channel
-                if task.channel_id:
-                    channel = self.client.get_channel(task.channel_id)
-                    if channel:
-                        # Check permissions
-                        if channel.permissions_for(channel.guild.me).send_messages:
-                            await channel.send(final_message)
+                            # Execute actions with DM fallback
+                            for item in action_plan:
+                                if len(item) == 3:
+                                    action, content, _attributes = item
+                                else:
+                                    action, content = item
+
+                                if action == "say":
+                                    # Send DM
+                                    await user.send(content)
+                                else:
+                                    # For other actions, try to execute but may need channel
+                                    # For now, fall back to saying the action
+                                    await user.send(
+                                        f"Scheduled message: {task.message}\n(Note: Complex actions like {action} require a channel)"
+                                    )
+
                             print(
                                 colored(
-                                    f"📅 Scheduled task executed: Posted to channel {task.channel_name}",
+                                    f"📅 Scheduled task executed: Sent DM to {task.user_name}",
                                     "green",
                                 )
                             )
                         else:
                             print(
-                                f"Warning: No permission to send to channel {task.channel_name}"
+                                f"Warning: Could not find user {task.user_id} for scheduled task"
                             )
                     else:
                         print(
-                            f"Warning: Could not find channel {task.channel_id} for scheduled task"
+                            f"Warning: Scheduled DM task {task.task_id} has no user_id"
                         )
-                else:
-                    print(
-                        f"Warning: Scheduled post task {task.task_id} has no channel_id"
-                    )
 
-            elif task.task_type == "dm":
-                # Send DM to user
-                if task.user_id:
+            except Exception as e:
+                print(f"Error generating/executing scheduled task with LLM: {e}")
+                import traceback
+
+                traceback.print_exc()
+
+                # Fallback to simple text message
+                if task.task_type == "post" and task.channel_id:
+                    channel = self.client.get_channel(task.channel_id)
+                    if (
+                        channel
+                        and channel.permissions_for(channel.guild.me).send_messages
+                    ):
+                        await channel.send(task.message)
+                elif task.task_type == "dm" and task.user_id:
                     user = self.client.get_user(task.user_id)
                     if user:
-                        await user.send(final_message)
-                        print(
-                            colored(
-                                f"📅 Scheduled task executed: Sent DM to {task.user_name}",
-                                "green",
-                            )
-                        )
-                    else:
-                        print(
-                            f"Warning: Could not find user {task.user_id} for scheduled task"
-                        )
-                else:
-                    print(f"Warning: Scheduled DM task {task.task_id} has no user_id")
+                        await user.send(task.message)
+
         except Exception as e:
             print(colored(f"Error executing scheduled task: {e}", "red"))
             import traceback
