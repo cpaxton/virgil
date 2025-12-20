@@ -49,6 +49,10 @@ class Task:
     content: str
     explicit: bool = False
     t: float = None
+    attachments: list = None  # List of image attachments
+    reminder_info: dict = None  # Reminder information
+    user_id: int = None  # User ID for reminders
+    user_name: str = None  # User name for reminders
 
 
 class DiscordBot:
@@ -90,11 +94,25 @@ class DiscordBot:
         message: Optional[str] = None,
         content: Optional[str] = None,
         explicit: bool = False,
+        attachments: Optional[list] = None,
+        reminder_info: Optional[dict] = None,
+        user_id: Optional[int] = None,
+        user_name: Optional[str] = None,
     ):
         """Add a message to the queue to send."""
         # print("Adding task to queue:", message, channel.name, content)
         self.task_queue.put(
-            Task(message, channel, content, explicit=explicit, t=timeit.default_timer())
+            Task(
+                message,
+                channel,
+                content,
+                explicit=explicit,
+                t=timeit.default_timer(),
+                attachments=attachments,
+                reminder_info=reminder_info,
+                user_id=user_id,
+                user_name=user_name,
+            )
         )
         # print( "Queue length after push:", self.task_queue.qsize())
 

@@ -101,7 +101,15 @@ class ChatbotActionParser(Parser):
         Returns:
             Optional[List[str, Any]]: A list of parsed text. Each element is a tuple of (action, content).
         """
-        tags_to_extract = ["say", "remember", "imagine", "think", "weather"]
+        tags_to_extract = [
+            "say",
+            "remember",
+            "imagine",
+            "think",
+            "weather",
+            "edit_image",
+            "remind",
+        ]
         extracted_tags = extract_tags(text, tags_to_extract, prune_thoughts=True)
 
         return extracted_tags

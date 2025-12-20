@@ -26,6 +26,8 @@ import time
 from termcolor import colored
 import io
 import discord
+import aiohttp
+from PIL import Image
 
 # This only works on Ampere+ GPUs
 import torch
@@ -38,6 +40,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
+from virgil.friend.reminder import ReminderManager, Reminder, parse_reminder_command
 from virgil.image import (
     DiffuserImageGenerator,
     FluxImageGenerator,
@@ -53,6 +56,7 @@ from virgil.services.image_service import VirgilImageService
 from virgil.services.message_service import DiscordMessageService
 from virgil.mcp.server import VirgilMCPServer
 import asyncio
+from datetime import datetime
 
 
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
@@ -200,6 +204,10 @@ class Friend(DiscordBot):
         self.mcp_server = None
         self._mcp_task = None
 
+        # Reminder system
+        self.reminder_manager = ReminderManager()
+        self.reminder_manager.set_execution_callback(self._execute_reminder)
+
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
         print(f"{self.client.user} has connected to Discord!")
@@ -272,6 +280,10 @@ class Friend(DiscordBot):
 
         print("Starting the message processing queue.")
         self.process_queue.start()
+
+        # Start reminder manager
+        self.reminder_manager.start()
+        print("Reminder system started.")
 
         print("Loaded conversation history:", len(self.chat))
 
@@ -409,10 +421,186 @@ class Friend(DiscordBot):
                         error_msg = f"*Unexpected error getting weather: {str(e)}*"
                         print(colored(f"Weather error: {e}", "red"))
                         await task.channel.send(error_msg)
+            elif action == "edit_image":
+                # Edit an image using Qwen Image Layered
+                if not isinstance(self.image_generator, QwenLayeredImageGenerator):
+                    await task.channel.send(
+                        "*Sorry, image editing is only available with the qwen-layered image generator.*"
+                    )
+                    continue
+
+                # Check if there are image attachments
+                if not task.attachments or len(task.attachments) == 0:
+                    await task.channel.send(
+                        "*Sorry, no image was found to edit. Please send an image with your message.*"
+                    )
+                    continue
+
+                # Download the first image attachment
+                attachment = task.attachments[0]
+                try:
+                    await task.channel.send(
+                        f"*Editing image: {attachment.filename}...*"
+                    )
+                    print(f"Downloading image: {attachment.url}")
+
+                    # Download image using Discord's attachment URL
+                    # Discord attachments can be accessed directly via their URL
+                    try:
+                        # Use discord.py's built-in attachment reading
+                        image_bytes = await attachment.read()
+                        input_image = Image.open(io.BytesIO(image_bytes))
+                        # Ensure RGBA for Qwen
+                        if input_image.mode != "RGBA":
+                            input_image = input_image.convert("RGBA")
+                    except Exception as download_error:
+                        await task.channel.send(
+                            f"*Error downloading image: {str(download_error)}*"
+                        )
+                        print(colored(f"Image download error: {download_error}", "red"))
+                        continue
+
+                    # Edit the image with Qwen Image Layered
+                    edit_prompt = content if content else "enhance this image"
+                    print(f"Editing image with prompt: {edit_prompt}")
+
+                    with self._chat_lock:
+                        edited_image = self.image_generator.generate(
+                            prompt=edit_prompt,
+                            input_image=input_image,
+                        )
+
+                    edited_image.save("edited_image.png")
+
+                    # Send the edited image
+                    print(" - Sending edited image")
+                    if self.message_service:
+                        await self.message_service.send_image(
+                            edited_image,
+                            channel_id=str(task.channel.id),
+                            caption=f"*Edited: {edit_prompt}*",
+                        )
+                    else:
+                        # Fallback to direct Discord send
+                        byte_arr = io.BytesIO()
+                        edited_image.save(byte_arr, format="PNG")
+                        byte_arr.seek(0)
+                        file = discord.File(byte_arr, filename="edited_image.png")
+                        await task.channel.send(f"*Edited: {edit_prompt}*", file=file)
+
+                except Exception as e:
+                    error_msg = f"*Error editing image: {str(e)}*"
+                    print(colored(f"Image editing error: {e}", "red"))
+                    import traceback
+
+                    traceback.print_exc()
+                    await task.channel.send(error_msg)
+            elif action == "remind":
+                # Handle reminder action from AI
+                # The AI can use <remind>time and message</remind> to create reminders
+                # Or we can use reminder_info from the user's message
+                reminder_info_to_use = (
+                    task.reminder_info if task.reminder_info else None
+                )
+
+                if reminder_info_to_use:
+                    # Use the parsed reminder from user's message
+                    reminder = self.reminder_manager.add_reminder(
+                        channel_id=task.channel.id,
+                        channel_name=task.channel.name,
+                        user_id=task.user_id,
+                        user_name=task.user_name,
+                        reminder_time=reminder_info_to_use["reminder_time"],
+                        message=reminder_info_to_use["message"],
+                    )
+
+                    # Use the model to format the reminder message
+                    # Use AI's content if provided, otherwise use the original message
+                    reminder_text = (
+                        content if content else reminder_info_to_use["message"]
+                    )
+                    reminder_prompt = f"User {task.user_name} asked me to remind them: '{reminder_text}'. Format a friendly reminder message to send to them in {reminder_info_to_use['time_delta']}."
+
+                    with self._chat_lock:
+                        formatted_message = self.chat.prompt(
+                            reminder_prompt, verbose=False, assistant_history_prefix=""
+                        )
+
+                    # Update reminder with formatted message
+                    reminder.message = formatted_message.strip()
+                    self.reminder_manager._save_reminders()
+
+                    await task.channel.send(
+                        f"✓ Reminder set! I'll remind you in {reminder_info_to_use['time_delta']}."
+                    )
+                elif content:
+                    # Try to parse reminder from AI's content
+                    parsed = parse_reminder_command(content)
+                    if parsed:
+                        time_delta, reminder_msg = parsed
+                        reminder_time = datetime.now() + time_delta
+
+                        reminder = self.reminder_manager.add_reminder(
+                            channel_id=task.channel.id,
+                            channel_name=task.channel.name,
+                            user_id=task.user_id or task.message.author.id,
+                            user_name=task.user_name
+                            or task.message.author.display_name,
+                            reminder_time=reminder_time,
+                            message=reminder_msg,
+                        )
+
+                        await task.channel.send(
+                            f"✓ Reminder set! I'll remind you in {time_delta}."
+                        )
+                    else:
+                        await task.channel.send(
+                            "*I couldn't parse the reminder. Please use format like 'remind me in 30 mins to do something'.*"
+                        )
+                else:
+                    await task.channel.send("*No reminder information provided.*")
         # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
+
+    async def _execute_reminder(self, reminder: Reminder):
+        """
+        Execute a reminder by sending a message to the appropriate channel/user.
+
+        Args:
+            reminder: The Reminder object to execute
+        """
+        try:
+            # Format the reminder message
+            if reminder.channel_id:
+                # Send to channel
+                channel = self.client.get_channel(reminder.channel_id)
+                if channel:
+                    # Mention the user
+                    message = f"🔔 <@{reminder.user_id}> Reminder: {reminder.message}"
+                    await channel.send(message)
+                    print(f"Reminder executed: Sent to channel {reminder.channel_name}")
+                else:
+                    print(
+                        f"Warning: Could not find channel {reminder.channel_id} for reminder"
+                    )
+            else:
+                # Send DM to user
+                user = self.client.get_user(reminder.user_id)
+                if user:
+                    message = f"🔔 Reminder: {reminder.message}"
+                    await user.send(message)
+                    print(f"Reminder executed: Sent DM to {reminder.user_name}")
+                else:
+                    print(
+                        f"Warning: Could not find user {reminder.user_id} for reminder"
+                    )
+        except Exception as e:
+            print(colored(f"Error executing reminder: {e}", "red"))
+            import traceback
+
+            traceback.print_exc()
 
     def on_message(self, message: discord.Message, verbose: bool = False):
         """Event listener for whenever a new message is sent to a channel that this bot is in."""
@@ -461,9 +649,49 @@ class Friend(DiscordBot):
             print(" -> Not in allowed channels. Skipping.")
             return None
 
+        # Check for image attachments
+        image_attachments = []
+        if message.attachments:
+            for attachment in message.attachments:
+                # Check if attachment is an image
+                if attachment.content_type and attachment.content_type.startswith(
+                    "image/"
+                ):
+                    image_attachments.append(attachment)
+                    print(
+                        f"Found image attachment: {attachment.filename} ({attachment.content_type})"
+                    )
+
+        # Check for reminder commands in the message
+        reminder_info = None
+        message_content = message.content
+        if message_content:
+            parsed_reminder = parse_reminder_command(message_content)
+            if parsed_reminder:
+                time_delta, reminder_message = parsed_reminder
+                reminder_time = datetime.now() + time_delta
+                reminder_info = {
+                    "time_delta": time_delta,
+                    "reminder_time": reminder_time,
+                    "message": reminder_message,
+                }
+
         # Construct the text to prompt the AI
-        text = f"{sender_name} on #{channel_name}: " + message.content
-        self.push_task(channel=message.channel, message=text)
+        # Include note about images if present
+        text = f"{sender_name} on #{channel_name}: " + message_content
+        if image_attachments:
+            text += f" [User sent {len(image_attachments)} image(s) that can be edited]"
+        if reminder_info:
+            text += f" [User requested a reminder in {reminder_info['time_delta']} - reminder message: '{reminder_info['message']}']"
+
+        self.push_task(
+            channel=message.channel,
+            message=text,
+            attachments=image_attachments,
+            reminder_info=reminder_info,
+            user_id=message.author.id,
+            user_name=sender_name,
+        )
 
         print("Current task queue: ", self.task_queue.qsize())
         print("Current history length:", len(self.chat))
