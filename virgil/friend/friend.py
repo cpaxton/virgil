@@ -106,6 +106,7 @@ class Friend(DiscordBot):
         memory_mode: str = "rag",
         memory_max_results: int = 10,
         memory_similarity_threshold: float = 0.3,
+        auto_memory: bool = True,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -121,9 +122,10 @@ class Friend(DiscordBot):
             weather_api_key (Optional[str]): OpenWeatherMap API key for weather functionality. Defaults to None.
             enable_mcp (bool): Whether to enable MCP server alongside Discord bot. Defaults to False.
             restrict_to_allowed_channels (bool): Whether to restrict automated messages (reminders/scheduled tasks) to allowed channels only. Defaults to True.
-            memory_mode (str): Memory retrieval mode: "static" (all memories), "rag" (semantic search), or "hybrid" (rag with static fallback). Defaults to "static".
+            memory_mode (str): Memory retrieval mode: "static" (all memories), "rag" (semantic search), or "hybrid" (rag with static fallback). Defaults to "rag".
             memory_max_results (int): Maximum number of memories to retrieve in RAG mode. Defaults to 10.
             memory_similarity_threshold (float): Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.
+            auto_memory (bool): Automatically extract and store important information from conversations. Defaults to True.
         """
 
         self.backend = get_backend(backend)
@@ -168,6 +170,9 @@ class Friend(DiscordBot):
             max_memories=memory_max_results,
             similarity_threshold=memory_similarity_threshold,
         )
+
+        # Auto-memory extraction enabled
+        self.auto_memory = auto_memory
 
         # Keep backward compatibility: expose memory list for old code
         # This will be deprecated but maintained for compatibility
@@ -568,7 +573,20 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: The content to remember.
         """
-        print(colored(f"💾 Remembering: {content}", "blue"))
+        print()
+        print(colored("=" * 60, "cyan", attrs=["bold"]))
+        print(
+            colored(
+                "💾 EXPLICIT MEMORY ADDED",
+                "blue",
+                attrs=["bold", "underline"],
+            )
+        )
+        print(colored("=" * 60, "cyan", attrs=["bold"]))
+        print(colored(f"  {content}", "green", attrs=["bold"]))
+        print(colored("=" * 60, "cyan", attrs=["bold"]))
+        print()
+
         # Add metadata about where this memory came from
         metadata = {
             "channel": task.channel.name,
@@ -767,7 +785,12 @@ class Friend(DiscordBot):
             response = self.chat.prompt(
                 text, verbose=True, assistant_history_prefix=""
             )  # f"{self._user_name} on #{channel_name}: ")
-        action_plan = self.parser.parse(response)
+            action_plan = self.parser.parse(response)
+
+        # Auto-extract memories from conversation if enabled
+        if self.auto_memory:
+            await self._extract_auto_memories(task, text, response)
+
         print()
         print(
             colored(
@@ -1376,6 +1399,115 @@ class Friend(DiscordBot):
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
+
+    async def _extract_auto_memories(
+        self, task: Task, user_message: str, assistant_response: str
+    ):
+        """
+        Automatically extract and store important information from conversations.
+
+        Uses LLM to identify facts, preferences, and important information that should be remembered.
+
+        Args:
+            task: The task containing channel and context information.
+            user_message: The user's message.
+            assistant_response: The assistant's response.
+        """
+        if not self.auto_memory:
+            return
+
+        # Skip if this is an explicit task or very short messages
+        if task.explicit or len(user_message) < 10:
+            return
+
+        # Create prompt for memory extraction
+        extraction_prompt = f"""Analyze this conversation and extract any important information that should be remembered:
+
+User: {user_message}
+Assistant: {assistant_response[:500]}  # Truncate for efficiency
+
+Extract facts, preferences, names, relationships, or other important information that would be useful to remember for future conversations. 
+Format each memory as a clear, standalone fact (e.g., "User prefers dark mode", "User's name is Alice", "User mentioned they work at TechCorp").
+
+Return ONLY a list of memories, one per line. If nothing important should be remembered, return "NONE".
+Do NOT include action tags or formatting. Just plain text, one memory per line.
+
+Memories to extract:"""
+
+        try:
+            # Run extraction in background to avoid blocking
+            async def extract_memories():
+                try:
+
+                    def _prompt_with_lock():
+                        with self._chat_lock:
+                            return self.chat.prompt(
+                                extraction_prompt,
+                                verbose=False,
+                                assistant_history_prefix="",
+                            )
+
+                    loop = asyncio.get_event_loop()
+                    extraction_result = await loop.run_in_executor(
+                        None, _prompt_with_lock
+                    )
+
+                    # Parse extracted memories
+                    memories = []
+                    for line in extraction_result.strip().split("\n"):
+                        line = line.strip()
+                        # Skip empty lines, "NONE", and lines that look like action tags
+                        if line and line.upper() != "NONE" and not line.startswith("<"):
+                            # Check if this memory already exists (avoid duplicates)
+                            existing_memories = self.memory_manager.get_all_memories()
+                            if line not in existing_memories:
+                                memories.append(line)
+
+                    # Add extracted memories
+                    if memories:
+                        print()
+                        print(colored("=" * 60, "cyan", attrs=["bold"]))
+                        print(
+                            colored(
+                                f"💾 AUTO-EXTRACTED {len(memories)} NEW MEMORY/MEMORIES",
+                                "blue",
+                                attrs=["bold", "underline"],
+                            )
+                        )
+                        print(colored("=" * 60, "cyan", attrs=["bold"]))
+                        for idx, memory_content in enumerate(memories, 1):
+                            print(
+                                colored(f"  [{idx}] ", "cyan", attrs=["bold"])
+                                + colored(memory_content, "green", attrs=["bold"])
+                            )
+                            metadata = {
+                                "channel": task.channel.name,
+                                "user": task.user_name,
+                                "created_via": "auto_extraction",
+                                "source_message": user_message[
+                                    :100
+                                ],  # Store snippet for context
+                            }
+                            self.memory_manager.add_memory(
+                                memory_content, metadata=metadata
+                            )
+                        print(colored("=" * 60, "cyan", attrs=["bold"]))
+                        print()
+
+                        # Update backward-compatible list
+                        self.memory = self.memory_manager.get_all_memories()
+
+                except Exception as e:
+                    # Silently fail - auto-memory is best-effort
+                    if self.auto_memory:  # Only log if enabled
+                        print(f"Note: Auto-memory extraction failed: {e}")
+
+            # Run in background
+            asyncio.create_task(extract_memories())
+
+        except Exception:
+            # Silently fail - auto-memory is best-effort
+            pass
 
     async def _execute_action_plan(self, task: Task, response: str):
         """Execute an action plan parsed from an LLM response.
@@ -2070,6 +2202,11 @@ Your response:"""
     type=float,
     help="Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.",
 )
+@click.option(
+    "--auto-memory/--no-auto-memory",
+    default=True,
+    help="Automatically extract and store important information from conversations. Defaults to enabled.",
+)
 def main(
     token,
     backend,
@@ -2082,6 +2219,7 @@ def main(
     memory_mode,
     memory_max_results,
     memory_similarity_threshold,
+    auto_memory,
 ):
     if mcp_only:
         # Run as MCP server only
@@ -2140,6 +2278,7 @@ def main(
             memory_mode=memory_mode,
             memory_max_results=memory_max_results,
             memory_similarity_threshold=memory_similarity_threshold,
+            auto_memory=auto_memory,
         )
 
         @bot.client.command(name="summon", help="Summon the bot to a channel.")
