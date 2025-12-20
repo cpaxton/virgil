@@ -42,6 +42,7 @@ torch.backends.cudnn.allow_tf32 = True
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder
 from virgil.friend.scheduler import Scheduler, ScheduledTask
+from virgil.friend.memory import MemoryManager
 from virgil.image import (
     DiffuserImageGenerator,
     FluxImageGenerator,
@@ -102,6 +103,9 @@ class Friend(DiscordBot):
         weather_api_key: Optional[str] = None,
         enable_mcp: bool = False,
         restrict_to_allowed_channels: bool = True,
+        memory_mode: str = "rag",
+        memory_max_results: int = 10,
+        memory_similarity_threshold: float = 0.3,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -117,6 +121,9 @@ class Friend(DiscordBot):
             weather_api_key (Optional[str]): OpenWeatherMap API key for weather functionality. Defaults to None.
             enable_mcp (bool): Whether to enable MCP server alongside Discord bot. Defaults to False.
             restrict_to_allowed_channels (bool): Whether to restrict automated messages (reminders/scheduled tasks) to allowed channels only. Defaults to True.
+            memory_mode (str): Memory retrieval mode: "static" (all memories), "rag" (semantic search), or "hybrid" (rag with static fallback). Defaults to "static".
+            memory_max_results (int): Maximum number of memories to retrieve in RAG mode. Defaults to 10.
+            memory_similarity_threshold (float): Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.
         """
 
         self.backend = get_backend(backend)
@@ -155,24 +162,16 @@ class Friend(DiscordBot):
 
         super(Friend, self).__init__(token)
 
-        # Check to see if memory file exists
-        # Memory is stored as a text file with a list of messages
-        # Each message is just a string
-        # The file is stored in the same directory as the bot
-        # The file is named "memory.txt"
-        memory_file = "memory.txt"
-        # If the file does not exist, create it
-        if not os.path.exists(memory_file):
-            with open(memory_file, "w") as file:
-                file.write("")
-            memory = []
-        else:
-            # If the file does exist, load the memory into memory
-            with open(memory_file, "r") as file:
-                memory = file.read().split("\n")
+        # Initialize memory manager with RAG support
+        self.memory_manager = MemoryManager(
+            mode=memory_mode,
+            max_memories=memory_max_results,
+            similarity_threshold=memory_similarity_threshold,
+        )
 
-        # Loaded memory
-        self.memory = memory
+        # Keep backward compatibility: expose memory list for old code
+        # This will be deprecated but maintained for compatibility
+        self.memory = self.memory_manager.get_all_memories()
 
         if isinstance(image_generator, str):
             if image_generator.lower() == "diffuser":
@@ -328,10 +327,17 @@ class Friend(DiscordBot):
                 print(colored(f"Failed to initialize MCP server: {e}", "yellow"))
                 print("Continuing without MCP server...")
 
+        # Format prompt with memories
+        # For static mode: include all memories in system prompt
+        # For RAG/hybrid mode: memories will be injected per-query, so leave empty here
+        memories_text = ""
+        if self.memory_manager.mode == "static":
+            memories_text = "\n".join(self.memory_manager.get_all_memories())
+
         self.prompt = self.raw_prompt.format(
             username=self._user_name,
             user_id=self._user_id,
-            memories="\n".join(self.memory),
+            memories=memories_text,
         )
 
         if self.sent_prompt is False:
@@ -563,13 +569,18 @@ class Friend(DiscordBot):
             content: The content to remember.
         """
         print(colored(f"💾 Remembering: {content}", "blue"))
-        # Add this to memory
-        self.memory.append(content)
+        # Add metadata about where this memory came from
+        metadata = {
+            "channel": task.channel.name,
+            "user": task.user_name,
+            "created_via": "remember_action",
+        }
 
-        # Save memory to file
-        with open("memory.txt", "w") as file:
-            for line in self.memory:
-                file.write(line + "\n")
+        # Add to memory manager
+        self.memory_manager.add_memory(content, metadata=metadata)
+
+        # Update backward-compatible memory list
+        self.memory = self.memory_manager.get_all_memories()
 
         await task.channel.send("*Remembering: " + content + "*")
 
@@ -582,16 +593,14 @@ class Friend(DiscordBot):
         """
         print(colored(f"🗑️  Forgetting: {content}", "red"))
 
-        # Remove this from memory
-        try:
-            self.memory.remove(content)
-        except ValueError:
-            print(colored(" -> Could not find this in memory: ", content, "red"))
+        # Remove from memory manager
+        removed = self.memory_manager.remove_memory(content)
 
-        # Save memory to file
-        with open("memory.txt", "w") as file:
-            for line in self.memory:
-                file.write(line + "\n")
+        if removed:
+            # Update backward-compatible memory list
+            self.memory = self.memory_manager.get_all_memories()
+        else:
+            print(colored(" -> Could not find this in memory: ", content, "red"))
 
         await task.channel.send("*Forgetting: " + content + "*")
 
@@ -735,6 +744,21 @@ class Friend(DiscordBot):
                 return
         except Exception as e:
             print(colored("Error in handling task: " + str(e), "red"))
+
+        # Get relevant memories for this query (dynamic in RAG/hybrid mode)
+        # For RAG/hybrid modes, prepend memories as context to the user message
+        # For static mode, memories are already in the system prompt
+        if self.memory_manager.mode in ("rag", "hybrid"):
+            relevant_memories = self.memory_manager.get_memories_for_query(text)
+            if relevant_memories:
+                # Count memories (split by newline, filter empty)
+                memory_count = len(
+                    [m for m in relevant_memories.split("\n") if m.strip()]
+                )
+                # Prepend memories as context to the user message
+                memories_context = f"[Relevant memories:\n{relevant_memories}\n]\n\n"
+                text = memories_context + text
+                print(colored(f"📚 Retrieved {memory_count} relevant memories", "cyan"))
 
         response = None
         # try:
@@ -1037,13 +1061,19 @@ class Friend(DiscordBot):
             )
             return
 
-        if not schedule_value:
+        # For hourly schedules, empty value is valid. For other types, value is required.
+        if schedule_type != "hourly" and not schedule_value:
             await task.channel.send(
-                "*Error: The <schedule> tag requires a 'value' attribute. "
+                "*Error: The <schedule> tag requires a 'value' attribute for this schedule type. "
                 'Please use format like <schedule type="interval" value="5 minutes">message</schedule> '
-                'or <schedule type="daily" value="14:30">message</schedule>.*'
+                'or <schedule type="daily" value="14:30">message</schedule>. '
+                'For hourly schedules, use <schedule type="hourly" value="">message</schedule>.*'
             )
             return
+
+        # Normalize empty value for hourly schedules
+        if schedule_type == "hourly" and schedule_value == "":
+            schedule_value = ""  # Keep empty string for hourly
 
         try:
             # Create scheduled task
@@ -1109,8 +1139,17 @@ class Friend(DiscordBot):
                 print(colored("  Type: post", "cyan"))
                 print(colored(f"  Message: {schedule_message}", "white"))
                 print(colored(f"  Channel: #{channel_name} (ID: {channel.id})", "cyan"))
+                schedule_display = (
+                    schedule_value
+                    if schedule_value
+                    else "every hour"
+                    if schedule_type == "hourly"
+                    else ""
+                )
                 print(
-                    colored(f"  Schedule: {schedule_type} - {schedule_value}", "yellow")
+                    colored(
+                        f"  Schedule: {schedule_type} - {schedule_display}", "yellow"
+                    )
                 )
                 print(
                     colored(
@@ -1120,8 +1159,10 @@ class Friend(DiscordBot):
 
                 # Format schedule description for user
                 schedule_desc = f"{schedule_type}"
-                if schedule_value:
+                if schedule_value and schedule_type != "hourly":
                     schedule_desc += f" ({schedule_value})"
+                elif schedule_type == "hourly":
+                    schedule_desc += " (every hour)"
 
                 await task.channel.send(
                     f"✓ Scheduled task created! I'll post '{schedule_message}' "
@@ -1160,8 +1201,17 @@ class Friend(DiscordBot):
                         f"  User: {user_name_to_use} (ID: {user_id_to_use})", "cyan"
                     )
                 )
+                schedule_display = (
+                    schedule_value
+                    if schedule_value
+                    else "every hour"
+                    if schedule_type == "hourly"
+                    else ""
+                )
                 print(
-                    colored(f"  Schedule: {schedule_type} - {schedule_value}", "yellow")
+                    colored(
+                        f"  Schedule: {schedule_type} - {schedule_display}", "yellow"
+                    )
                 )
                 print(
                     colored(
@@ -1171,8 +1221,10 @@ class Friend(DiscordBot):
 
                 # Format schedule description for user
                 schedule_desc = f"{schedule_type}"
-                if schedule_value:
+                if schedule_value and schedule_type != "hourly":
                     schedule_desc += f" ({schedule_value})"
+                elif schedule_type == "hourly":
+                    schedule_desc += " (every hour)"
 
                 await task.channel.send(
                     f"✓ Scheduled DM created! I'll DM you '{schedule_message}' "
@@ -2001,6 +2053,23 @@ Your response:"""
     default=False,
     help="Run as MCP server only (no Discord bot). Exposes Friend capabilities via MCP protocol.",
 )
+@click.option(
+    "--memory-mode",
+    type=click.Choice(["static", "rag", "hybrid"]),
+    default="rag",
+    help="Memory retrieval mode: rag (semantic search, default), static (all memories), hybrid (rag with static fallback).",
+)
+@click.option(
+    "--memory-max-results",
+    default=10,
+    help="Maximum number of memories to retrieve in RAG mode. Defaults to 10.",
+)
+@click.option(
+    "--memory-similarity-threshold",
+    default=0.3,
+    type=float,
+    help="Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.",
+)
 def main(
     token,
     backend,
@@ -2010,6 +2079,9 @@ def main(
     weather_api_key,
     enable_mcp,
     mcp_only,
+    memory_mode,
+    memory_max_results,
+    memory_similarity_threshold,
 ):
     if mcp_only:
         # Run as MCP server only
@@ -2065,6 +2137,9 @@ def main(
             image_generator=image_generator,
             weather_api_key=weather_api_key,
             enable_mcp=enable_mcp,
+            memory_mode=memory_mode,
+            memory_max_results=memory_max_results,
+            memory_similarity_threshold=memory_similarity_threshold,
         )
 
         @bot.client.command(name="summon", help="Summon the bot to a channel.")

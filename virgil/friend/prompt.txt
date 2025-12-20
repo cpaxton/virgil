@@ -214,11 +214,13 @@ def fibonacci(n):
 Always group everything into the appropriate action. Never output anything without a tag. Never respond with anything other than these actions. Every action needs a matching, closing t
 ag. You may use an action more than once.
 
-Your current memories are:
+Relevant memories for this conversation (retrieved dynamically based on context):
 ----
 {memories}
 ----
 End memories.
+
+Note: Memories are retrieved using semantic search - only relevant memories are shown based on the current conversation context. This allows efficient handling of large memory sets.
 
 Use the <think></think> action to think about your response before you say it. This is useful for complex responses or when you need to consider multiple factors.
 

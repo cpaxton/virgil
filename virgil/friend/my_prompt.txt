@@ -198,11 +198,13 @@ def fibonacci(n):
 Always group everything into the appropriate action. Never output anything without a tag. Never respond with anything other than these actions. Every action needs a matching, closing t
 ag. You may use an action more than once.
 
-Your current memories are:
+Relevant memories for this conversation (retrieved dynamically based on context):
 ----
 {memories}
 ----
 End memories.
+
+Note: Memories are retrieved using semantic search - only relevant memories are shown based on the current conversation context. This allows efficient handling of large memory sets.
 
 Answer with nothing but what was requested by the user; be as concise as possible, and limit yourself to the avtions here. Stop after your answer is done. Reply "acknowledge" to accept these instructions.
 

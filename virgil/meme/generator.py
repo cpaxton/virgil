@@ -35,9 +35,10 @@ def load_prompt() -> str:
 
 
 class MemeGenerator:
-    def __init__(self, backend: str = "gemma"):
+    def __init__(self, backend: str = "gemma", memory_manager=None):
         self.backend = get_backend(backend)
         self.base_prompt = load_prompt()
+        self.memory_manager = memory_manager
 
     def generate_meme(self, prompt: str) -> str:
         """Generate a meme based on the prompt.
@@ -48,7 +49,15 @@ class MemeGenerator:
         Returns:
             str: The generated meme.
         """
+        # Get relevant memories if memory manager is available
+        memories_text = ""
+        if self.memory_manager:
+            relevant_memories = self.memory_manager.get_memories_for_query(prompt)
+            if relevant_memories:
+                memories_text = f"\n\nRelevant memories for this meme:\n----\n{relevant_memories}\n----\nEnd memories.\n"
+            else:
+                memories_text = "\n\n(No relevant memories found)\n"
 
-        prompt = self.base_prompt.format(prompt=prompt)
+        prompt = self.base_prompt.format(prompt=prompt, memories=memories_text)
 
         return self.backend.generate_meme(prompt)

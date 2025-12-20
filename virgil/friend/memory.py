@@ -1,0 +1,381 @@
+# Copyright 2024 Chris Paxton
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# (c) 2024 by Chris Paxton
+
+"""
+Memory management system with optional RAG (Retrieval-Augmented Generation) support.
+
+Supports three modes:
+- static: All memories included in prompt (backward compatible)
+- rag: Dynamic semantic retrieval based on query
+- hybrid: RAG for large sets, static for small sets
+"""
+
+import os
+import json
+import uuid
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from typing import Optional, List, Dict
+import numpy as np
+
+
+@dataclass
+class Memory:
+    """Represents a single memory entry."""
+
+    id: str
+    content: str
+    embedding: Optional[List[float]] = None  # Stored as list for JSON serialization
+    metadata: Optional[Dict] = None
+    created_at: Optional[str] = None
+    accessed_at: Optional[str] = None
+    access_count: int = 0
+
+    def __post_init__(self):
+        """Initialize timestamps if not provided."""
+        if self.created_at is None:
+            self.created_at = datetime.now().isoformat()
+        if self.metadata is None:
+            self.metadata = {}
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict):
+        """Create Memory from dictionary."""
+        return cls(
+            id=data["id"],
+            content=data["content"],
+            embedding=data.get("embedding"),
+            metadata=data.get("metadata", {}),
+            created_at=data.get("created_at"),
+            accessed_at=data.get("accessed_at"),
+            access_count=data.get("access_count", 0),
+        )
+
+
+class MemoryManager:
+    """
+    Manages memories with optional RAG support.
+
+    Modes:
+    - "static": Current behavior (all memories in prompt)
+    - "rag": Dynamic retrieval based on semantic similarity
+    - "hybrid": RAG + fallback to static for small memory sets
+    """
+
+    def __init__(
+        self,
+        mode: str = "static",
+        storage_file: str = "memories.json",
+        legacy_file: str = "memory.txt",
+        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
+        max_memories: int = 10,
+        similarity_threshold: float = 0.3,
+        use_gpu: bool = True,
+        hybrid_threshold: int = 20,  # Use static mode if fewer than this many memories
+    ):
+        """
+        Initialize the memory manager.
+
+        Args:
+            mode: "static", "rag", or "hybrid"
+            storage_file: Path to JSON file for storing memories
+            legacy_file: Path to legacy memory.txt file (for migration)
+            embedding_model: Model name for sentence transformers
+            max_memories: Maximum memories to retrieve in RAG mode
+            similarity_threshold: Minimum similarity score (0.0-1.0)
+            use_gpu: Whether to use GPU for embeddings
+            hybrid_threshold: Memory count threshold for hybrid mode
+        """
+        self.mode = mode
+        self.storage_file = storage_file
+        self.legacy_file = legacy_file
+        self.embedding_model_name = embedding_model
+        self.max_memories = max_memories
+        self.similarity_threshold = similarity_threshold
+        self.use_gpu = use_gpu
+        self.hybrid_threshold = hybrid_threshold
+
+        self.memories: Dict[str, Memory] = {}
+        self._embedding_model = None
+        self._embedding_cache = {}  # Cache embeddings in memory
+
+        # Load existing memories
+        self._load_memories()
+
+    def _load_memories(self):
+        """Load memories from storage file or migrate from legacy format."""
+        # Check if new format exists
+        if os.path.exists(self.storage_file):
+            try:
+                with open(self.storage_file, "r") as f:
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        # Old format: list of memories
+                        for mem_data in data:
+                            memory = Memory.from_dict(mem_data)
+                            self.memories[memory.id] = memory
+                    elif isinstance(data, dict) and "memories" in data:
+                        # New format: dict with metadata
+                        for mem_data in data["memories"]:
+                            memory = Memory.from_dict(mem_data)
+                            self.memories[memory.id] = memory
+            except Exception as e:
+                print(f"Error loading memories from {self.storage_file}: {e}")
+                # Try to migrate from legacy format
+                self._migrate_from_legacy()
+        elif os.path.exists(self.legacy_file):
+            # Migrate from legacy memory.txt format
+            self._migrate_from_legacy()
+
+    def _migrate_from_legacy(self):
+        """Migrate memories from legacy memory.txt format."""
+        print(f"Migrating memories from {self.legacy_file} to {self.storage_file}...")
+        if not os.path.exists(self.legacy_file):
+            return
+
+        try:
+            with open(self.legacy_file, "r") as f:
+                lines = f.read().split("\n")
+
+            migrated_count = 0
+            for line in lines:
+                line = line.strip()
+                if line:  # Skip empty lines
+                    memory = Memory(
+                        id=str(uuid.uuid4()),
+                        content=line,
+                        metadata={"migrated": True, "source": "memory.txt"},
+                    )
+                    self.memories[memory.id] = memory
+                    migrated_count += 1
+
+            if migrated_count > 0:
+                self._save_memories()
+                print(f"Migrated {migrated_count} memories from legacy format.")
+        except Exception as e:
+            print(f"Error migrating from legacy format: {e}")
+
+    def _save_memories(self):
+        """Save memories to storage file."""
+        try:
+            memories_data = {
+                "version": "1.0",
+                "mode": self.mode,
+                "memories": [mem.to_dict() for mem in self.memories.values()],
+            }
+            with open(self.storage_file, "w") as f:
+                json.dump(memories_data, f, indent=2)
+        except Exception as e:
+            print(f"Error saving memories: {e}")
+
+    def _get_embedding_model(self):
+        """Lazy load embedding model."""
+        if self._embedding_model is None and self.mode in ("rag", "hybrid"):
+            try:
+                from sentence_transformers import SentenceTransformer
+
+                print(f"Loading embedding model: {self.embedding_model_name}")
+                self._embedding_model = SentenceTransformer(self.embedding_model_name)
+                if self.use_gpu:
+                    # Try to use GPU if available
+                    import torch
+
+                    if torch.cuda.is_available():
+                        self._embedding_model = self._embedding_model.cuda()
+                        print("Using GPU for embeddings")
+                    else:
+                        print("GPU not available, using CPU")
+            except ImportError:
+                print(
+                    "Warning: sentence-transformers not installed. Install with: pip install sentence-transformers"
+                )
+                print("Falling back to static mode")
+                self.mode = "static"
+            except Exception as e:
+                print(f"Error loading embedding model: {e}")
+                print("Falling back to static mode")
+                self.mode = "static"
+        return self._embedding_model
+
+    def _get_embedding(self, text: str) -> Optional[np.ndarray]:
+        """Get embedding for text, using cache if available."""
+        # Check cache first
+        if text in self._embedding_cache:
+            return self._embedding_cache[text]
+
+        model = self._get_embedding_model()
+        if model is None:
+            return None
+
+        try:
+            embedding = model.encode(text, convert_to_numpy=True)
+            # Normalize for cosine similarity
+            embedding = embedding / np.linalg.norm(embedding)
+            self._embedding_cache[text] = embedding
+            return embedding
+        except Exception as e:
+            print(f"Error generating embedding: {e}")
+            return None
+
+    def add_memory(self, content: str, metadata: Optional[Dict] = None) -> Memory:
+        """
+        Add a new memory.
+
+        Args:
+            content: Memory content
+            metadata: Optional metadata dictionary
+
+        Returns:
+            The created Memory object
+        """
+        memory = Memory(
+            id=str(uuid.uuid4()),
+            content=content,
+            metadata=metadata or {},
+        )
+
+        # Generate embedding if in RAG mode
+        if self.mode in ("rag", "hybrid"):
+            embedding = self._get_embedding(content)
+            if embedding is not None:
+                memory.embedding = embedding.tolist()
+
+        self.memories[memory.id] = memory
+        self._save_memories()
+        return memory
+
+    def remove_memory(self, content: str) -> bool:
+        """
+        Remove a memory by exact content match.
+
+        Args:
+            content: Memory content to remove
+
+        Returns:
+            True if memory was removed, False if not found
+        """
+        for mem_id, memory in list(self.memories.items()):
+            if memory.content == content:
+                del self.memories[mem_id]
+                # Also remove from cache
+                if content in self._embedding_cache:
+                    del self._embedding_cache[content]
+                self._save_memories()
+                return True
+        return False
+
+    def get_relevant_memories(
+        self, query: str, max_results: Optional[int] = None
+    ) -> List[Memory]:
+        """
+        Retrieve relevant memories for a query using semantic similarity.
+
+        Args:
+            query: Query text to find relevant memories for
+            max_results: Maximum number of results (defaults to self.max_memories)
+
+        Returns:
+            List of Memory objects sorted by relevance
+        """
+        if not self.memories:
+            return []
+
+        max_results = max_results or self.max_memories
+
+        # Generate query embedding
+        query_embedding = self._get_embedding(query)
+        if query_embedding is None:
+            # Fallback to all memories if embedding fails
+            return list(self.memories.values())[:max_results]
+
+        # Compute similarities
+        similarities = []
+        for memory in self.memories.values():
+            if memory.embedding is None:
+                # Generate embedding if missing
+                embedding = self._get_embedding(memory.content)
+                if embedding is not None:
+                    memory.embedding = embedding.tolist()
+                    self._save_memories()
+                else:
+                    continue
+
+            # Convert to numpy array
+            mem_embedding = np.array(memory.embedding)
+            # Compute cosine similarity
+            similarity = np.dot(query_embedding, mem_embedding)
+
+            if similarity >= self.similarity_threshold:
+                similarities.append((similarity, memory))
+
+        # Sort by similarity (descending)
+        similarities.sort(key=lambda x: x[0], reverse=True)
+
+        # Update access tracking
+        for _, memory in similarities[:max_results]:
+            memory.access_count += 1
+            memory.accessed_at = datetime.now().isoformat()
+
+        # Return top results
+        return [memory for _, memory in similarities[:max_results]]
+
+    def get_all_memories(self) -> List[str]:
+        """
+        Get all memory contents as strings (for static mode).
+
+        Returns:
+            List of memory content strings
+        """
+        return [memory.content for memory in self.memories.values()]
+
+    def get_memories_for_query(self, query: str) -> str:
+        """
+        Get formatted memories for a query based on current mode.
+
+        Args:
+            query: Query text
+
+        Returns:
+            Formatted string of memories (one per line)
+        """
+        if self.mode == "static":
+            memories = self.get_all_memories()
+        elif self.mode == "hybrid":
+            # Use static if small set, otherwise RAG
+            if len(self.memories) < self.hybrid_threshold:
+                memories = self.get_all_memories()
+            else:
+                memories = [m.content for m in self.get_relevant_memories(query)]
+        else:  # rag mode
+            memories = [m.content for m in self.get_relevant_memories(query)]
+
+        # Filter out empty strings and join with newlines
+        memories = [m for m in memories if m.strip()]
+        return "\n".join(memories) if memories else ""
+
+    def __len__(self) -> int:
+        """Return number of memories."""
+        return len(self.memories)
+
+    def clear(self):
+        """Clear all memories."""
+        self.memories.clear()
+        self._embedding_cache.clear()
+        self._save_memories()

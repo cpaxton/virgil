@@ -5,3 +5,7 @@ A good meme has two parts:
 - A caption
 
 The picture should be something that is funny or clever, and the caption should be something that adds to the humor or cleverness of the picture. This is often via contrast; the juxtaposition of two things that don't normally go together.
+
+{memories}
+
+If relevant memories are provided above, you can use them to make the meme more personalized, contextual, or relevant to the user's interests and history. However, the primary goal is still to create something funny and clever related to the prompt subject.
