@@ -17,7 +17,6 @@
 import click
 import os
 import signal
-import sys
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
@@ -28,7 +27,6 @@ import time
 from termcolor import colored
 import io
 import discord
-import aiohttp
 from PIL import Image
 
 # This only works on Ampere+ GPUs
@@ -42,7 +40,7 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
-from virgil.friend.reminder import ReminderManager, Reminder, parse_reminder_command
+from virgil.friend.reminder import ReminderManager, Reminder
 from virgil.friend.scheduler import Scheduler, ScheduledTask, parse_schedule_command
 from virgil.image import (
     DiffuserImageGenerator,
@@ -62,7 +60,6 @@ import asyncio
 from datetime import datetime, timedelta
 from virgil.utils.docs import (
     list_available_docs,
-    get_doc_content,
     format_doc_summary,
     get_available_docs,
 )
@@ -111,9 +108,13 @@ class Friend(DiscordBot):
             token (Optional[str]): The token for the discord bot. Defaults to None.
             backend (str): The backend to use for the chat. Defaults to "gemma".
             attention_window_seconds (float): The number of seconds to pay attention to a channel. Defaults to 600.0.
-            image_generator (Optional[DiffuserImageGenerator]): The image generator to use. Defaults to None.
+            image_generator (str): The image generator to use ("diffuser", "flux", or "qwen-layered"). Defaults to "diffuser".
             join_at_random (bool): Whether to join channels at random. Defaults to False.
             max_history_length (int): The maximum length of the chat history. Defaults to 25.
+            prompt_filename (str): The filename for the prompt. Defaults to "prompt.txt".
+            home_channel (str): The name of the home channel to join. Defaults to "ask-a-robot".
+            weather_api_key (Optional[str]): OpenWeatherMap API key for weather functionality. Defaults to None.
+            enable_mcp (bool): Whether to enable MCP server alongside Discord bot. Defaults to False.
         """
 
         self.backend = get_backend(backend)
@@ -472,14 +473,24 @@ class Friend(DiscordBot):
         return formatted_message
 
     async def _handle_say_action(self, task: Task, content: str):
-        """Handle the 'say' action - send message to channel."""
+        """Handle the 'say' action - send message to channel.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The message content to send.
+        """
         # Split content into <2000 character chunks
         while len(content) > 0:
             await task.channel.send(content[:2000])
             content = content[2000:]
 
     async def _handle_imagine_action(self, task: Task, content: str):
-        """Handle the 'imagine' action - generate and send an image."""
+        """Handle the 'imagine' action - generate and send an image.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The image generation prompt.
+        """
         await task.channel.send("*Imagining: " + content + "...*")
         time.sleep(0.1)  # Wait for message to be sent
         print("Generating image for prompt:", content)
@@ -504,7 +515,12 @@ class Friend(DiscordBot):
             await task.channel.send(file=file)
 
     async def _handle_remember_action(self, task: Task, content: str):
-        """Handle the 'remember' action - add to memory."""
+        """Handle the 'remember' action - add to memory.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The content to remember.
+        """
         print("Remembering:", content)
         # Add this to memory
         self.memory.append(content)
@@ -517,7 +533,12 @@ class Friend(DiscordBot):
         await task.channel.send("*Remembering: " + content + "*")
 
     async def _handle_forget_action(self, task: Task, content: str):
-        """Handle the 'forget' action - remove from memory."""
+        """Handle the 'forget' action - remove from memory.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The content to forget.
+        """
         print("Forgetting:", content)
 
         # Remove this from memory
@@ -534,7 +555,12 @@ class Friend(DiscordBot):
         await task.channel.send("*Forgetting: " + content + "*")
 
     async def _handle_weather_action(self, task: Task, content: str):
-        """Handle the 'weather' action - get and send weather information."""
+        """Handle the 'weather' action - get and send weather information.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The city/location to get weather for.
+        """
         print("Getting weather for:", content)
         if not self.weather_api_key:
             await task.channel.send("*Sorry, weather API key is not configured.*")
@@ -561,7 +587,12 @@ class Friend(DiscordBot):
                 await task.channel.send(error_msg)
 
     async def _handle_edit_image_action(self, task: Task, content: str):
-        """Handle the 'edit_image' action - edit an image using Qwen Image Layered."""
+        """Handle the 'edit_image' action - edit an image using Qwen Image Layered.
+
+        Args:
+            task: The task containing channel, attachments, and context information.
+            content: The editing prompt/instructions.
+        """
         # Edit an image using Qwen Image Layered
         if not isinstance(self.image_generator, QwenLayeredImageGenerator):
             await task.channel.send(
@@ -634,7 +665,16 @@ class Friend(DiscordBot):
             await task.channel.send(error_msg)
 
     async def handle_task(self, task: Task):
-        """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
+        """Handle a task by processing the message and executing actions.
+
+        This method processes incoming tasks by:
+        1. Sending the message to the AI for processing
+        2. Parsing the AI's response into action plans
+        3. Routing each action to the appropriate handler
+
+        Args:
+            task: The task containing message, channel, and context information.
+        """
         print()
         print("-" * 40)
         print("Handling task from channel:", task.channel.name)
@@ -954,7 +994,12 @@ class Friend(DiscordBot):
             await task.channel.send(error_msg)
 
     async def _handle_help_action(self, task: Task, content: str):
-        """Handle the 'help' action - retrieve documentation."""
+        """Handle the 'help' action - retrieve documentation.
+
+        Args:
+            task: The task containing channel and context information.
+            content: Optional topic name. If empty, lists all available topics.
+        """
         print("Help requested:", content)
         if not content or content.strip() == "":
             # List all available docs

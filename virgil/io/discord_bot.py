@@ -226,7 +226,7 @@ class DiscordBot:
             self._started = False
             self._user_name = self.client.user.name
             self._user_id = self.client.user.id
-            return self.on_ready()
+            await self.on_ready()
 
         @client.event
         async def on_message(message: discord.Message):
