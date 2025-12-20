@@ -101,6 +101,7 @@ class Friend(DiscordBot):
         home_channel: str = "ask-a-robot",
         weather_api_key: Optional[str] = None,
         enable_mcp: bool = False,
+        restrict_to_allowed_channels: bool = True,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -115,6 +116,7 @@ class Friend(DiscordBot):
             home_channel (str): The name of the home channel to join. Defaults to "ask-a-robot".
             weather_api_key (Optional[str]): OpenWeatherMap API key for weather functionality. Defaults to None.
             enable_mcp (bool): Whether to enable MCP server alongside Discord bot. Defaults to False.
+            restrict_to_allowed_channels (bool): Whether to restrict automated messages (reminders/scheduled tasks) to allowed channels only. Defaults to True.
         """
 
         self.backend = get_backend(backend)
@@ -131,6 +133,7 @@ class Friend(DiscordBot):
         self.home_channel = home_channel
         self.weather_api_key = weather_api_key
         self._weather_api_key_valid = False
+        self.restrict_to_allowed_channels = restrict_to_allowed_channels
 
         # Validate weather API key if provided
         if self.weather_api_key:
@@ -1467,6 +1470,57 @@ Your response:"""
 
                 # Parse and execute action plan
                 if task_channel:
+                    # Check if channel is in allowed_channels (if restriction is enabled)
+                    if (
+                        self.restrict_to_allowed_channels
+                        and task_channel not in self.allowed_channels
+                    ):
+                        print(
+                            colored(
+                                f"⚠️ Reminder blocked: Channel {reminder.channel_name} is not in allowed channels",
+                                "yellow",
+                            )
+                        )
+                        # Fallback to DM if channel is not allowed
+                        user = self.client.get_user(reminder.user_id)
+                        if user:
+                            await user.send(
+                                f"🔔 Reminder (from #{reminder.channel_name}): {reminder.message}"
+                            )
+                            print(
+                                colored(
+                                    f"🔔 Reminder executed: Sent DM to {reminder.user_name} (channel not allowed)",
+                                    "yellow",
+                                )
+                            )
+                        else:
+                            print(
+                                f"Warning: Could not send reminder to channel or user {reminder.user_id}"
+                            )
+                        return
+
+                    # Check if we can send messages to this channel
+                    if not task_channel.permissions_for(
+                        task_channel.guild.me
+                    ).send_messages:
+                        # Fallback to DM if we can't send to channel
+                        user = self.client.get_user(reminder.user_id)
+                        if user:
+                            await user.send(
+                                f"🔔 Reminder (from #{reminder.channel_name}): {reminder.message}"
+                            )
+                            print(
+                                colored(
+                                    f"🔔 Reminder executed: Sent DM to {reminder.user_name} (couldn't send to channel)",
+                                    "yellow",
+                                )
+                            )
+                        else:
+                            print(
+                                f"Warning: Could not send reminder to channel or user {reminder.user_id}"
+                            )
+                        return
+
                     # Create a Task object for channel-based execution
                     task = Task(
                         message="",  # Not used for reminders
@@ -1641,6 +1695,19 @@ Your response:"""
                     if task.channel_id:
                         channel = self.client.get_channel(task.channel_id)
                         if channel:
+                            # Check if channel is in allowed_channels (if restriction is enabled)
+                            if (
+                                self.restrict_to_allowed_channels
+                                and channel not in self.allowed_channels
+                            ):
+                                print(
+                                    colored(
+                                        f"⚠️ Scheduled task blocked: Channel {task.channel_name} is not in allowed channels",
+                                        "yellow",
+                                    )
+                                )
+                                return
+
                             # Check permissions
                             if channel.permissions_for(channel.guild.me).send_messages:
                                 # Create a Task object for action execution
