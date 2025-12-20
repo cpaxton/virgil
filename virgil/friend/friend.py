@@ -59,7 +59,7 @@ from virgil.services.image_service import VirgilImageService
 from virgil.services.message_service import DiscordMessageService
 from virgil.mcp.server import VirgilMCPServer
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
@@ -439,8 +439,16 @@ class Friend(DiscordBot):
         action_plan = self.parser.parse(response)
         print()
         print("Action plan:", action_plan)
-        for action, content in action_plan:
-            print(f"Action: {action}, Content: {content}")  # Handle actions here
+        for item in action_plan:
+            # Handle both old format (action, content) and new format (action, content, attributes)
+            if len(item) == 3:
+                action, content, attributes = item
+            else:
+                action, content = item
+                attributes = {}
+            print(
+                f"Action: {action}, Content: {content}, Attributes: {attributes}"
+            )  # Handle actions here
             if action == "say":
                 # Split content into <2000 character chunks
                 while len(content) > 0:
@@ -601,54 +609,84 @@ class Friend(DiscordBot):
             elif action == "remind":
                 # Handle reminder action from AI
                 # Reminders are ONLY created when Friend explicitly uses <remind> action
-                # Parse reminder from original user message or AI's content
+                # Format: <remind time="HH:MM:SS">message</remind> or <remind time="YYYY-MM-DD HH:MM:SS">message</remind>
+                # Friend must always specify the time attribute - we do NOT parse from user message
                 reminder_info_to_use = None
 
-                # Try to parse from original user message first
-                if task.message.content:
-                    parsed_reminder = parse_reminder_command(task.message.content)
-
-                    # If regex parsing fails, try LLM parsing
-                    if not parsed_reminder:
-                        from virgil.friend.reminder import (
-                            parse_reminder_command_with_llm,
-                        )
-
-                        # Use the chat model to parse
-                        def llm_parse_prompt(prompt_text):
-                            with self._chat_lock:
-                                return self.chat.prompt(
-                                    prompt_text,
-                                    verbose=False,
-                                    assistant_history_prefix="",
-                                )
-
-                        parsed_reminder, parsing_instructions = (
-                            parse_reminder_command_with_llm(
-                                task.message.content, llm_parse_prompt
+                # Check if time attribute is provided in the tag (REQUIRED)
+                if attributes.get("time"):
+                    # Parse time from attribute
+                    time_str = attributes["time"]
+                    try:
+                        # Try parsing as relative time (HH:MM:SS)
+                        time_parts = time_str.split(":")
+                        if len(time_parts) == 3:
+                            hours, minutes, seconds = map(int, time_parts)
+                            time_delta = timedelta(
+                                hours=hours, minutes=minutes, seconds=seconds
                             )
-                        )
-                        if parsing_instructions:
-                            print(f"LLM parsing suggestions: {parsing_instructions}")
-
-                    if parsed_reminder:
-                        reminder_info_to_use = parsed_reminder.copy()
-                        if reminder_info_to_use.get("time_delta"):
-                            reminder_info_to_use["reminder_time"] = (
-                                datetime.now() + reminder_info_to_use["time_delta"]
+                            reminder_time = datetime.now() + time_delta
+                            reminder_info_to_use = {
+                                "time_delta": time_delta,
+                                "reminder_time": reminder_time,
+                                "message": content.strip() if content else "",
+                                "users": [],
+                            }
+                        elif len(time_parts) == 2:
+                            # Try parsing as HH:MM (assume seconds = 0)
+                            hours, minutes = map(int, time_parts)
+                            time_delta = timedelta(
+                                hours=hours, minutes=minutes, seconds=0
                             )
-                        elif reminder_info_to_use.get("reminder_time"):
-                            # Already has absolute time
-                            pass
+                            reminder_time = datetime.now() + time_delta
+                            reminder_info_to_use = {
+                                "time_delta": time_delta,
+                                "reminder_time": reminder_time,
+                                "message": content.strip() if content else "",
+                                "users": [],
+                            }
                         else:
-                            reminder_info_to_use = None
+                            # Try parsing as absolute time (YYYY-MM-DD HH:MM:SS or ISO format)
+                            # Handle both space and T separators
+                            time_str_normalized = time_str.replace(" ", "T")
+                            if (
+                                "T" not in time_str_normalized
+                                and len(time_str_normalized) == 8
+                            ):
+                                # Might be just HH:MM:SS, treat as relative
+                                time_parts = time_str.split(":")
+                                if len(time_parts) == 3:
+                                    hours, minutes, seconds = map(int, time_parts)
+                                    time_delta = timedelta(
+                                        hours=hours, minutes=minutes, seconds=seconds
+                                    )
+                                    reminder_time = datetime.now() + time_delta
+                                    reminder_info_to_use = {
+                                        "time_delta": time_delta,
+                                        "reminder_time": reminder_time,
+                                        "message": content.strip() if content else "",
+                                        "users": [],
+                                    }
+                            else:
+                                reminder_time = datetime.fromisoformat(
+                                    time_str_normalized
+                                )
+                                reminder_info_to_use = {
+                                    "time_delta": None,
+                                    "reminder_time": reminder_time,
+                                    "message": content.strip() if content else "",
+                                    "users": [],
+                                }
+                    except (ValueError, TypeError) as e:
+                        print(f"Error parsing time attribute '{time_str}': {e}")
+                        await task.channel.send(
+                            f"*Error: Could not parse time '{time_str}'. Please use format like '00:30:00' for 30 minutes or '2025-12-20 15:00:00' for absolute time.*"
+                        )
+                        return
 
                 if reminder_info_to_use:
-                    # Use the parsed reminder from user's message
-                    # Use AI's content as the reminder message if provided, otherwise use original
-                    reminder_message = (
-                        content.strip() if content else reminder_info_to_use["message"]
-                    )
+                    # Use AI's content as the reminder message
+                    reminder_message = content.strip() if content else ""
 
                     # Determine reminder time
                     if reminder_info_to_use.get("reminder_time"):
@@ -773,95 +811,10 @@ class Friend(DiscordBot):
                         await task.channel.send(
                             f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
                         )
-                elif content:
-                    # Try to parse reminder from AI's content (fallback if no reminder_info)
-                    parsed = parse_reminder_command(content)
-
-                    # If regex parsing fails, try LLM parsing
-                    if not parsed:
-                        from virgil.friend.reminder import (
-                            parse_reminder_command_with_llm,
-                        )
-
-                        # Use the chat model to parse
-                        def llm_parse_prompt(prompt_text):
-                            with self._chat_lock:
-                                return self.chat.prompt(
-                                    prompt_text,
-                                    verbose=False,
-                                    assistant_history_prefix="",
-                                )
-
-                        parsed, parsing_instructions = parse_reminder_command_with_llm(
-                            content, llm_parse_prompt
-                        )
-                        if parsing_instructions:
-                            print(f"LLM parsing suggestions: {parsing_instructions}")
-
-                    if parsed:
-                        # New format returns a dict
-                        if parsed.get("reminder_time"):
-                            reminder_time = parsed["reminder_time"]
-                            time_desc = reminder_time.strftime("%I:%M %p")
-                        elif parsed.get("time_delta"):
-                            reminder_time = datetime.now() + parsed["time_delta"]
-                            time_desc = str(parsed["time_delta"])
-                        else:
-                            await task.channel.send(
-                                "*I couldn't parse the reminder time. Please specify a time.*"
-                            )
-                            return
-
-                        reminder_msg = parsed["message"]
-                        users_to_remind = parsed.get("users", [])
-                        if not users_to_remind:
-                            users_to_remind = [task.user_name]
-
-                        # Create reminders for each user
-                        for user_name in users_to_remind:
-                            user_id_to_use = (
-                                task.user_id
-                                if user_name.lower() in ["me", task.user_name.lower()]
-                                else None
-                            )
-                            user_name_to_use = (
-                                task.user_name
-                                if user_name.lower() in ["me", task.user_name.lower()]
-                                else user_name
-                            )
-
-                            self.reminder_manager.add_reminder(
-                                channel_id=task.channel.id,
-                                channel_name=task.channel.name,
-                                user_id=user_id_to_use or task.user_id,
-                                user_name=user_name_to_use,
-                                reminder_time=reminder_time,
-                                message=reminder_msg,
-                            )
-
-                        if parsed.get("reminder_time"):
-                            await task.channel.send(
-                                f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} at {time_desc}."
-                            )
-                        else:
-                            await task.channel.send(
-                                f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
-                            )
-                    else:
-                        # Check if the message might be incomplete
-                        if content and content.lower().strip().endswith(
-                            ("to", "that", "about")
-                        ):
-                            await task.channel.send(
-                                "*It looks like your reminder message might be incomplete. Please finish your reminder, like 'remind me in 30 seconds to check my email' or 'remind me in 30 seconds that I need to call mom'.*"
-                            )
-                        else:
-                            await task.channel.send(
-                                "*I couldn't parse the reminder. Please use format like 'remind me in 30 mins to do something' or 'remind me at 3pm to do something'.*"
-                            )
                 else:
+                    # No time attribute provided - this is required
                     await task.channel.send(
-                        "*No reminder information provided. Please include timing information in your reminder request.*"
+                        '*Error: The <remind> tag requires a \'time\' attribute. Please use format like <remind time="00:30:00">message</remind> for relative time or <remind time="2025-12-20 15:00:00">message</remind> for absolute time.*'
                     )
             elif action == "schedule":
                 # Handle schedule action from AI
