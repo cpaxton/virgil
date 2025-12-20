@@ -332,17 +332,11 @@ class Friend(DiscordBot):
             except Exception:
                 pass
 
-            # Signal handler runs in a different thread - don't try to send messages here
-            # The KeyboardInterrupt will be raised in the main thread and caught by the async context
-            # which will handle sending goodbye messages before closing
-            # Just raise KeyboardInterrupt in the main thread to trigger graceful shutdown
-            import threading
+            # Signal handler runs in signal thread - don't try to send messages here
+            # Raise KeyboardInterrupt in main thread to trigger graceful shutdown in async context
+            import _thread
 
-            if threading.current_thread() is not threading.main_thread():
-                # We're in a signal handler thread - trigger shutdown in main thread
-                # The KeyboardInterrupt will be caught by the async context
-                pass
-            # Exit will happen naturally when the async context catches KeyboardInterrupt
+            _thread.interrupt_main()
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -407,6 +401,196 @@ class Friend(DiscordBot):
             print(self.prompt)
             print()
 
+    def _extract_plain_text_from_llm_response(self, response: str) -> str:
+        """
+        Extract plain text from LLM response, removing tags and formatting.
+
+        Args:
+            response: Raw LLM response that may contain tags
+
+        Returns:
+            Clean plain text message
+        """
+        import re
+
+        formatted_message = response.strip()
+        # Remove <think>...</think> tags
+        formatted_message = re.sub(
+            r"<think>.*?</think>", "", formatted_message, flags=re.DOTALL
+        )
+        # Extract from <say> tags if present, otherwise use as-is
+        say_match = re.search(r"<say>(.*?)</say>", formatted_message, re.DOTALL)
+        if say_match:
+            formatted_message = say_match.group(1).strip()
+        # Remove any remaining tags
+        formatted_message = re.sub(r"<[^>]+>", "", formatted_message)
+        # Clean up whitespace
+        formatted_message = " ".join(formatted_message.split())
+
+        return formatted_message
+
+    async def _handle_say_action(self, task: Task, content: str):
+        """Handle the 'say' action - send message to channel."""
+        # Split content into <2000 character chunks
+        while len(content) > 0:
+            await task.channel.send(content[:2000])
+            content = content[2000:]
+
+    async def _handle_imagine_action(self, task: Task, content: str):
+        """Handle the 'imagine' action - generate and send an image."""
+        await task.channel.send("*Imagining: " + content + "...*")
+        time.sleep(0.1)  # Wait for message to be sent
+        print("Generating image for prompt:", content)
+        with self._chat_lock:
+            image = self.image_service.generate_image(content)
+        image.save("generated_image.png")
+
+        # Send an image using the message service
+        print(" - Sending content:", image)
+        if self.message_service:
+            await self.message_service.send_image(
+                image,
+                channel_id=str(task.channel.id),
+                caption=None,
+            )
+        else:
+            # Fallback to direct Discord send if service not initialized
+            byte_arr = io.BytesIO()
+            image.save(byte_arr, format="PNG")
+            byte_arr.seek(0)
+            file = discord.File(byte_arr, filename="image.png")
+            await task.channel.send(file=file)
+
+    async def _handle_remember_action(self, task: Task, content: str):
+        """Handle the 'remember' action - add to memory."""
+        print("Remembering:", content)
+        # Add this to memory
+        self.memory.append(content)
+
+        # Save memory to file
+        with open("memory.txt", "w") as file:
+            for line in self.memory:
+                file.write(line + "\n")
+
+        await task.channel.send("*Remembering: " + content + "*")
+
+    async def _handle_forget_action(self, task: Task, content: str):
+        """Handle the 'forget' action - remove from memory."""
+        print("Forgetting:", content)
+
+        # Remove this from memory
+        try:
+            self.memory.remove(content)
+        except ValueError:
+            print(colored(" -> Could not find this in memory: ", content, "red"))
+
+        # Save memory to file
+        with open("memory.txt", "w") as file:
+            for line in self.memory:
+                file.write(line + "\n")
+
+        await task.channel.send("*Forgetting: " + content + "*")
+
+    async def _handle_weather_action(self, task: Task, content: str):
+        """Handle the 'weather' action - get and send weather information."""
+        print("Getting weather for:", content)
+        if not self.weather_api_key:
+            await task.channel.send("*Sorry, weather API key is not configured.*")
+        elif not self._weather_api_key_valid:
+            await task.channel.send(
+                "*Sorry, weather API key is invalid. Please check your configuration.*"
+            )
+        else:
+            try:
+                # Parse city from content (could be "London,UK" or just "London")
+                city = content.strip()
+                weather = get_current_weather(self.weather_api_key, city)
+                weather_message = format_weather_message(weather)
+                await task.channel.send(weather_message)
+            except ValueError as e:
+                # ValueError indicates API issues (invalid key, city not found, etc.)
+                error_msg = f"*Error getting weather: {str(e)}*"
+                print(colored(f"Weather error: {e}", "red"))
+                await task.channel.send(error_msg)
+            except Exception as e:
+                # Other unexpected errors
+                error_msg = f"*Unexpected error getting weather: {str(e)}*"
+                print(colored(f"Weather error: {e}", "red"))
+                await task.channel.send(error_msg)
+
+    async def _handle_edit_image_action(self, task: Task, content: str):
+        """Handle the 'edit_image' action - edit an image using Qwen Image Layered."""
+        # Edit an image using Qwen Image Layered
+        if not isinstance(self.image_generator, QwenLayeredImageGenerator):
+            await task.channel.send(
+                "*Sorry, image editing is only available with the qwen-layered image generator.*"
+            )
+            return
+
+        # Check if there are image attachments
+        if not task.attachments or len(task.attachments) == 0:
+            await task.channel.send(
+                "*Sorry, no image was found to edit. Please send an image with your message.*"
+            )
+            return
+
+        # Download the first image attachment
+        attachment = task.attachments[0]
+        try:
+            await task.channel.send(f"*Editing image: {attachment.filename}...*")
+            print(f"Downloading image: {attachment.url}")
+
+            # Download image using Discord's attachment URL
+            try:
+                # Use discord.py's built-in attachment reading
+                image_bytes = await attachment.read()
+                input_image = Image.open(io.BytesIO(image_bytes))
+                # Ensure RGBA for Qwen
+                if input_image.mode != "RGBA":
+                    input_image = input_image.convert("RGBA")
+            except Exception as download_error:
+                await task.channel.send(
+                    f"*Error downloading image: {str(download_error)}*"
+                )
+                print(colored(f"Image download error: {download_error}", "red"))
+                return
+
+            # Edit the image with Qwen Image Layered
+            edit_prompt = content if content else "enhance this image"
+            print(f"Editing image with prompt: {edit_prompt}")
+
+            with self._chat_lock:
+                edited_image = self.image_generator.generate(
+                    prompt=edit_prompt,
+                    input_image=input_image,
+                )
+
+            edited_image.save("edited_image.png")
+
+            # Send the edited image
+            print(" - Sending edited image")
+            if self.message_service:
+                await self.message_service.send_image(
+                    edited_image,
+                    channel_id=str(task.channel.id),
+                    caption=f"*Edited: {edit_prompt}*",
+                )
+            else:
+                # Fallback to direct Discord send
+                byte_arr = io.BytesIO()
+                edited_image.save(byte_arr, format="PNG")
+                byte_arr.seek(0)
+                file = discord.File(byte_arr, filename="edited_image.png")
+                await task.channel.send(f"*Edited: {edit_prompt}*", file=file)
+
+        except Exception as e:
+            error_msg = f"*Error editing image: {str(e)}*"
+            print(colored(f"Image editing error: {e}", "red"))
+            import traceback
+
+            traceback.print_exc()
+            await task.channel.send(error_msg)
+
     async def handle_task(self, task: Task):
         """Handle a task by sending the message to the channel. This will make the necessary calls in its thread to the different child functions that send messages, for example."""
         print()
@@ -440,456 +624,291 @@ class Friend(DiscordBot):
             else:
                 action, content = item
                 attributes = {}
-            print(
-                f"Action: {action}, Content: {content}, Attributes: {attributes}"
-            )  # Handle actions here
+            print(f"Action: {action}, Content: {content}, Attributes: {attributes}")
+            # Route to appropriate action handler
             if action == "say":
-                # Split content into <2000 character chunks
-                while len(content) > 0:
-                    await task.channel.send(content[:2000])
-                    content = content[2000:]
+                await self._handle_say_action(task, content)
             elif action == "imagine":
-                await task.channel.send("*Imagining: " + content + "...*")
-                time.sleep(0.1)  # Wait for message to be sent
-                print("Generating image for prompt:", content)
-                with self._chat_lock:
-                    image = self.image_service.generate_image(content)
-                image.save("generated_image.png")
-
-                # Send an image using the message service
-                print(" - Sending content:", image)
-                if self.message_service:
-                    await self.message_service.send_image(
-                        image,
-                        channel_id=str(task.channel.id),
-                        caption=None,
-                    )
-                else:
-                    # Fallback to direct Discord send if service not initialized
-                    byte_arr = io.BytesIO()
-                    image.save(byte_arr, format="PNG")
-                    byte_arr.seek(0)
-                    file = discord.File(byte_arr, filename="image.png")
-                    await task.channel.send(file=file)
+                await self._handle_imagine_action(task, content)
             elif action == "remember":
-                print("Remembering:", content)
-                # Add this to memory
-                self.memory.append(content)
-
-                # Save memory to file
-                with open("memory.txt", "w") as file:
-                    for line in self.memory:
-                        file.write(line + "\n")
-
-                await task.channel.send("*Remembering: " + content + "*")
+                await self._handle_remember_action(task, content)
             elif action == "forget":
-                print("Forgetting:", content)
-
-                # Remove this from memory
-                try:
-                    self.memory.remove(content)
-                except ValueError:
-                    print(
-                        colored(" -> Could not find this in memory: ", content, "red")
-                    )
-
-                # Save memory to file
-                with open("memory.txt", "w") as file:
-                    for line in self.memory:
-                        file.write(line + "\n")
-
-                await task.channel.send("*Forgetting: " + content + "*")
+                await self._handle_forget_action(task, content)
             elif action == "weather":
-                print("Getting weather for:", content)
-                if not self.weather_api_key:
-                    await task.channel.send(
-                        "*Sorry, weather API key is not configured.*"
-                    )
-                elif not self._weather_api_key_valid:
-                    await task.channel.send(
-                        "*Sorry, weather API key is invalid. Please check your configuration.*"
-                    )
-                else:
-                    try:
-                        # Parse city from content (could be "London,UK" or just "London")
-                        city = content.strip()
-                        weather = get_current_weather(self.weather_api_key, city)
-                        weather_message = format_weather_message(weather)
-                        await task.channel.send(weather_message)
-                    except ValueError as e:
-                        # ValueError indicates API issues (invalid key, city not found, etc.)
-                        error_msg = f"*Error getting weather: {str(e)}*"
-                        print(colored(f"Weather error: {e}", "red"))
-                        await task.channel.send(error_msg)
-                    except Exception as e:
-                        # Other unexpected errors
-                        error_msg = f"*Unexpected error getting weather: {str(e)}*"
-                        print(colored(f"Weather error: {e}", "red"))
-                        await task.channel.send(error_msg)
+                await self._handle_weather_action(task, content)
             elif action == "edit_image":
-                # Edit an image using Qwen Image Layered
-                if not isinstance(self.image_generator, QwenLayeredImageGenerator):
-                    await task.channel.send(
-                        "*Sorry, image editing is only available with the qwen-layered image generator.*"
-                    )
-                    continue
-
-                # Check if there are image attachments
-                if not task.attachments or len(task.attachments) == 0:
-                    await task.channel.send(
-                        "*Sorry, no image was found to edit. Please send an image with your message.*"
-                    )
-                    continue
-
-                # Download the first image attachment
-                attachment = task.attachments[0]
-                try:
-                    await task.channel.send(
-                        f"*Editing image: {attachment.filename}...*"
-                    )
-                    print(f"Downloading image: {attachment.url}")
-
-                    # Download image using Discord's attachment URL
-                    # Discord attachments can be accessed directly via their URL
-                    try:
-                        # Use discord.py's built-in attachment reading
-                        image_bytes = await attachment.read()
-                        input_image = Image.open(io.BytesIO(image_bytes))
-                        # Ensure RGBA for Qwen
-                        if input_image.mode != "RGBA":
-                            input_image = input_image.convert("RGBA")
-                    except Exception as download_error:
-                        await task.channel.send(
-                            f"*Error downloading image: {str(download_error)}*"
-                        )
-                        print(colored(f"Image download error: {download_error}", "red"))
-                        continue
-
-                    # Edit the image with Qwen Image Layered
-                    edit_prompt = content if content else "enhance this image"
-                    print(f"Editing image with prompt: {edit_prompt}")
-
-                    with self._chat_lock:
-                        edited_image = self.image_generator.generate(
-                            prompt=edit_prompt,
-                            input_image=input_image,
-                        )
-
-                    edited_image.save("edited_image.png")
-
-                    # Send the edited image
-                    print(" - Sending edited image")
-                    if self.message_service:
-                        await self.message_service.send_image(
-                            edited_image,
-                            channel_id=str(task.channel.id),
-                            caption=f"*Edited: {edit_prompt}*",
-                        )
-                    else:
-                        # Fallback to direct Discord send
-                        byte_arr = io.BytesIO()
-                        edited_image.save(byte_arr, format="PNG")
-                        byte_arr.seek(0)
-                        file = discord.File(byte_arr, filename="edited_image.png")
-                        await task.channel.send(f"*Edited: {edit_prompt}*", file=file)
-
-                except Exception as e:
-                    error_msg = f"*Error editing image: {str(e)}*"
-                    print(colored(f"Image editing error: {e}", "red"))
-                    import traceback
-
-                    traceback.print_exc()
-                    await task.channel.send(error_msg)
+                await self._handle_edit_image_action(task, content)
             elif action == "remind":
-                # Handle reminder action from AI
-                # Reminders are ONLY created when Friend explicitly uses <remind> action
-                # Format: <remind time="HH:MM:SS">message</remind> or <remind time="YYYY-MM-DD HH:MM:SS">message</remind>
-                # Friend must always specify the time attribute - we do NOT parse from user message
-                reminder_info_to_use = None
-
-                # Check if time attribute is provided in the tag (REQUIRED)
-                if attributes.get("time"):
-                    # Parse time from attribute
-                    time_str = attributes["time"]
-                    try:
-                        # Try parsing as relative time (HH:MM:SS)
-                        time_parts = time_str.split(":")
-                        if len(time_parts) == 3:
-                            hours, minutes, seconds = map(int, time_parts)
-                            time_delta = timedelta(
-                                hours=hours, minutes=minutes, seconds=seconds
-                            )
-                            reminder_time = datetime.now() + time_delta
-                            reminder_info_to_use = {
-                                "time_delta": time_delta,
-                                "reminder_time": reminder_time,
-                                "message": content.strip() if content else "",
-                                "users": [],
-                            }
-                        elif len(time_parts) == 2:
-                            # Try parsing as HH:MM (assume seconds = 0)
-                            hours, minutes = map(int, time_parts)
-                            time_delta = timedelta(
-                                hours=hours, minutes=minutes, seconds=0
-                            )
-                            reminder_time = datetime.now() + time_delta
-                            reminder_info_to_use = {
-                                "time_delta": time_delta,
-                                "reminder_time": reminder_time,
-                                "message": content.strip() if content else "",
-                                "users": [],
-                            }
-                        else:
-                            # Try parsing as absolute time (YYYY-MM-DD HH:MM:SS or ISO format)
-                            # Handle both space and T separators
-                            time_str_normalized = time_str.replace(" ", "T")
-                            if (
-                                "T" not in time_str_normalized
-                                and len(time_str_normalized) == 8
-                            ):
-                                # Might be just HH:MM:SS, treat as relative
-                                time_parts = time_str.split(":")
-                                if len(time_parts) == 3:
-                                    hours, minutes, seconds = map(int, time_parts)
-                                    time_delta = timedelta(
-                                        hours=hours, minutes=minutes, seconds=seconds
-                                    )
-                                    reminder_time = datetime.now() + time_delta
-                                    reminder_info_to_use = {
-                                        "time_delta": time_delta,
-                                        "reminder_time": reminder_time,
-                                        "message": content.strip() if content else "",
-                                        "users": [],
-                                    }
-                            else:
-                                reminder_time = datetime.fromisoformat(
-                                    time_str_normalized
-                                )
-                                reminder_info_to_use = {
-                                    "time_delta": None,
-                                    "reminder_time": reminder_time,
-                                    "message": content.strip() if content else "",
-                                    "users": [],
-                                }
-                    except (ValueError, TypeError) as e:
-                        print(f"Error parsing time attribute '{time_str}': {e}")
-                        await task.channel.send(
-                            f"*Error: Could not parse time '{time_str}'. Please use format like '00:30:00' for 30 minutes or '2025-12-20 15:00:00' for absolute time.*"
-                        )
-                        return
-
-                if reminder_info_to_use:
-                    # Use AI's content as the reminder message
-                    reminder_message = content.strip() if content else ""
-
-                    # Determine reminder time
-                    if reminder_info_to_use.get("reminder_time"):
-                        reminder_time = reminder_info_to_use["reminder_time"]
-                        time_desc = reminder_time.strftime("%I:%M %p")
-                    elif reminder_info_to_use.get("time_delta"):
-                        reminder_time = (
-                            datetime.now() + reminder_info_to_use["time_delta"]
-                        )
-                        time_desc = str(reminder_info_to_use["time_delta"])
-                    else:
-                        await task.channel.send(
-                            "*I couldn't parse the reminder time. Please specify a time.*"
-                        )
-                        return
-
-                    # Get users to remind (from parsed info or default to current user)
-                    users_to_remind = reminder_info_to_use.get("users", [])
-                    if not users_to_remind:
-                        # Default to current user
-                        users_to_remind = [task.user_name]
-
-                    # Create reminders for each user
-                    # For now, we'll create one reminder per user mentioned
-                    # In the future, we could look up Discord users by name
-                    reminders_created = []
-                    for user_name in users_to_remind:
-                        # Use current user's ID if it's "me" or the requester
-                        user_id_to_use = (
-                            task.user_id
-                            if user_name.lower() in ["me", task.user_name.lower()]
-                            else None
-                        )
-                        user_name_to_use = (
-                            task.user_name
-                            if user_name.lower() in ["me", task.user_name.lower()]
-                            else user_name
-                        )
-
-                        reminder = self.reminder_manager.add_reminder(
-                            channel_id=task.channel.id,
-                            channel_name=task.channel.name,
-                            user_id=user_id_to_use or task.user_id,
-                            user_name=user_name_to_use,
-                            reminder_time=reminder_time,
-                            message=reminder_message,
-                        )
-                        reminders_created.append(reminder)
-
-                    # Use the model to format the reminder message (async to avoid blocking)
-                    time_str = (
-                        time_desc
-                        if reminder_info_to_use.get("reminder_time")
-                        else str(reminder_info_to_use.get("time_delta", ""))
-                    )
-                    reminder_prompt = f"User {task.user_name} asked me to remind {'them' if len(users_to_remind) == 1 else f'{len(users_to_remind)} people'}: '{reminder_message}'. Format a friendly reminder message to send {'them' if len(users_to_remind) == 1 else 'them'} in {time_str}."
-
-                    # Format the reminder message in background to avoid blocking
-                    async def format_and_save_reminder():
-                        try:
-                            with self._chat_lock:
-                                formatted_response = self.chat.prompt(
-                                    reminder_prompt,
-                                    verbose=False,
-                                    assistant_history_prefix="",
-                                )
-
-                            # Extract plain text from the formatted response
-                            # Remove any action tags and thinking tags
-                            formatted_message = formatted_response.strip()
-
-                            # Remove <think>...</think> tags
-                            import re
-
-                            formatted_message = re.sub(
-                                r"<think>.*?</think>",
-                                "",
-                                formatted_message,
-                                flags=re.DOTALL,
-                            )
-
-                            # Extract content from <say> tags if present, otherwise use as-is
-                            say_match = re.search(
-                                r"<say>(.*?)</say>", formatted_message, re.DOTALL
-                            )
-                            if say_match:
-                                formatted_message = say_match.group(1).strip()
-
-                            # Remove any remaining tags
-                            formatted_message = re.sub(
-                                r"<[^>]+>", "", formatted_message
-                            )
-
-                            # Clean up whitespace
-                            formatted_message = " ".join(formatted_message.split())
-
-                            # Use formatted message if we got something meaningful, otherwise use original
-                            if formatted_message and len(formatted_message) > 3:
-                                for reminder in reminders_created:
-                                    reminder.message = formatted_message
-                            else:
-                                for reminder in reminders_created:
-                                    reminder.message = reminder_message
-
-                            self.reminder_manager._save_reminders()
-                        except Exception as e:
-                            print(f"Error formatting reminder message: {e}")
-                            # Use the original message if formatting fails
-                            for reminder in reminders_created:
-                                reminder.message = reminder_message
-                            self.reminder_manager._save_reminders()
-
-                    # Start formatting in background, don't wait
-                    asyncio.create_task(format_and_save_reminder())
-
-                    # Send confirmation immediately
-                    if reminder_info_to_use.get("reminder_time"):
-                        await task.channel.send(
-                            f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} at {time_desc}."
-                        )
-                    else:
-                        await task.channel.send(
-                            f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
-                        )
-                else:
-                    # No time attribute provided - this is required
-                    await task.channel.send(
-                        '*Error: The <remind> tag requires a \'time\' attribute. Please use format like <remind time="00:30:00">message</remind> for relative time or <remind time="2025-12-20 15:00:00">message</remind> for absolute time.*'
-                    )
+                await self._handle_remind_action(task, content, attributes)
             elif action == "schedule":
-                # Handle schedule action from AI
-                # Parse schedule command from content or user's message
-                schedule_info = None
+                await self._handle_schedule_action(task, content)
 
-                # Try to parse from AI's content first
-                if content:
-                    schedule_info = parse_schedule_command(content)
+    def _parse_reminder_time(self, time_str: str, content: str) -> Optional[dict]:
+        """
+        Parse reminder time from attribute string.
 
-                # If not found, try parsing from original message (if available)
-                if not schedule_info and task.original_message:
-                    schedule_info = parse_schedule_command(
-                        task.original_message.content
+        Args:
+            time_str: Time string from attribute (e.g., "00:30:00" or "2025-12-20 15:00:00")
+            content: Reminder message content
+
+        Returns:
+            Dictionary with reminder info or None if parsing fails
+        """
+        try:
+            # Try parsing as relative time (HH:MM:SS)
+            time_parts = time_str.split(":")
+            if len(time_parts) == 3:
+                hours, minutes, seconds = map(int, time_parts)
+                time_delta = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                reminder_time = datetime.now() + time_delta
+                return {
+                    "time_delta": time_delta,
+                    "reminder_time": reminder_time,
+                    "message": content.strip() if content else "",
+                    "users": [],
+                }
+            elif len(time_parts) == 2:
+                # Try parsing as HH:MM (assume seconds = 0)
+                hours, minutes = map(int, time_parts)
+                time_delta = timedelta(hours=hours, minutes=minutes, seconds=0)
+                reminder_time = datetime.now() + time_delta
+                return {
+                    "time_delta": time_delta,
+                    "reminder_time": reminder_time,
+                    "message": content.strip() if content else "",
+                    "users": [],
+                }
+            else:
+                # Try parsing as absolute time (YYYY-MM-DD HH:MM:SS or ISO format)
+                # Handle both space and T separators
+                time_str_normalized = time_str.replace(" ", "T")
+                if "T" not in time_str_normalized and len(time_str_normalized) == 8:
+                    # Might be just HH:MM:SS, treat as relative
+                    time_parts = time_str.split(":")
+                    if len(time_parts) == 3:
+                        hours, minutes, seconds = map(int, time_parts)
+                        time_delta = timedelta(
+                            hours=hours, minutes=minutes, seconds=seconds
+                        )
+                        reminder_time = datetime.now() + time_delta
+                        return {
+                            "time_delta": time_delta,
+                            "reminder_time": reminder_time,
+                            "message": content.strip() if content else "",
+                            "users": [],
+                        }
+                else:
+                    reminder_time = datetime.fromisoformat(time_str_normalized)
+                    return {
+                        "time_delta": None,
+                        "reminder_time": reminder_time,
+                        "message": content.strip() if content else "",
+                        "users": [],
+                    }
+        except (ValueError, TypeError):
+            return None
+
+    async def _handle_remind_action(self, task: Task, content: str, attributes: dict):
+        """Handle the 'remind' action - create a reminder."""
+        # Reminders are ONLY created when Friend explicitly uses <remind> action
+        # Format: <remind time="HH:MM:SS">message</remind> or <remind time="YYYY-MM-DD HH:MM:SS">message</remind>
+        # Friend must always specify the time attribute - we do NOT parse from user message
+
+        # Check if time attribute is provided in the tag (REQUIRED)
+        if not attributes.get("time"):
+            await task.channel.send(
+                '*Error: The <remind> tag requires a \'time\' attribute. Please use format like <remind time="00:30:00">message</remind> for relative time or <remind time="2025-12-20 15:00:00">message</remind> for absolute time.*'
+            )
+            return
+
+        # Parse time from attribute
+        time_str = attributes["time"]
+        reminder_info_to_use = self._parse_reminder_time(time_str, content)
+
+        if not reminder_info_to_use:
+            print(f"Error parsing time attribute '{time_str}'")
+            await task.channel.send(
+                f"*Error: Could not parse time '{time_str}'. Please use format like '00:30:00' for 30 minutes or '2025-12-20 15:00:00' for absolute time.*"
+            )
+            return
+
+        # Use AI's content as the reminder message
+        reminder_message = content.strip() if content else ""
+
+        # Determine reminder time
+        if reminder_info_to_use.get("reminder_time"):
+            reminder_time = reminder_info_to_use["reminder_time"]
+            time_desc = reminder_time.strftime("%I:%M %p")
+        elif reminder_info_to_use.get("time_delta"):
+            reminder_time = datetime.now() + reminder_info_to_use["time_delta"]
+            time_desc = str(reminder_info_to_use["time_delta"])
+        else:
+            await task.channel.send(
+                "*I couldn't parse the reminder time. Please specify a time.*"
+            )
+            return
+
+        # Get users to remind (from parsed info or default to current user)
+        users_to_remind = reminder_info_to_use.get("users", [])
+        if not users_to_remind:
+            # Default to current user
+            users_to_remind = [task.user_name]
+
+        # Create reminders for each user
+        reminders_created = []
+        for user_name in users_to_remind:
+            # Use current user's ID if it's "me" or the requester
+            user_id_to_use = (
+                task.user_id
+                if user_name.lower() in ["me", task.user_name.lower()]
+                else None
+            )
+            user_name_to_use = (
+                task.user_name
+                if user_name.lower() in ["me", task.user_name.lower()]
+                else user_name
+            )
+
+            reminder = self.reminder_manager.add_reminder(
+                channel_id=task.channel.id,
+                channel_name=task.channel.name,
+                user_id=user_id_to_use or task.user_id,
+                user_name=user_name_to_use,
+                reminder_time=reminder_time,
+                message=reminder_message,
+            )
+            reminders_created.append(reminder)
+
+        # Use the model to format the reminder message (async to avoid blocking)
+        time_str = (
+            time_desc
+            if reminder_info_to_use.get("reminder_time")
+            else str(reminder_info_to_use.get("time_delta", ""))
+        )
+        reminder_prompt = f"User {task.user_name} asked me to remind {'them' if len(users_to_remind) == 1 else f'{len(users_to_remind)} people'}: '{reminder_message}'. Format a friendly reminder message to send {'them' if len(users_to_remind) == 1 else 'them'} in {time_str}."
+
+        # Format the reminder message in background to avoid blocking
+        async def format_and_save_reminder():
+            try:
+                with self._chat_lock:
+                    formatted_response = self.chat.prompt(
+                        reminder_prompt,
+                        verbose=False,
+                        assistant_history_prefix="",
                     )
 
-                if schedule_info:
-                    try:
-                        # Create scheduled task
-                        if schedule_info["task_type"] == "post":
-                            # Find channel by name
-                            channel = None
-                            channel_name = schedule_info.get("channel_name", "")
-                            for ch in self.client.get_all_channels():
-                                if ch.name == channel_name:
-                                    channel = ch
-                                    break
+                # Extract plain text from the formatted response
+                formatted_message = self._extract_plain_text_from_llm_response(
+                    formatted_response
+                )
 
-                            if channel:
-                                self.scheduler.add_task(
-                                    task_type="post",
-                                    message=schedule_info["message"],
-                                    schedule_type=schedule_info["schedule_type"],
-                                    schedule_value=schedule_info["schedule_value"],
-                                    channel_id=channel.id,
-                                    channel_name=channel.name,
-                                )
-                                await task.channel.send(
-                                    f"✓ Scheduled task created! I'll post '{schedule_info['message']}' "
-                                    f"in #{channel_name} {schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
-                                )
-                            else:
-                                await task.channel.send(
-                                    f"*Could not find channel '{channel_name}'. Please check the channel name.*"
-                                )
+                # Use formatted message if we got something meaningful, otherwise use original
+                if formatted_message and len(formatted_message) > 3:
+                    for reminder in reminders_created:
+                        reminder.message = formatted_message
+                else:
+                    for reminder in reminders_created:
+                        reminder.message = reminder_message
 
-                        elif schedule_info["task_type"] == "dm":
-                            # Get user info - use task.user_id/user_name if available, otherwise from original message
-                            user_id_to_use = task.user_id
-                            user_name_to_use = task.user_name
-                            if not user_id_to_use and task.original_message:
-                                user_id_to_use = task.original_message.author.id
-                            if not user_name_to_use and task.original_message:
-                                user_name_to_use = (
-                                    task.original_message.author.display_name
-                                )
+                self.reminder_manager._save_reminders()
+            except Exception as e:
+                print(f"Error formatting reminder message: {e}")
+                # Use the original message if formatting fails
+                for reminder in reminders_created:
+                    reminder.message = reminder_message
+                self.reminder_manager._save_reminders()
 
-                            self.scheduler.add_task(
-                                task_type="dm",
-                                message=schedule_info["message"],
-                                schedule_type=schedule_info["schedule_type"],
-                                schedule_value=schedule_info["schedule_value"],
-                                user_id=user_id_to_use,
-                                user_name=user_name_to_use,
-                            )
-                            await task.channel.send(
-                                f"✓ Scheduled DM created! I'll DM you '{schedule_info['message']}' "
-                                f"{schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
-                            )
-                    except Exception as e:
-                        error_msg = f"*Error creating schedule: {str(e)}*"
-                        print(colored(f"Schedule error: {e}", "red"))
-                        import traceback
+        # Start formatting in background, don't wait
+        asyncio.create_task(format_and_save_reminder())
 
-                        traceback.print_exc()
-                        await task.channel.send(error_msg)
+        # Send confirmation immediately
+        if reminder_info_to_use.get("reminder_time"):
+            await task.channel.send(
+                f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} at {time_desc}."
+            )
+        else:
+            await task.channel.send(
+                f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
+            )
+
+    async def _handle_schedule_action(self, task: Task, content: str):
+        """Handle the 'schedule' action - create a scheduled task."""
+        # Parse schedule command from content or user's message
+        schedule_info = None
+
+        # Try to parse from AI's content first
+        if content:
+            schedule_info = parse_schedule_command(content)
+
+        # If not found, try parsing from original message (if available)
+        if not schedule_info and task.original_message:
+            schedule_info = parse_schedule_command(task.original_message.content)
+
+        if not schedule_info:
+            await task.channel.send(
+                "*I couldn't parse the schedule command. "
+                "Try: 'always post X in Y channel at 14:30' or 'always DM me X at 14:30'*"
+            )
+            return
+
+        try:
+            # Create scheduled task
+            if schedule_info["task_type"] == "post":
+                # Find channel by name
+                channel = None
+                channel_name = schedule_info.get("channel_name", "")
+                for ch in self.client.get_all_channels():
+                    if ch.name == channel_name:
+                        channel = ch
+                        break
+
+                if channel:
+                    self.scheduler.add_task(
+                        task_type="post",
+                        message=schedule_info["message"],
+                        schedule_type=schedule_info["schedule_type"],
+                        schedule_value=schedule_info["schedule_value"],
+                        channel_id=channel.id,
+                        channel_name=channel.name,
+                    )
+                    await task.channel.send(
+                        f"✓ Scheduled task created! I'll post '{schedule_info['message']}' "
+                        f"in #{channel_name} {schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
+                    )
                 else:
                     await task.channel.send(
-                        "*I couldn't parse the schedule command. "
-                        "Try: 'always post X in Y channel at 14:30' or 'always DM me X at 14:30'*"
+                        f"*Could not find channel '{channel_name}'. Please check the channel name.*"
                     )
+
+            elif schedule_info["task_type"] == "dm":
+                # Get user info - use task.user_id/user_name if available, otherwise from original message
+                user_id_to_use = task.user_id
+                user_name_to_use = task.user_name
+                if not user_id_to_use and task.original_message:
+                    user_id_to_use = task.original_message.author.id
+                if not user_name_to_use and task.original_message:
+                    user_name_to_use = task.original_message.author.display_name
+
+                self.scheduler.add_task(
+                    task_type="dm",
+                    message=schedule_info["message"],
+                    schedule_type=schedule_info["schedule_type"],
+                    schedule_value=schedule_info["schedule_value"],
+                    user_id=user_id_to_use,
+                    user_name=user_name_to_use,
+                )
+                await task.channel.send(
+                    f"✓ Scheduled DM created! I'll DM you '{schedule_info['message']}' "
+                    f"{schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
+                )
+        except Exception as e:
+            error_msg = f"*Error creating schedule: {str(e)}*"
+            print(colored(f"Schedule error: {e}", "red"))
+            import traceback
+
+            traceback.print_exc()
+            await task.channel.send(error_msg)
+
         # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
@@ -924,20 +943,9 @@ Reminder message:"""
                     )
 
                 # Extract plain text from response
-                import re
-
-                generated_message = generated_message.strip()
-                # Remove <think> tags
-                generated_message = re.sub(
-                    r"<think>.*?</think>", "", generated_message, flags=re.DOTALL
+                generated_message = self._extract_plain_text_from_llm_response(
+                    generated_message
                 )
-                # Extract from <say> tags if present
-                say_match = re.search(r"<say>(.*?)</say>", generated_message, re.DOTALL)
-                if say_match:
-                    generated_message = say_match.group(1).strip()
-                # Remove any remaining tags
-                generated_message = re.sub(r"<[^>]+>", "", generated_message)
-                generated_message = " ".join(generated_message.split())
 
                 # Use generated message if meaningful, otherwise fall back to original
                 if generated_message and len(generated_message) > 3:
@@ -1049,20 +1057,9 @@ Message to post:"""
                     )
 
                 # Extract plain text from response
-                import re
-
-                generated_message = generated_message.strip()
-                # Remove <think> tags
-                generated_message = re.sub(
-                    r"<think>.*?</think>", "", generated_message, flags=re.DOTALL
+                generated_message = self._extract_plain_text_from_llm_response(
+                    generated_message
                 )
-                # Extract from <say> tags if present
-                say_match = re.search(r"<say>(.*?)</say>", generated_message, re.DOTALL)
-                if say_match:
-                    generated_message = say_match.group(1).strip()
-                # Remove any remaining tags
-                generated_message = re.sub(r"<[^>]+>", "", generated_message)
-                generated_message = " ".join(generated_message.split())
 
                 # Use generated message if meaningful, otherwise fall back to original
                 if generated_message and len(generated_message) > 3:
