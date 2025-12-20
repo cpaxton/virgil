@@ -32,7 +32,7 @@ def load_prompt(prompt_filename: str) -> str:
             for line in text.splitlines():
                 if line is None:
                     continue
-                elif len(line) == 0:
+                elif len(line) == 0 or len(line.strip()) == 0:
                     parsed_text += "\n"
                 elif len(line) > 0 and line.strip()[0] != "#":
                     parsed_text += line + "\n"

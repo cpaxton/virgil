@@ -248,15 +248,25 @@ def parse_reminder_time(text: str) -> Optional[timedelta]:
     Returns:
         timedelta object or None if parsing fails
     """
-    # Patterns for time parsing
+    # Patterns for time parsing (more flexible, including common typos)
     patterns = [
-        (r"(\d+)\s*(?:minute|min|m)\s*(?:s)?", lambda x: timedelta(minutes=int(x))),
-        (r"(\d+)\s*(?:hour|hr|h)\s*(?:s)?", lambda x: timedelta(hours=int(x))),
+        (
+            r"(\d+)\s*(?:minute|min|m|minuts|minute)\s*(?:s)?",
+            lambda x: timedelta(minutes=int(x)),
+        ),
+        (
+            r"(\d+)\s*(?:hour|hr|h|houres|hour)\s*(?:s)?",
+            lambda x: timedelta(hours=int(x)),
+        ),
         (r"(\d+)\s*(?:day|d)\s*(?:s)?", lambda x: timedelta(days=int(x))),
-        (r"(\d+)\s*(?:second|sec|s)\s*(?:s)?", lambda x: timedelta(seconds=int(x))),
+        (
+            r"(\d+)\s*(?:second|sec|s|secnds|seconds)\s*(?:s)?",
+            lambda x: timedelta(seconds=int(x)),
+        ),
+        (r"(\d+)\s*(?:week|wk|w)\s*(?:s)?", lambda x: timedelta(weeks=int(x))),
     ]
 
-    text_lower = text.lower()
+    text_lower = text.lower().strip()
 
     for pattern, converter in patterns:
         match = re.search(pattern, text_lower)
@@ -267,33 +277,298 @@ def parse_reminder_time(text: str) -> Optional[timedelta]:
     return None
 
 
-def parse_reminder_command(text: str) -> Optional[tuple[timedelta, str]]:
+def parse_absolute_time(text: str) -> Optional[datetime]:
     """
-    Parse a reminder command like "remind me in 30 mins to do the dishes".
+    Parse an absolute time from text like "at 3pm", "at 14:30", "tomorrow at 9am", etc.
+
+    Args:
+        text: Text containing absolute time
+
+    Returns:
+        datetime object or None if parsing fails
+    """
+
+    text_lower = text.lower().strip()
+    now = datetime.now()
+
+    # Pattern: "at HH:MM" or "at H:MM" (24-hour or 12-hour)
+    time_pattern = r"at\s+(\d{1,2}):(\d{2})\s*(?:am|pm)?"
+    match = re.search(time_pattern, text_lower)
+    if match:
+        hour = int(match.group(1))
+        minute = int(match.group(2))
+
+        # Check for AM/PM
+        if "pm" in text_lower and hour < 12:
+            hour += 12
+        elif "am" in text_lower and hour == 12:
+            hour = 0
+
+        # Check if time has passed today, if so schedule for tomorrow
+        target_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if target_time <= now:
+            target_time += timedelta(days=1)
+
+        return target_time
+
+    # Pattern: "at Xpm" or "at Xam" (simple hour)
+    simple_time_pattern = r"at\s+(\d{1,2})\s*(am|pm)"
+    match = re.search(simple_time_pattern, text_lower)
+    if match:
+        hour = int(match.group(1))
+        am_pm = match.group(2)
+
+        if am_pm == "pm" and hour < 12:
+            hour += 12
+        elif am_pm == "am" and hour == 12:
+            hour = 0
+
+        target_time = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+        if target_time <= now:
+            target_time += timedelta(days=1)
+
+        return target_time
+
+    # Pattern: "tomorrow at X"
+    if "tomorrow" in text_lower:
+        tomorrow = now + timedelta(days=1)
+        # Try to extract time
+        time_match = re.search(r"(\d{1,2}):?(\d{2})?\s*(am|pm)?", text_lower)
+        if time_match:
+            hour = int(time_match.group(1))
+            minute = int(time_match.group(2)) if time_match.group(2) else 0
+            am_pm = time_match.group(3)
+
+            if am_pm == "pm" and hour < 12:
+                hour += 12
+            elif am_pm == "am" and hour == 12:
+                hour = 0
+
+            return tomorrow.replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    return None
+
+
+def parse_reminder_command_with_llm(
+    text: str, llm_prompt_func=None
+) -> tuple[Optional[dict], Optional[str]]:
+    """
+    Use LLM to parse a reminder command when regex parsing fails.
+
+    Args:
+        text: The reminder command text
+        llm_prompt_func: Optional function to call LLM with a prompt
+
+    Returns:
+        Tuple of (parsed_dict, parsing_instructions) or (None, None)
+        parsing_instructions contains suggestions for improving parsing
+    """
+    if not llm_prompt_func:
+        return None, None
+
+    prompt = f"""Parse this reminder request and extract the time and message. Return ONLY a JSON object with this exact structure:
+{{
+    "time_delta": "HH:MM:SS" or null (for relative times like "in 30 mins"),
+    "reminder_time": "YYYY-MM-DD HH:MM:SS" or null (for absolute times like "at 3pm"),
+    "message": "the reminder message text",
+    "users": ["list", "of", "user", "names"] or [] (empty if just "me"),
+    "parsing_instructions": "specific regex patterns or parsing rules that would help parse similar requests in the future"
+}}
+
+Rules:
+- If time is relative (e.g., "in 30 mins", "in 2 hours", "in 30 secnds"), set time_delta as "HH:MM:SS" format and reminder_time as null
+  * Handle common typos: "secnds" → "seconds", "minuts" → "minutes", "houres" → "hours"
+- If time is absolute (e.g., "at 3pm", "tomorrow at 9am"), set reminder_time as "YYYY-MM-DD HH:MM:SS" and time_delta as null
+- Extract only the reminder message, not the time
+- If the message appears incomplete (e.g., ends with "to" without a following phrase), set message to null
+- If multiple users mentioned, list them in users array; if just "me" or "us", use empty array
+- In parsing_instructions, suggest specific regex patterns or parsing improvements
+- Return ONLY the JSON, no other text, no explanations, no markdown formatting
+
+User request: "{text}"
+"""
+
+    try:
+        response = llm_prompt_func(prompt)
+        # Extract JSON from response (might be wrapped in markdown code blocks)
+        import json
+        import re
+
+        # Try to find JSON in the response - look for complete JSON objects
+        # First try to find JSON between ```json and ```
+        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            # Try to find JSON object with balanced braces
+            json_match = re.search(
+                r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", response, re.DOTALL
+            )
+            if json_match:
+                json_str = json_match.group(0)
+            else:
+                # Last resort: try the whole response
+                json_str = response.strip()
+
+        parsed = json.loads(json_str)
+
+        # Validate that we got meaningful data
+        if not parsed.get("time_delta") and not parsed.get("reminder_time"):
+            # No time parsed, return None
+            return None, None
+
+        # Check if message is incomplete or invalid
+        message = parsed.get("message", "").strip()
+        if (
+            not message
+            or len(message) < 2
+            or message.lower() in ["to", "that", "about"]
+        ):
+            # Message is incomplete or just a connector word
+            return None, None
+
+        # Extract parsing instructions
+        parsing_instructions = parsed.pop("parsing_instructions", None)
+
+        # Convert time_delta string to timedelta if present
+        if parsed.get("time_delta"):
+            time_parts = parsed["time_delta"].split(":")
+            if len(time_parts) == 3:
+                hours, minutes, seconds = map(int, time_parts)
+                parsed["time_delta"] = timedelta(
+                    hours=hours, minutes=minutes, seconds=seconds
+                )
+            else:
+                parsed["time_delta"] = None
+
+        # Convert reminder_time string to datetime if present
+        if parsed.get("reminder_time"):
+            try:
+                parsed["reminder_time"] = datetime.fromisoformat(
+                    parsed["reminder_time"].replace(" ", "T")
+                )
+            except (ValueError, TypeError):
+                parsed["reminder_time"] = None
+
+        return parsed, parsing_instructions
+    except Exception as e:
+        print(f"Error parsing reminder with LLM: {e}")
+        return None, None
+
+
+def parse_reminder_command(text: str) -> Optional[dict]:
+    """
+    Parse a reminder command like "remind me in 30 mins to do the dishes"
+    or "remind Chris and Julian at 3pm to do the dishes".
 
     Args:
         text: The reminder command text
 
     Returns:
-        Tuple of (timedelta, message) or None if parsing fails
+        Dictionary with keys:
+        - 'time_delta': timedelta (if relative time) or None
+        - 'reminder_time': datetime (if absolute time) or None
+        - 'message': str - the reminder message
+        - 'users': list[str] - list of user names mentioned (empty if just "me")
+        or None if parsing fails
     """
     text_lower = text.lower().strip()
 
-    # Pattern: "remind me in X to Y" or "remind me in X that Y"
-    patterns = [
-        r"remind\s+(?:me|us)?\s+in\s+(.+?)\s+(?:to|that)\s+(.+)",
-        r"remind\s+(?:me|us)?\s+(.+?)\s+(?:to|that)\s+(.+)",
+    # Extract user mentions (names or "me"/"us")
+    # Pattern: "remind [user1] [and user2] ... [in/at] ..."
+    # Use non-greedy match to stop at "in" or "at"
+    user_pattern = r"remind\s+(.+?)\s+(?:in|at|to|that)"
+    user_match = re.search(user_pattern, text_lower)
+    users = []
+    if user_match:
+        users_str = user_match.group(1).strip()
+        # Split by "and", "&", comma
+        users_list = re.split(r"\s+(?:and|&|,)\s+", users_str)
+        users = [u.strip() for u in users_list if u.strip()]
+        # Normalize "me" and "us"
+        if "me" in users or "us" in users:
+            users = []  # Empty means current user
+    else:
+        # Default to "me" if no users specified
+        users = []
+
+    # Try absolute time first: "remind [users] at X to Y" or "remind [users] at X: Y"
+    absolute_patterns = [
+        r"remind\s+(?:.+?)?\s+at\s+(.+?)\s+(?:to|that|:)\s+(.+)",
+        r"remind\s+(?:.+?)?\s+tomorrow\s+(?:at\s+)?(.+?)\s+(?:to|that|:)\s+(.+)",
     ]
 
-    for pattern in patterns:
+    for pattern in absolute_patterns:
         match = re.search(pattern, text_lower)
         if match:
             time_str = match.group(1)
             message = match.group(2).strip()
 
-            # Try to parse the time
+            # Try to parse absolute time
+            reminder_time = parse_absolute_time(f"at {time_str}")
+            if reminder_time:
+                return {
+                    "time_delta": None,
+                    "reminder_time": reminder_time,
+                    "message": message,
+                    "users": users,
+                }
+
+    # Try relative time: "remind [users] in X to Y" or "remind [users] in X: Y"
+    relative_patterns = [
+        r"remind\s+(?:.+?)?\s+in\s+(.+?)\s*[:]\s*(.+)",  # Colon separator
+        r"remind\s+(?:.+?)?\s+in\s+(.+?)\s+(?:to|that)\s+(.+)",  # "to" or "that"
+        r"remind\s+(?:.+?)?\s+(.+?)\s*[:]\s*(.+)",  # Fallback with colon
+        r"remind\s+(?:.+?)?\s+(.+?)\s+(?:to|that)\s+(.+)",  # Fallback: "remind me X to Y"
+    ]
+
+    for pattern in relative_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            time_str = match.group(1)
+            message = match.group(2).strip()
+
+            # Try to parse relative time
             time_delta = parse_reminder_time(time_str)
             if time_delta:
-                return (time_delta, message)
+                return {
+                    "time_delta": time_delta,
+                    "reminder_time": None,
+                    "message": message,
+                    "users": users,
+                }
+
+    # Fallback: try to extract time and message from simpler patterns
+    # "in 30 mins to do X" or "at 3pm to do X" or "in 30 mins: do X"
+    simple_patterns = [
+        r"in\s+(.+?)\s+(?:to|that|about|:)\s+(.+)",
+        r"at\s+(.+?)\s+(?:to|that|about|:)\s+(.+)",
+    ]
+
+    for pattern in simple_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            time_str = match.group(1)
+            message = match.group(2).strip()
+
+            # Try absolute time first
+            reminder_time = parse_absolute_time(f"at {time_str}")
+            if reminder_time:
+                return {
+                    "time_delta": None,
+                    "reminder_time": reminder_time,
+                    "message": message,
+                    "users": users,
+                }
+
+            # Try relative time
+            time_delta = parse_reminder_time(time_str)
+            if time_delta:
+                return {
+                    "time_delta": time_delta,
+                    "reminder_time": None,
+                    "message": message,
+                    "users": users,
+                }
 
     return None

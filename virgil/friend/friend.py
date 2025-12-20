@@ -600,9 +600,48 @@ class Friend(DiscordBot):
                     await task.channel.send(error_msg)
             elif action == "remind":
                 # Handle reminder action from AI
-                # The AI can use <remind>message</remind> to create reminders
-                # We use reminder_info from the user's message which contains the timing
-                reminder_info_to_use = task.reminder_info
+                # Reminders are ONLY created when Friend explicitly uses <remind> action
+                # Parse reminder from original user message or AI's content
+                reminder_info_to_use = None
+
+                # Try to parse from original user message first
+                if task.message.content:
+                    parsed_reminder = parse_reminder_command(task.message.content)
+
+                    # If regex parsing fails, try LLM parsing
+                    if not parsed_reminder:
+                        from virgil.friend.reminder import (
+                            parse_reminder_command_with_llm,
+                        )
+
+                        # Use the chat model to parse
+                        def llm_parse_prompt(prompt_text):
+                            with self._chat_lock:
+                                return self.chat.prompt(
+                                    prompt_text,
+                                    verbose=False,
+                                    assistant_history_prefix="",
+                                )
+
+                        parsed_reminder, parsing_instructions = (
+                            parse_reminder_command_with_llm(
+                                task.message.content, llm_parse_prompt
+                            )
+                        )
+                        if parsing_instructions:
+                            print(f"LLM parsing suggestions: {parsing_instructions}")
+
+                    if parsed_reminder:
+                        reminder_info_to_use = parsed_reminder.copy()
+                        if reminder_info_to_use.get("time_delta"):
+                            reminder_info_to_use["reminder_time"] = (
+                                datetime.now() + reminder_info_to_use["time_delta"]
+                            )
+                        elif reminder_info_to_use.get("reminder_time"):
+                            # Already has absolute time
+                            pass
+                        else:
+                            reminder_info_to_use = None
 
                 if reminder_info_to_use:
                     # Use the parsed reminder from user's message
@@ -611,17 +650,61 @@ class Friend(DiscordBot):
                         content.strip() if content else reminder_info_to_use["message"]
                     )
 
-                    reminder = self.reminder_manager.add_reminder(
-                        channel_id=task.channel.id,
-                        channel_name=task.channel.name,
-                        user_id=task.user_id,
-                        user_name=task.user_name,
-                        reminder_time=reminder_info_to_use["reminder_time"],
-                        message=reminder_message,
-                    )
+                    # Determine reminder time
+                    if reminder_info_to_use.get("reminder_time"):
+                        reminder_time = reminder_info_to_use["reminder_time"]
+                        time_desc = reminder_time.strftime("%I:%M %p")
+                    elif reminder_info_to_use.get("time_delta"):
+                        reminder_time = (
+                            datetime.now() + reminder_info_to_use["time_delta"]
+                        )
+                        time_desc = str(reminder_info_to_use["time_delta"])
+                    else:
+                        await task.channel.send(
+                            "*I couldn't parse the reminder time. Please specify a time.*"
+                        )
+                        return
+
+                    # Get users to remind (from parsed info or default to current user)
+                    users_to_remind = reminder_info_to_use.get("users", [])
+                    if not users_to_remind:
+                        # Default to current user
+                        users_to_remind = [task.user_name]
+
+                    # Create reminders for each user
+                    # For now, we'll create one reminder per user mentioned
+                    # In the future, we could look up Discord users by name
+                    reminders_created = []
+                    for user_name in users_to_remind:
+                        # Use current user's ID if it's "me" or the requester
+                        user_id_to_use = (
+                            task.user_id
+                            if user_name.lower() in ["me", task.user_name.lower()]
+                            else None
+                        )
+                        user_name_to_use = (
+                            task.user_name
+                            if user_name.lower() in ["me", task.user_name.lower()]
+                            else user_name
+                        )
+
+                        reminder = self.reminder_manager.add_reminder(
+                            channel_id=task.channel.id,
+                            channel_name=task.channel.name,
+                            user_id=user_id_to_use or task.user_id,
+                            user_name=user_name_to_use,
+                            reminder_time=reminder_time,
+                            message=reminder_message,
+                        )
+                        reminders_created.append(reminder)
 
                     # Use the model to format the reminder message (async to avoid blocking)
-                    reminder_prompt = f"User {task.user_name} asked me to remind them: '{reminder_message}'. Format a friendly reminder message to send to them in {reminder_info_to_use['time_delta']}."
+                    time_str = (
+                        time_desc
+                        if reminder_info_to_use.get("reminder_time")
+                        else str(reminder_info_to_use.get("time_delta", ""))
+                    )
+                    reminder_prompt = f"User {task.user_name} asked me to remind {'them' if len(users_to_remind) == 1 else f'{len(users_to_remind)} people'}: '{reminder_message}'. Format a friendly reminder message to send {'them' if len(users_to_remind) == 1 else 'them'} in {time_str}."
 
                     # Format the reminder message in background to avoid blocking
                     async def format_and_save_reminder():
@@ -664,48 +747,118 @@ class Friend(DiscordBot):
 
                             # Use formatted message if we got something meaningful, otherwise use original
                             if formatted_message and len(formatted_message) > 3:
-                                reminder.message = formatted_message
+                                for reminder in reminders_created:
+                                    reminder.message = formatted_message
                             else:
-                                reminder.message = reminder_message
+                                for reminder in reminders_created:
+                                    reminder.message = reminder_message
 
                             self.reminder_manager._save_reminders()
                         except Exception as e:
                             print(f"Error formatting reminder message: {e}")
                             # Use the original message if formatting fails
-                            reminder.message = reminder_message
+                            for reminder in reminders_created:
+                                reminder.message = reminder_message
                             self.reminder_manager._save_reminders()
 
                     # Start formatting in background, don't wait
                     asyncio.create_task(format_and_save_reminder())
 
                     # Send confirmation immediately
-                    await task.channel.send(
-                        f"✓ Reminder set! I'll remind you in {reminder_info_to_use['time_delta']}."
-                    )
-                elif content:
-                    # Try to parse reminder from AI's content (fallback if no reminder_info)
-                    parsed = parse_reminder_command(content)
-                    if parsed:
-                        time_delta, reminder_msg = parsed
-                        reminder_time = datetime.now() + time_delta
-
-                        self.reminder_manager.add_reminder(
-                            channel_id=task.channel.id,
-                            channel_name=task.channel.name,
-                            user_id=task.user_id or task.message.author.id,
-                            user_name=task.user_name
-                            or task.message.author.display_name,
-                            reminder_time=reminder_time,
-                            message=reminder_msg,
-                        )
-
+                    if reminder_info_to_use.get("reminder_time"):
                         await task.channel.send(
-                            f"✓ Reminder set! I'll remind you in {time_delta}."
+                            f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} at {time_desc}."
                         )
                     else:
                         await task.channel.send(
-                            "*I couldn't parse the reminder. Please use format like 'remind me in 30 mins to do something'.*"
+                            f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
                         )
+                elif content:
+                    # Try to parse reminder from AI's content (fallback if no reminder_info)
+                    parsed = parse_reminder_command(content)
+
+                    # If regex parsing fails, try LLM parsing
+                    if not parsed:
+                        from virgil.friend.reminder import (
+                            parse_reminder_command_with_llm,
+                        )
+
+                        # Use the chat model to parse
+                        def llm_parse_prompt(prompt_text):
+                            with self._chat_lock:
+                                return self.chat.prompt(
+                                    prompt_text,
+                                    verbose=False,
+                                    assistant_history_prefix="",
+                                )
+
+                        parsed, parsing_instructions = parse_reminder_command_with_llm(
+                            content, llm_parse_prompt
+                        )
+                        if parsing_instructions:
+                            print(f"LLM parsing suggestions: {parsing_instructions}")
+
+                    if parsed:
+                        # New format returns a dict
+                        if parsed.get("reminder_time"):
+                            reminder_time = parsed["reminder_time"]
+                            time_desc = reminder_time.strftime("%I:%M %p")
+                        elif parsed.get("time_delta"):
+                            reminder_time = datetime.now() + parsed["time_delta"]
+                            time_desc = str(parsed["time_delta"])
+                        else:
+                            await task.channel.send(
+                                "*I couldn't parse the reminder time. Please specify a time.*"
+                            )
+                            return
+
+                        reminder_msg = parsed["message"]
+                        users_to_remind = parsed.get("users", [])
+                        if not users_to_remind:
+                            users_to_remind = [task.user_name]
+
+                        # Create reminders for each user
+                        for user_name in users_to_remind:
+                            user_id_to_use = (
+                                task.user_id
+                                if user_name.lower() in ["me", task.user_name.lower()]
+                                else None
+                            )
+                            user_name_to_use = (
+                                task.user_name
+                                if user_name.lower() in ["me", task.user_name.lower()]
+                                else user_name
+                            )
+
+                            self.reminder_manager.add_reminder(
+                                channel_id=task.channel.id,
+                                channel_name=task.channel.name,
+                                user_id=user_id_to_use or task.user_id,
+                                user_name=user_name_to_use,
+                                reminder_time=reminder_time,
+                                message=reminder_msg,
+                            )
+
+                        if parsed.get("reminder_time"):
+                            await task.channel.send(
+                                f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} at {time_desc}."
+                            )
+                        else:
+                            await task.channel.send(
+                                f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
+                            )
+                    else:
+                        # Check if the message might be incomplete
+                        if content and content.lower().strip().endswith(
+                            ("to", "that", "about")
+                        ):
+                            await task.channel.send(
+                                "*It looks like your reminder message might be incomplete. Please finish your reminder, like 'remind me in 30 seconds to check my email' or 'remind me in 30 seconds that I need to call mom'.*"
+                            )
+                        else:
+                            await task.channel.send(
+                                "*I couldn't parse the reminder. Please use format like 'remind me in 30 mins to do something' or 'remind me at 3pm to do something'.*"
+                            )
                 else:
                     await task.channel.send(
                         "*No reminder information provided. Please include timing information in your reminder request.*"
@@ -787,20 +940,81 @@ class Friend(DiscordBot):
     async def _execute_reminder(self, reminder: Reminder):
         """
         Execute a reminder by sending a message to the appropriate channel/user.
+        Uses LLM to generate contextual message based on current time and reminder context.
 
         Args:
             reminder: The Reminder object to execute
         """
         try:
+            # Generate contextual message using LLM
+            current_time = datetime.now()
+            time_str = current_time.strftime("%I:%M %p on %B %d, %Y")
+
+            reminder_prompt = f"""Time: {time_str}
+According to schedule, you should remind {reminder.user_name} about: "{reminder.message}"
+
+Generate a friendly, contextual reminder message. Be creative and interesting - you can share a fun fact, make a joke, or add context based on the time of day. Keep it concise (1-2 sentences max). Return ONLY the message text, no tags or formatting.
+
+Reminder message:"""
+
+            try:
+                with self._chat_lock:
+                    generated_message = self.chat.prompt(
+                        reminder_prompt,
+                        verbose=False,
+                        assistant_history_prefix="",
+                    )
+
+                # Extract plain text from response
+                import re
+
+                generated_message = generated_message.strip()
+                # Remove <think> tags
+                generated_message = re.sub(
+                    r"<think>.*?</think>", "", generated_message, flags=re.DOTALL
+                )
+                # Extract from <say> tags if present
+                say_match = re.search(r"<say>(.*?)</say>", generated_message, re.DOTALL)
+                if say_match:
+                    generated_message = say_match.group(1).strip()
+                # Remove any remaining tags
+                generated_message = re.sub(r"<[^>]+>", "", generated_message)
+                generated_message = " ".join(generated_message.split())
+
+                # Use generated message if meaningful, otherwise fall back to original
+                if generated_message and len(generated_message) > 3:
+                    final_message = generated_message
+                else:
+                    final_message = reminder.message
+            except Exception as e:
+                print(f"Error generating reminder message with LLM: {e}")
+                final_message = reminder.message
+
             # Format the reminder message
             if reminder.channel_id:
                 # Send to channel
                 channel = self.client.get_channel(reminder.channel_id)
                 if channel:
-                    # Mention the user
-                    message = f"🔔 <@{reminder.user_id}> Reminder: {reminder.message}"
-                    await channel.send(message)
-                    print(f"Reminder executed: Sent to channel {reminder.channel_name}")
+                    # Check if we can send messages to this channel
+                    if channel.permissions_for(channel.guild.me).send_messages:
+                        message = f"🔔 <@{reminder.user_id}> Reminder: {final_message}"
+                        await channel.send(message)
+                        print(
+                            f"Reminder executed: Sent to channel {reminder.channel_name}"
+                        )
+                    else:
+                        # Fallback to DM if we can't send to channel
+                        user = self.client.get_user(reminder.user_id)
+                        if user:
+                            message = f"🔔 Reminder (from #{reminder.channel_name}): {final_message}"
+                            await user.send(message)
+                            print(
+                                f"Reminder executed: Sent DM to {reminder.user_name} (couldn't send to channel)"
+                            )
+                        else:
+                            print(
+                                f"Warning: Could not send reminder to channel or user {reminder.user_id}"
+                            )
                 else:
                     print(
                         f"Warning: Could not find channel {reminder.channel_id} for reminder"
@@ -809,13 +1023,35 @@ class Friend(DiscordBot):
                 # Send DM to user
                 user = self.client.get_user(reminder.user_id)
                 if user:
-                    message = f"🔔 Reminder: {reminder.message}"
+                    message = f"🔔 Reminder: {final_message}"
                     await user.send(message)
                     print(f"Reminder executed: Sent DM to {reminder.user_name}")
                 else:
                     print(
                         f"Warning: Could not find user {reminder.user_id} for reminder"
                     )
+        except discord.errors.Forbidden:
+            # Permission denied - try DM as fallback
+            try:
+                user = self.client.get_user(reminder.user_id)
+                if user:
+                    channel_info = (
+                        f" (from #{reminder.channel_name})"
+                        if reminder.channel_name
+                        else ""
+                    )
+                    message = f"🔔 Reminder{channel_info}: {final_message}"
+                    await user.send(message)
+                    print(
+                        f"Reminder executed: Sent DM to {reminder.user_name} (permission denied for channel)"
+                    )
+            except Exception as e2:
+                print(
+                    colored(
+                        f"Error executing reminder (fallback DM also failed): {e2}",
+                        "red",
+                    )
+                )
         except Exception as e:
             print(colored(f"Error executing reminder: {e}", "red"))
             import traceback
@@ -825,20 +1061,75 @@ class Friend(DiscordBot):
     async def _execute_scheduled_task(self, task: ScheduledTask):
         """
         Execute a scheduled task by sending a message to the appropriate channel/user.
+        Uses LLM to generate contextual message based on current time and schedule context.
 
         Args:
             task: The ScheduledTask object to execute
         """
         try:
+            # Generate contextual message using LLM
+            current_time = datetime.now()
+            time_str = current_time.strftime("%I:%M %p on %B %d, %Y")
+
+            schedule_context = f"{task.schedule_type}"
+            if task.schedule_value:
+                schedule_context += f" at {task.schedule_value}"
+
+            task_prompt = f"""Time: {time_str}
+According to schedule ({schedule_context}), you should post: "{task.message}"
+
+Generate a friendly, contextual message. Be creative and interesting - you can share a fun fact, make a joke, add context based on the time of day, or expand on the original message. Keep it concise (1-3 sentences max). Return ONLY the message text, no tags or formatting.
+
+Message to post:"""
+
+            try:
+                with self._chat_lock:
+                    generated_message = self.chat.prompt(
+                        task_prompt,
+                        verbose=False,
+                        assistant_history_prefix="",
+                    )
+
+                # Extract plain text from response
+                import re
+
+                generated_message = generated_message.strip()
+                # Remove <think> tags
+                generated_message = re.sub(
+                    r"<think>.*?</think>", "", generated_message, flags=re.DOTALL
+                )
+                # Extract from <say> tags if present
+                say_match = re.search(r"<say>(.*?)</say>", generated_message, re.DOTALL)
+                if say_match:
+                    generated_message = say_match.group(1).strip()
+                # Remove any remaining tags
+                generated_message = re.sub(r"<[^>]+>", "", generated_message)
+                generated_message = " ".join(generated_message.split())
+
+                # Use generated message if meaningful, otherwise fall back to original
+                if generated_message and len(generated_message) > 3:
+                    final_message = generated_message
+                else:
+                    final_message = task.message
+            except Exception as e:
+                print(f"Error generating scheduled task message with LLM: {e}")
+                final_message = task.message
+
             if task.task_type == "post":
                 # Post to channel
                 if task.channel_id:
                     channel = self.client.get_channel(task.channel_id)
                     if channel:
-                        await channel.send(task.message)
-                        print(
-                            f"Scheduled task executed: Posted to channel {task.channel_name}"
-                        )
+                        # Check permissions
+                        if channel.permissions_for(channel.guild.me).send_messages:
+                            await channel.send(final_message)
+                            print(
+                                f"Scheduled task executed: Posted to channel {task.channel_name}"
+                            )
+                        else:
+                            print(
+                                f"Warning: No permission to send to channel {task.channel_name}"
+                            )
                     else:
                         print(
                             f"Warning: Could not find channel {task.channel_id} for scheduled task"
@@ -853,7 +1144,7 @@ class Friend(DiscordBot):
                 if task.user_id:
                     user = self.client.get_user(task.user_id)
                     if user:
-                        await user.send(task.message)
+                        await user.send(final_message)
                         print(f"Scheduled task executed: Sent DM to {task.user_name}")
                     else:
                         print(
@@ -927,22 +1218,19 @@ class Friend(DiscordBot):
                         f"Found image attachment: {attachment.filename} ({attachment.content_type})"
                     )
 
-        # Check for reminder commands in the message
-        reminder_info = None
+        # Check for reminder/schedule keywords in the message (for context only, not auto-parsing)
+        # Reminders should only be created when Friend explicitly uses <remind> action
         schedule_info = None
         message_content = message.content
+        has_reminder_keywords = False
         if message_content:
-            parsed_reminder = parse_reminder_command(message_content)
-            if parsed_reminder:
-                time_delta, reminder_message = parsed_reminder
-                reminder_time = datetime.now() + time_delta
-                reminder_info = {
-                    "time_delta": time_delta,
-                    "reminder_time": reminder_time,
-                    "message": reminder_message,
-                }
+            # Check if message contains reminder keywords (for context hint only)
+            reminder_keywords = ["remind", "reminder", "remind me", "remind us"]
+            has_reminder_keywords = any(
+                keyword in message_content.lower() for keyword in reminder_keywords
+            )
 
-            # Check for schedule commands
+            # Check for schedule commands (these are still auto-parsed for context)
             parsed_schedule = parse_schedule_command(message_content)
             if parsed_schedule:
                 schedule_info = parsed_schedule
@@ -952,8 +1240,9 @@ class Friend(DiscordBot):
         text = f"{sender_name} on #{channel_name}: " + message_content
         if image_attachments:
             text += f" [User sent {len(image_attachments)} image(s) that can be edited]"
-        if reminder_info:
-            text += f" [User requested a reminder in {reminder_info['time_delta']} - reminder message: '{reminder_info['message']}']"
+        if has_reminder_keywords:
+            # Hint to AI that user mentioned a reminder, but don't auto-parse
+            text += " [User mentioned a reminder - use <remind> action if you want to create one]"
         if schedule_info:
             text += f" [User requested a scheduled task: {schedule_info['task_type']} '{schedule_info['message']}' {schedule_info['schedule_type']} at {schedule_info['schedule_value']}]"
 
@@ -961,7 +1250,7 @@ class Friend(DiscordBot):
             channel=message.channel,
             message=text,
             attachments=image_attachments,
-            reminder_info=reminder_info,
+            reminder_info=None,  # Don't auto-parse reminders - only create when AI uses <remind>
             user_id=message.author.id,
             user_name=sender_name,
         )
