@@ -309,22 +309,50 @@ class Friend(DiscordBot):
         if self._shutdown_handler_setup:
             return
 
+        self._shutting_down = False
+
         def signal_handler(signum, frame):
             """Handle shutdown signals."""
-            print("\nShutdown signal received. Sending goodbye messages...")
-            # Create a task to send goodbye messages
-            loop = None
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                # No event loop running
-                return
+            if self._shutting_down:
+                # Already shutting down, force exit immediately
+                print("\nForce exiting...")
+                os._exit(1)
 
-            if loop and loop.is_running():
-                # Schedule the goodbye task
-                asyncio.run_coroutine_threadsafe(self._send_goodbye_messages(), loop)
-                # Give some time for messages to send
-                time.sleep(2)
+            self._shutting_down = True
+            print("\nShutdown signal received. Sending goodbye messages...")
+
+            # Stop background tasks
+            try:
+                self.reminder_manager.stop()
+                self.scheduler.stop()
+            except Exception:
+                pass
+
+            # Try to send goodbye messages (non-blocking)
+            try:
+                if self.client and self.client.is_ready():
+                    # Schedule goodbye messages but don't wait
+                    loop = None
+                    try:
+                        loop = asyncio.get_event_loop()
+                    except RuntimeError:
+                        pass
+
+                    if loop and loop.is_running():
+                        # Schedule without waiting
+                        asyncio.run_coroutine_threadsafe(
+                            asyncio.wait_for(
+                                self._send_goodbye_messages(), timeout=2.0
+                            ),
+                            loop,
+                        )
+                        # Give a brief moment for messages to send
+                        time.sleep(0.5)
+            except Exception:
+                pass
+
+            # Exit immediately
+            sys.exit(0)
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
@@ -560,50 +588,63 @@ class Friend(DiscordBot):
                     await task.channel.send(error_msg)
             elif action == "remind":
                 # Handle reminder action from AI
-                # The AI can use <remind>time and message</remind> to create reminders
-                # Or we can use reminder_info from the user's message
-                reminder_info_to_use = (
-                    task.reminder_info if task.reminder_info else None
-                )
+                # The AI can use <remind>message</remind> to create reminders
+                # We use reminder_info from the user's message which contains the timing
+                reminder_info_to_use = task.reminder_info
 
                 if reminder_info_to_use:
                     # Use the parsed reminder from user's message
+                    # Use AI's content as the reminder message if provided, otherwise use original
+                    reminder_message = (
+                        content.strip() if content else reminder_info_to_use["message"]
+                    )
+
                     reminder = self.reminder_manager.add_reminder(
                         channel_id=task.channel.id,
                         channel_name=task.channel.name,
                         user_id=task.user_id,
                         user_name=task.user_name,
                         reminder_time=reminder_info_to_use["reminder_time"],
-                        message=reminder_info_to_use["message"],
+                        message=reminder_message,
                     )
 
-                    # Use the model to format the reminder message
-                    # Use AI's content if provided, otherwise use the original message
-                    reminder_text = (
-                        content if content else reminder_info_to_use["message"]
-                    )
-                    reminder_prompt = f"User {task.user_name} asked me to remind them: '{reminder_text}'. Format a friendly reminder message to send to them in {reminder_info_to_use['time_delta']}."
+                    # Use the model to format the reminder message (async to avoid blocking)
+                    reminder_prompt = f"User {task.user_name} asked me to remind them: '{reminder_message}'. Format a friendly reminder message to send to them in {reminder_info_to_use['time_delta']}."
 
-                    with self._chat_lock:
-                        formatted_message = self.chat.prompt(
-                            reminder_prompt, verbose=False, assistant_history_prefix=""
-                        )
+                    # Format the reminder message in background to avoid blocking
+                    async def format_and_save_reminder():
+                        try:
+                            with self._chat_lock:
+                                formatted_message = self.chat.prompt(
+                                    reminder_prompt,
+                                    verbose=False,
+                                    assistant_history_prefix="",
+                                )
 
-                    # Update reminder with formatted message
-                    reminder.message = formatted_message.strip()
-                    self.reminder_manager._save_reminders()
+                            # Update reminder with formatted message
+                            reminder.message = formatted_message.strip()
+                            self.reminder_manager._save_reminders()
+                        except Exception as e:
+                            print(f"Error formatting reminder message: {e}")
+                            # Use the original message if formatting fails
+                            reminder.message = reminder_message
+                            self.reminder_manager._save_reminders()
 
+                    # Start formatting in background, don't wait
+                    asyncio.create_task(format_and_save_reminder())
+
+                    # Send confirmation immediately
                     await task.channel.send(
                         f"✓ Reminder set! I'll remind you in {reminder_info_to_use['time_delta']}."
                     )
                 elif content:
-                    # Try to parse reminder from AI's content
+                    # Try to parse reminder from AI's content (fallback if no reminder_info)
                     parsed = parse_reminder_command(content)
                     if parsed:
                         time_delta, reminder_msg = parsed
                         reminder_time = datetime.now() + time_delta
 
-                        reminder = self.reminder_manager.add_reminder(
+                        self.reminder_manager.add_reminder(
                             channel_id=task.channel.id,
                             channel_name=task.channel.name,
                             user_id=task.user_id or task.message.author.id,
@@ -621,7 +662,9 @@ class Friend(DiscordBot):
                             "*I couldn't parse the reminder. Please use format like 'remind me in 30 mins to do something'.*"
                         )
                 else:
-                    await task.channel.send("*No reminder information provided.*")
+                    await task.channel.send(
+                        "*No reminder information provided. Please include timing information in your reminder request.*"
+                    )
             elif action == "schedule":
                 # Handle schedule action from AI
                 # Parse schedule command from content or user's message
@@ -995,11 +1038,23 @@ def main(
         except KeyboardInterrupt:
             print("\nShutting down gracefully...")
             # Stop background tasks
-            bot.reminder_manager.stop()
-            bot.scheduler.stop()
+            try:
+                bot.reminder_manager.stop()
+                bot.scheduler.stop()
+            except Exception:
+                pass
             # Send goodbye messages
-            if bot.client and bot.client.is_ready():
-                asyncio.run(bot._send_goodbye_messages())
+            try:
+                if bot.client and bot.client.is_ready():
+                    # Use a timeout to prevent hanging
+                    try:
+                        asyncio.run(
+                            asyncio.wait_for(bot._send_goodbye_messages(), timeout=2.0)
+                        )
+                    except asyncio.TimeoutError:
+                        print("Timeout sending goodbye messages")
+            except Exception as e:
+                print(f"Error sending goodbye: {e}")
 
 
 if __name__ == "__main__":
