@@ -133,6 +133,7 @@ class ChatbotActionParser(Parser):
             "say",
             "remember",
             "imagine",
+            "meme",
             "think",
             "weather",
             "edit_image",

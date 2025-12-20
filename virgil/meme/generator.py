@@ -54,10 +54,39 @@ class MemeGenerator:
         if self.memory_manager:
             relevant_memories = self.memory_manager.get_memories_for_query(prompt)
             if relevant_memories:
-                memories_text = f"\n\nRelevant memories for this meme:\n----\n{relevant_memories}\n----\nEnd memories.\n"
+                memories_text = f"\n\nRelevant memories for this meme (retrieved dynamically based on context):\n----\n{relevant_memories}\n----\nEnd memories.\n"
+            # If no relevant memories, leave empty (don't show "No relevant memories found")
+
+        formatted_prompt = self.base_prompt.format(
+            prompt=prompt, memories=memories_text
+        )
+
+        # Convert prompt to messages format for backend
+        messages = [{"role": "user", "content": formatted_prompt}]
+
+        # Generate using backend
+        result = self.backend(messages, max_new_tokens=512)
+
+        # Extract text from result - backends return list of dicts with "generated_text"
+        # Format: [{"generated_text": [{"role": "assistant", "content": "..."}]}]
+        # Same format as ChatWrapper uses
+        if isinstance(result, str):
+            return result.strip()
+        elif isinstance(result, list) and len(result) > 0:
+            if isinstance(result[0], dict):
+                generated_text = result[0].get("generated_text", [])
+                if isinstance(generated_text, list) and len(generated_text) > 0:
+                    # Get the last message (assistant response)
+                    last_msg = generated_text[-1]
+                    if isinstance(last_msg, dict):
+                        return last_msg.get("content", str(last_msg)).strip()
+                    else:
+                        return str(last_msg).strip()
+                elif isinstance(generated_text, str):
+                    return generated_text.strip()
+                else:
+                    return str(generated_text).strip()
             else:
-                memories_text = "\n\n(No relevant memories found)\n"
-
-        prompt = self.base_prompt.format(prompt=prompt, memories=memories_text)
-
-        return self.backend.generate_meme(prompt)
+                return str(result[0]).strip()
+        else:
+            return str(result).strip()

@@ -43,6 +43,7 @@ from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder
 from virgil.friend.scheduler import Scheduler, ScheduledTask
 from virgil.friend.memory import MemoryManager
+from virgil.meme.generator import MemeGenerator
 from virgil.image import (
     DiffuserImageGenerator,
     FluxImageGenerator,
@@ -129,6 +130,7 @@ class Friend(DiscordBot):
         """
 
         self.backend = get_backend(backend)
+        self.backend_name = backend  # Store backend name for meme generator
         self.chat = ChatWrapper(
             self.backend, max_history_length=max_history_length, preserve=2
         )
@@ -211,6 +213,9 @@ class Friend(DiscordBot):
 
         # Initialize services
         self.image_service = VirgilImageService(image_gen)
+
+        # Initialize meme generator (will be connected to memory_manager in on_ready)
+        self.meme_generator = None
 
         # Initialize message service with Discord-specific functions
         # Note: We'll set this up after the client is ready in on_ready()
@@ -317,6 +322,13 @@ class Friend(DiscordBot):
             discord_channel_getter=get_channel,
             discord_user_getter=get_user,
         )
+
+        # Initialize meme generator with memory manager for RAG support
+        # Use the same backend as the chat
+        self.meme_generator = MemeGenerator(
+            backend=self.backend_name, memory_manager=self.memory_manager
+        )
+        print(colored("🎭 Meme generator initialized with RAG memory support", "cyan"))
 
         # Initialize MCP server if enabled
         if self.enable_mcp:
@@ -602,6 +614,71 @@ class Friend(DiscordBot):
 
         await task.channel.send("*Remembering: " + content + "*")
 
+    async def _handle_meme_action(self, task: Task, content: str):
+        """Handle the 'meme' action - generate and send a meme.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The meme subject/prompt.
+        """
+        await task.channel.send("*Generating meme about: " + content + "...*")
+        time.sleep(0.1)  # Wait for message to be sent
+        print(colored(f"🎭 Generating meme for subject: {content}", "magenta"))
+
+        if not self.meme_generator:
+            await task.channel.send(
+                "*Sorry, meme generator is not available. Please try again later.*"
+            )
+            return
+
+        try:
+            with self._chat_lock:
+                # Generate meme using the meme generator
+                meme_text = self.meme_generator.generate_meme(content)
+
+            # The meme generator returns text (caption), now we need to generate the image
+            # For now, we'll use the image service to generate an image based on the meme description
+            # In the future, the meme generator could return both caption and image prompt
+
+            # Extract image description from meme text (first line is usually the image description)
+            # Or use the content as the image prompt
+            image_prompt = content  # Use the original subject as image prompt
+
+            print(colored(f"  ✓ Meme caption: {meme_text[:100]}...", "green"))
+            print(colored("  🎨 Generating meme image...", "magenta"))
+
+            with self._chat_lock:
+                image = self.image_service.generate_image(image_prompt)
+
+            image.save("generated_meme.png")
+
+            # Send the meme image with caption
+            print(colored("  ✓ Sending meme to channel", "green"))
+            if self.message_service:
+                await self.message_service.send_image(
+                    image,
+                    channel_id=str(task.channel.id),
+                    caption=meme_text[:2000] if meme_text else None,  # Discord limit
+                )
+            else:
+                # Fallback to direct Discord send if service not initialized
+                byte_arr = io.BytesIO()
+                image.save(byte_arr, format="PNG")
+                byte_arr.seek(0)
+                file = discord.File(byte_arr, filename="meme.png")
+                caption = meme_text[:2000] if meme_text else None
+                if caption:
+                    await task.channel.send(caption, file=file)
+                else:
+                    await task.channel.send(file=file)
+        except Exception as e:
+            error_msg = f"*Error generating meme: {str(e)}*"
+            print(colored(f"Meme generation error: {e}", "red"))
+            import traceback
+
+            traceback.print_exc()
+            await task.channel.send(error_msg)
+
     async def _handle_forget_action(self, task: Task, content: str):
         """Handle the 'forget' action - remove from memory.
 
@@ -834,6 +911,8 @@ class Friend(DiscordBot):
                 await self._handle_say_action(task, content)
             elif action == "imagine":
                 await self._handle_imagine_action(task, content)
+            elif action == "meme":
+                await self._handle_meme_action(task, content)
             elif action == "remember":
                 await self._handle_remember_action(task, content)
             elif action == "forget":
@@ -1420,19 +1499,68 @@ class Friend(DiscordBot):
         if task.explicit or len(user_message) < 10:
             return
 
-        # Create prompt for memory extraction
-        extraction_prompt = f"""Analyze this conversation and extract any important information that should be remembered:
+        # Create prompt for memory extraction - LLM-driven approach
+        extraction_prompt = f"""You are a memory extraction system. Extract ALL important information from this conversation.
 
+Conversation:
 User: {user_message}
-Assistant: {assistant_response[:500]}  # Truncate for efficiency
+Assistant: {assistant_response[:500]}
 
-Extract facts, preferences, names, relationships, or other important information that would be useful to remember for future conversations. 
-Format each memory as a clear, standalone fact (e.g., "User prefers dark mode", "User's name is Alice", "User mentioned they work at TechCorp").
+Extract EVERYTHING that should be remembered for future conversations. This includes:
 
-Return ONLY a list of memories, one per line. If nothing important should be remembered, return "NONE".
-Do NOT include action tags or formatting. Just plain text, one memory per line.
+FACTS ABOUT THE USER:
+- Names, nicknames, preferred names
+- Personal information (job, location, interests, hobbies)
+- Preferences (colors, foods, styles, technologies, tools)
+- Relationships (family, friends, colleagues mentioned)
+- Skills, expertise, or areas of knowledge
+- Personal history, experiences, stories shared
 
-Memories to extract:"""
+FACTS ABOUT CONVERSATIONS:
+- Topics discussed
+- Questions asked (shows interests)
+- Problems mentioned or solved
+- Goals, plans, or intentions expressed
+- Opinions or viewpoints shared
+- Things the user likes or dislikes
+
+FACTS ABOUT CONTEXT:
+- Channel-specific information
+- Time-sensitive information
+- Important dates or events mentioned
+- Projects or work mentioned
+
+Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
+Examples of GOOD output:
+User prefers dark mode
+User's name is Alice
+User works at TechCorp as a software engineer
+User mentioned they love pizza and Italian food
+User is learning Python programming
+User has a cat named Whiskers
+User mentioned they're working on a project called "ProjectX"
+User prefers to be called "Al" instead of "Alice"
+
+Examples of BAD output (DO NOT DO THIS):
+Okay, let's tackle this query
+First, looking at the conversation
+The user said they prefer dark mode
+I should extract the fact that...
+There's no information to remember
+Looking at the user's message, I can see...
+
+CRITICAL RULES: 
+- Extract EVERYTHING important, not just obvious facts
+- Output ONLY facts, no reasoning, no analysis, no explanations
+- Use clear, concise statements
+- If no facts exist, output ONLY: NONE
+- Do NOT number items or use bullet points
+- Do NOT use phrases like "The user said" or "The assistant mentioned"
+- Do NOT include your thought process - just the facts
+- Include subtle preferences and interests, not just explicit statements
+- Extract context clues (e.g., if user asks about Python, they might be interested in programming)
+
+Output now (facts only, one per line, extract everything important):"""
 
         try:
             # Run extraction in background to avoid blocking
@@ -1441,27 +1569,80 @@ Memories to extract:"""
 
                     def _prompt_with_lock():
                         with self._chat_lock:
-                            return self.chat.prompt(
+                            response = self.chat.prompt(
                                 extraction_prompt,
                                 verbose=False,
                                 assistant_history_prefix="",
                             )
+                            # Remove <think> tags if present
+                            import re
+
+                            response = re.sub(
+                                r"<think>.*?</think>", "", response, flags=re.DOTALL
+                            )
+                            return response.strip()
 
                     loop = asyncio.get_event_loop()
                     extraction_result = await loop.run_in_executor(
                         None, _prompt_with_lock
                     )
 
-                    # Parse extracted memories
+                    # Parse extracted memories - LLM-driven, minimal filtering
                     memories = []
+
+                    # Extract lines from response
                     for line in extraction_result.strip().split("\n"):
                         line = line.strip()
-                        # Skip empty lines, "NONE", and lines that look like action tags
-                        if line and line.upper() != "NONE" and not line.startswith("<"):
-                            # Check if this memory already exists (avoid duplicates)
-                            existing_memories = self.memory_manager.get_all_memories()
-                            if line not in existing_memories:
-                                memories.append(line)
+
+                        # Skip empty lines and action tags
+                        if not line or line.startswith("<"):
+                            continue
+
+                        # Skip "NONE" response
+                        if line.upper() == "NONE":
+                            continue
+
+                        # Skip very long lines (likely explanations, not facts)
+                        if len(line) > 250:
+                            continue
+
+                        # Skip lines that are clearly meta-commentary (minimal filtering)
+                        line_lower = line.lower()
+                        skip_patterns = (
+                            "output format",
+                            "examples of",
+                            "critical",
+                            "conversation:",
+                            "user:",
+                            "assistant:",
+                            "extract",
+                            "output now",
+                            "facts about",
+                        )
+                        if any(
+                            line_lower.startswith(pattern) for pattern in skip_patterns
+                        ):
+                            continue
+
+                        # Skip lines that are clearly reasoning (minimal check)
+                        reasoning_indicators = (
+                            "okay, let's",
+                            "first, looking",
+                            "i should",
+                            "let me",
+                            "the user said",
+                            "the assistant",
+                        )
+                        if any(
+                            indicator in line_lower
+                            for indicator in reasoning_indicators
+                        ):
+                            continue
+
+                        # Check if this memory already exists (avoid duplicates)
+                        existing_memories = self.memory_manager.get_all_memories()
+                        if line not in existing_memories:
+                            memories.append(line)
 
                     # Add extracted memories
                     if memories:
@@ -1566,6 +1747,8 @@ Memories to extract:"""
                     await self._handle_say_action(task, content)
                 elif action == "imagine":
                     await self._handle_imagine_action(task, content)
+                elif action == "meme":
+                    await self._handle_meme_action(task, content)
                 elif action == "remember":
                     await self._handle_remember_action(task, content)
                 elif action == "forget":
@@ -1748,6 +1931,45 @@ Your response:"""
                                 )
                                 with self._chat_lock:
                                     image = self.image_service.generate_image(content)
+                            elif action == "meme":
+                                # Generate meme and send via DM
+                                if self.meme_generator:
+                                    try:
+                                        meme_text = self.meme_generator.generate_meme(
+                                            content
+                                        )
+                                        image_prompt = content
+                                        with self._chat_lock:
+                                            image = self.image_service.generate_image(
+                                                image_prompt
+                                            )
+
+                                        if self.message_service:
+                                            await self.message_service.send_image(
+                                                image,
+                                                channel_id=None,
+                                                user_id=reminder.user_id,
+                                                caption=f"🔔 Reminder meme: {meme_text[:200]}",
+                                            )
+                                        else:
+                                            byte_arr = io.BytesIO()
+                                            image.save(byte_arr, format="PNG")
+                                            byte_arr.seek(0)
+                                            file = discord.File(
+                                                byte_arr, filename="reminder_meme.png"
+                                            )
+                                            await user.send(
+                                                f"🔔 Reminder meme: {meme_text[:200]}",
+                                                file=file,
+                                            )
+                                    except Exception as e:
+                                        await user.send(
+                                            f"🔔 Reminder: {reminder.message}\n(Meme generation failed: {e})"
+                                        )
+                                else:
+                                    await user.send(
+                                        f"🔔 Reminder: {reminder.message}\n(Meme generator not available)"
+                                    )
 
                                 if self.message_service:
                                     await self.message_service.send_image(
