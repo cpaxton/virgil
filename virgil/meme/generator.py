@@ -14,7 +14,7 @@
 
 # Description: This file contains the code for generating a meme based on a prompt.
 #
-import pkg_resources
+from pathlib import Path
 
 from virgil.backend import get_backend
 
@@ -25,8 +25,9 @@ def load_prompt() -> str:
     Returns:
         str: The prompt text.
     """
-
-    file_path = pkg_resources.resource_filename("virgil.meme", "prompt.txt")
+    # Get the directory where this file is located
+    current_dir = Path(__file__).parent
+    file_path = current_dir / "prompt.txt"
 
     with open(file_path, "r", encoding="utf-8") as file:
         content = file.read()
