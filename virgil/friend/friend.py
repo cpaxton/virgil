@@ -229,14 +229,8 @@ class Friend(DiscordBot):
         # Shutdown handling
         self._shutdown_handler_setup = False
 
-        # Monkey-patch the client's close method to say goodbye on shutdown
-        original_close = self.client.close
-
-        async def new_close():
-            await self.say_goodbye()
-            await original_close()
-
-        self.client.close = new_close
+        # Note: Goodbye messages are handled in the run() method's KeyboardInterrupt handler
+        # The monkey-patch approach was unreliable, so we handle it explicitly in shutdown
 
     async def say_goodbye(self):
         """Sends a goodbye message to all channels the bot is active in.
@@ -246,20 +240,47 @@ class Friend(DiscordBot):
         `allowed_channels` list and sends a final message.
         """
         print("Saying goodbye to active channels...")
-        goodbye_message = "I have to go now. Goodbye!"
+        goodbye_message = "Goodbye! 👋"
 
-        channels_to_notify = set()
-        if self.allowed_channels:
-            for channel in self.allowed_channels:
-                channels_to_notify.add(channel)
+        if not self.client or not self.client.is_ready() or self.client.is_closed():
+            print("Client not ready or closed, skipping goodbye messages")
+            return
 
+        channels_to_notify = []
+        # Collect all valid channels from allowed_channels
+        for channel in self.allowed_channels:
+            # Double-check channel is still valid and we have permission
+            if channel and channel in self.allowed_channels:
+                try:
+                    # Check if we can send messages to this channel
+                    if hasattr(channel, "guild") and channel.guild:
+                        if channel.permissions_for(channel.guild.me).send_messages:
+                            channels_to_notify.append(channel)
+                except Exception:
+                    # Skip channels we can't check permissions for
+                    pass
+
+        sent_count = 0
         for channel in channels_to_notify:
             try:
+                # Check if client is still connected
+                if self.client.is_closed():
+                    break
                 await channel.send(goodbye_message)
+                print(f"Sent goodbye to {channel.name}")
+                sent_count += 1
+            except (
+                discord.errors.HTTPException,
+                discord.errors.ConnectionClosed,
+            ) as e:
+                # Session closed or connection error - stop trying
+                print(f"Connection closed, stopping goodbye messages: {e}")
+                break
             except Exception as e:
-                print(
-                    f"Could not send goodbye message to channel '{channel.name}': {e}"
-                )
+                print(f"Error sending goodbye to {channel.name}: {e}")
+
+        if sent_count > 0:
+            print(f"Sent goodbye messages to {sent_count} channel(s)")
 
     async def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
@@ -1368,9 +1389,8 @@ Message to post:"""
                         and self.client.is_ready()
                         and not self.client.is_closed()
                     ):
-                        await asyncio.wait_for(
-                            self._send_goodbye_messages(), timeout=3.0
-                        )
+                        # Use say_goodbye() which is simpler and more reliable
+                        await asyncio.wait_for(self.say_goodbye(), timeout=3.0)
                 except asyncio.TimeoutError:
                     print("Timeout sending goodbye messages")
                 except (
