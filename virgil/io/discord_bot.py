@@ -295,11 +295,22 @@ class DiscordBot:
         self.running = True
 
         async def _main():
-            async with self.client as bot:
-                await bot.start(self.token)
+            try:
+                async with self.client as bot:
+                    await bot.start(self.token)
+            except KeyboardInterrupt:
+                print("\nKeyboard interrupt received. Shutting down...")
+                # Give time for cleanup
+                await asyncio.sleep(1)
+            finally:
+                self.running = False
 
-        # self.client.start(self.token)
-        asyncio.run(_main())
+        try:
+            # self.client.start(self.token)
+            asyncio.run(_main())
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+            self.running = False
 
     def __del__(self):
         self.running = False

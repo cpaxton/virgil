@@ -16,6 +16,8 @@
 
 import click
 import os
+import signal
+import sys
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
@@ -41,6 +43,7 @@ torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder, parse_reminder_command
+from virgil.friend.scheduler import Scheduler, ScheduledTask, parse_schedule_command
 from virgil.image import (
     DiffuserImageGenerator,
     FluxImageGenerator,
@@ -208,6 +211,13 @@ class Friend(DiscordBot):
         self.reminder_manager = ReminderManager()
         self.reminder_manager.set_execution_callback(self._execute_reminder)
 
+        # Scheduler system
+        self.scheduler = Scheduler()
+        self.scheduler.set_execution_callback(self._execute_scheduled_task)
+
+        # Shutdown handling
+        self._shutdown_handler_setup = False
+
     def on_ready(self):
         """Event listener called when the bot has switched from offline to online."""
         print(f"{self.client.user} has connected to Discord!")
@@ -285,7 +295,60 @@ class Friend(DiscordBot):
         self.reminder_manager.start()
         print("Reminder system started.")
 
+        # Start scheduler
+        self.scheduler.start()
+        print("Scheduler system started.")
+
+        # Setup shutdown handler
+        self._setup_shutdown_handler()
+
         print("Loaded conversation history:", len(self.chat))
+
+    def _setup_shutdown_handler(self):
+        """Setup signal handlers for graceful shutdown."""
+        if self._shutdown_handler_setup:
+            return
+
+        def signal_handler(signum, frame):
+            """Handle shutdown signals."""
+            print("\nShutdown signal received. Sending goodbye messages...")
+            # Create a task to send goodbye messages
+            loop = None
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # No event loop running
+                return
+
+            if loop and loop.is_running():
+                # Schedule the goodbye task
+                asyncio.run_coroutine_threadsafe(self._send_goodbye_messages(), loop)
+                # Give some time for messages to send
+                time.sleep(2)
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        self._shutdown_handler_setup = True
+
+    async def _send_goodbye_messages(self):
+        """Send goodbye messages to all active channels."""
+        try:
+            if not self.client or not self.client.is_ready():
+                return
+
+            goodbye_message = "Goodbye! 👋"
+
+            # Send to all channels the bot is in
+            for guild in self.client.guilds:
+                for channel in guild.text_channels:
+                    if channel in self.allowed_channels:
+                        try:
+                            await channel.send(goodbye_message)
+                            print(f"Sent goodbye to {channel.name}")
+                        except Exception as e:
+                            print(f"Error sending goodbye to {channel.name}: {e}")
+        except Exception as e:
+            print(f"Error in goodbye handler: {e}")
 
     def _start_mcp_server(self):
         """Start the MCP server in a background task."""
@@ -559,6 +622,75 @@ class Friend(DiscordBot):
                         )
                 else:
                     await task.channel.send("*No reminder information provided.*")
+            elif action == "schedule":
+                # Handle schedule action from AI
+                # Parse schedule command from content or user's message
+                schedule_info = None
+
+                # Try to parse from AI's content first
+                if content:
+                    schedule_info = parse_schedule_command(content)
+
+                # If not found, try parsing from original message
+                if not schedule_info and task.message.content:
+                    schedule_info = parse_schedule_command(task.message.content)
+
+                if schedule_info:
+                    try:
+                        # Create scheduled task
+                        if schedule_info["task_type"] == "post":
+                            # Find channel by name
+                            channel = None
+                            channel_name = schedule_info.get("channel_name", "")
+                            for ch in self.client.get_all_channels():
+                                if ch.name == channel_name:
+                                    channel = ch
+                                    break
+
+                            if channel:
+                                self.scheduler.add_task(
+                                    task_type="post",
+                                    message=schedule_info["message"],
+                                    schedule_type=schedule_info["schedule_type"],
+                                    schedule_value=schedule_info["schedule_value"],
+                                    channel_id=channel.id,
+                                    channel_name=channel.name,
+                                )
+                                await task.channel.send(
+                                    f"✓ Scheduled task created! I'll post '{schedule_info['message']}' "
+                                    f"in #{channel_name} {schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
+                                )
+                            else:
+                                await task.channel.send(
+                                    f"*Could not find channel '{channel_name}'. Please check the channel name.*"
+                                )
+
+                        elif schedule_info["task_type"] == "dm":
+                            self.scheduler.add_task(
+                                task_type="dm",
+                                message=schedule_info["message"],
+                                schedule_type=schedule_info["schedule_type"],
+                                schedule_value=schedule_info["schedule_value"],
+                                user_id=task.user_id or task.message.author.id,
+                                user_name=task.user_name
+                                or task.message.author.display_name,
+                            )
+                            await task.channel.send(
+                                f"✓ Scheduled DM created! I'll DM you '{schedule_info['message']}' "
+                                f"{schedule_info['schedule_type']} at {schedule_info['schedule_value']}."
+                            )
+                    except Exception as e:
+                        error_msg = f"*Error creating schedule: {str(e)}*"
+                        print(colored(f"Schedule error: {e}", "red"))
+                        import traceback
+
+                        traceback.print_exc()
+                        await task.channel.send(error_msg)
+                else:
+                    await task.channel.send(
+                        "*I couldn't parse the schedule command. "
+                        "Try: 'always post X in Y channel at 14:30' or 'always DM me X at 14:30'*"
+                    )
         # except Exception as e:
         #    print(colored("Error in prompting the AI: " + str(e), "red"))
         #    print(" ->     Text:", text)
@@ -598,6 +730,51 @@ class Friend(DiscordBot):
                     )
         except Exception as e:
             print(colored(f"Error executing reminder: {e}", "red"))
+            import traceback
+
+            traceback.print_exc()
+
+    async def _execute_scheduled_task(self, task: ScheduledTask):
+        """
+        Execute a scheduled task by sending a message to the appropriate channel/user.
+
+        Args:
+            task: The ScheduledTask object to execute
+        """
+        try:
+            if task.task_type == "post":
+                # Post to channel
+                if task.channel_id:
+                    channel = self.client.get_channel(task.channel_id)
+                    if channel:
+                        await channel.send(task.message)
+                        print(
+                            f"Scheduled task executed: Posted to channel {task.channel_name}"
+                        )
+                    else:
+                        print(
+                            f"Warning: Could not find channel {task.channel_id} for scheduled task"
+                        )
+                else:
+                    print(
+                        f"Warning: Scheduled post task {task.task_id} has no channel_id"
+                    )
+
+            elif task.task_type == "dm":
+                # Send DM to user
+                if task.user_id:
+                    user = self.client.get_user(task.user_id)
+                    if user:
+                        await user.send(task.message)
+                        print(f"Scheduled task executed: Sent DM to {task.user_name}")
+                    else:
+                        print(
+                            f"Warning: Could not find user {task.user_id} for scheduled task"
+                        )
+                else:
+                    print(f"Warning: Scheduled DM task {task.task_id} has no user_id")
+        except Exception as e:
+            print(colored(f"Error executing scheduled task: {e}", "red"))
             import traceback
 
             traceback.print_exc()
@@ -664,6 +841,7 @@ class Friend(DiscordBot):
 
         # Check for reminder commands in the message
         reminder_info = None
+        schedule_info = None
         message_content = message.content
         if message_content:
             parsed_reminder = parse_reminder_command(message_content)
@@ -676,6 +854,11 @@ class Friend(DiscordBot):
                     "message": reminder_message,
                 }
 
+            # Check for schedule commands
+            parsed_schedule = parse_schedule_command(message_content)
+            if parsed_schedule:
+                schedule_info = parsed_schedule
+
         # Construct the text to prompt the AI
         # Include note about images if present
         text = f"{sender_name} on #{channel_name}: " + message_content
@@ -683,6 +866,8 @@ class Friend(DiscordBot):
             text += f" [User sent {len(image_attachments)} image(s) that can be edited]"
         if reminder_info:
             text += f" [User requested a reminder in {reminder_info['time_delta']} - reminder message: '{reminder_info['message']}']"
+        if schedule_info:
+            text += f" [User requested a scheduled task: {schedule_info['task_type']} '{schedule_info['message']}' {schedule_info['schedule_type']} at {schedule_info['schedule_value']}]"
 
         self.push_task(
             channel=message.channel,
@@ -805,7 +990,16 @@ def main(
             bot.allowed_channels.visit(ctx.channel)
             await ctx.send("Hello! I am here to help you.")
 
-        bot.run()
+        try:
+            bot.run()
+        except KeyboardInterrupt:
+            print("\nShutting down gracefully...")
+            # Stop background tasks
+            bot.reminder_manager.stop()
+            bot.scheduler.stop()
+            # Send goodbye messages
+            if bot.client and bot.client.is_ready():
+                asyncio.run(bot._send_goodbye_messages())
 
 
 if __name__ == "__main__":
