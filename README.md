@@ -108,6 +108,11 @@ python -m virgil.friend.friend --backend qwen3-1.7b
 
 # With weather API support
 python -m virgil.friend.friend --backend gemma-2-2b-it --weather-api-key YOUR_API_KEY
+
+# With different image generators
+python -m virgil.friend.friend --image-generator diffuser  # Default: SDXL Turbo
+python -m virgil.friend.friend --image-generator flux     # Flux model
+python -m virgil.friend.friend --image-generator qwen-layered  # Qwen Image Layered (layered generation)
 ```
 
 #### Discord Setup for Friend

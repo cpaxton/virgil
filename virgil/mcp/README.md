@@ -87,6 +87,29 @@ server = VirgilMCPServer(
 )
 ```
 
+## Command-Line Testing Tool
+
+You can test MCP capabilities directly from the command line using the CLI tool:
+
+```bash
+# Send a message to a Discord channel
+python -m virgil.mcp.cli send-discord-message "Hello!" --channel-id YOUR_CHANNEL_ID
+
+# Post a message in a channel
+python -m virgil.mcp.cli post-in-channel "Hello everyone!" --channel-id YOUR_CHANNEL_ID
+
+# Send a direct message to a user
+python -m virgil.mcp.cli message-user "Hello!" --user-id YOUR_USER_ID
+
+# Generate an image
+python -m virgil.mcp.cli generate-image "a beautiful sunset" -o sunset.png
+
+# Generate and send an image to Discord
+python -m virgil.mcp.cli send-image "a cat" --channel-id YOUR_CHANNEL_ID
+```
+
+The CLI uses the same service architecture as the MCP server, so it's a good way to test functionality.
+
 ## Available Tools
 
 The MCP server exposes the following tools:
@@ -110,3 +133,18 @@ This design allows the same functionality to be used by:
 - Discord bots (via `Friend` class)
 - MCP servers (via `VirgilMCPServer`)
 - Other AI agents (by implementing custom services)
+
+## Supported Image Generators
+
+The MCP server supports all Virgil image generators:
+
+- **diffuser**: SDXL Turbo and other Diffusers models (default, fast)
+- **flux**: Flux model for high-quality generation
+- **qwen-layered**: Qwen Image Layered model for layered image generation
+
+You can specify the generator when running Friend:
+```bash
+python -m virgil.friend.friend --mcp-only --image-generator qwen-layered
+```
+
+See [Qwen Layered documentation](../image/qwen_layered_README.md) for more details.

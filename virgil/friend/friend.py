@@ -38,7 +38,11 @@ torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
-from virgil.image import DiffuserImageGenerator, FluxImageGenerator
+from virgil.image import (
+    DiffuserImageGenerator,
+    FluxImageGenerator,
+    QwenLayeredImageGenerator,
+)
 from virgil.utils import load_prompt
 from virgil.utils.weather import (
     get_current_weather,
@@ -163,6 +167,17 @@ class Friend(DiscordBot):
                 )
             elif image_generator.lower() == "flux":
                 image_gen = FluxImageGenerator(height=512, width=512)
+            elif (
+                image_generator.lower() == "qwen-layered"
+                or image_generator.lower() == "qwen_layered"
+            ):
+                image_gen = QwenLayeredImageGenerator(
+                    height=640,
+                    width=640,
+                    num_inference_steps=50,
+                    layers=4,
+                    resolution=640,
+                )
         else:
             image_gen = image_generator
 
@@ -467,7 +482,7 @@ class Friend(DiscordBot):
     "--image-generator",
     default="diffuser",
     help="The image generator to use.",
-    type=click.Choice(["diffuser", "flux"], case_sensitive=False),
+    type=click.Choice(["diffuser", "flux", "qwen-layered"], case_sensitive=False),
 )
 @click.option(
     "--weather-api-key",
@@ -513,6 +528,17 @@ def main(
             )
         elif image_generator.lower() == "flux":
             image_gen = FluxImageGenerator(height=512, width=512)
+        elif (
+            image_generator.lower() == "qwen-layered"
+            or image_generator.lower() == "qwen_layered"
+        ):
+            image_gen = QwenLayeredImageGenerator(
+                height=640,
+                width=640,
+                num_inference_steps=50,
+                layers=4,
+                resolution=640,
+            )
         else:
             image_gen = image_generator
 

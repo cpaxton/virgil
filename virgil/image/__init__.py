@@ -17,6 +17,7 @@
 from .base import ImageGenerator
 from .diffuser import DiffuserImageGenerator
 from .flux import FluxImageGenerator
+from .qwen_layered import QwenLayeredImageGenerator
 
 
 def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
@@ -32,6 +33,10 @@ def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
     """
     if generator == "diffuser":
         return DiffuserImageGenerator(**kwargs)
+    elif generator == "flux":
+        return FluxImageGenerator(**kwargs)
+    elif generator == "qwen-layered" or generator == "qwen_layered":
+        return QwenLayeredImageGenerator(**kwargs)
     else:
         raise ValueError(f"Unknown image generator: {generator}")
 
@@ -40,5 +45,6 @@ __all__ = [
     ImageGenerator,
     DiffuserImageGenerator,
     FluxImageGenerator,
+    QwenLayeredImageGenerator,
     create_image_generator,
 ]
