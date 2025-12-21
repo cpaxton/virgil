@@ -14,24 +14,30 @@
 
 # (c) 2024 by Chris Paxton
 
-import click
+# Standard library imports
+import asyncio
+import io
 import os
-import signal
+import random
 import re
+import signal
+import threading
+import time
+import traceback
+from datetime import datetime, timedelta
+from typing import Optional
+
+# Third-party imports
+import click
+import discord
+from PIL import Image
+from termcolor import colored
+import torch  # This only works on Ampere+ GPUs
+
+# Local imports
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
-from typing import Optional
-import random
-import threading
-import time
-from termcolor import colored
-import io
-import discord
-from PIL import Image
-
-# This only works on Ampere+ GPUs
-import torch
 
 # Enable TensorFloat-32 (TF32) on Ampere GPUs for faster matrix multiplications
 # Need to let Ruff know this is okay
@@ -73,8 +79,6 @@ from virgil.utils.weather import (
 from virgil.services.image_service import VirgilImageService
 from virgil.services.message_service import DiscordMessageService
 from virgil.mcp.server import VirgilMCPServer
-import asyncio
-from datetime import datetime, timedelta
 from virgil.utils.docs import (
     list_available_docs,
     format_doc_summary,
@@ -553,8 +557,6 @@ class Friend(DiscordBot):
         Returns:
             Clean plain text message
         """
-        import re
-
         formatted_message = response.strip()
         # Remove <think>...</think> tags (both closed and unclosed)
         formatted_message = re.sub(
@@ -962,28 +964,24 @@ class Friend(DiscordBot):
 
             def task_done_callback(task):
                 try:
-                    # Check if task completed successfully
-                    if task.done():
-                        exc = task.exception()
-                        if exc:
-                            print(
-                                colored(
-                                    f"❌ Memory extraction task failed: {exc}",
-                                    "red",
-                                    attrs=["bold"],
-                                )
+                    # This callback fires when the task completes
+                    # Only log errors here - let the extraction function print its own status
+                    exc = task.exception()
+                    if exc:
+                        print()
+                        print(
+                            colored(
+                                f"❌ Memory extraction task failed with exception: {exc}",
+                                "red",
+                                attrs=["bold"],
                             )
-                            import traceback
+                        )
+                        import traceback
 
-                            traceback.print_exception(type(exc), exc, exc.__traceback__)
-                        else:
-                            print(
-                                colored(
-                                    "✓ Memory extraction task completed",
-                                    "green",
-                                )
-                            )
+                        traceback.print_exception(type(exc), exc, exc.__traceback__)
+                        print()
                 except Exception as e:
+                    print()
                     print(
                         colored(
                             f"❌ Error in extraction task callback: {e}",
@@ -991,6 +989,7 @@ class Friend(DiscordBot):
                             attrs=["bold"],
                         )
                     )
+                    print()
 
             extraction_task.add_done_callback(task_done_callback)
 
@@ -1734,6 +1733,7 @@ Assistant: {assistant_response}
 Extract facts in these categories (PRIORITIZE ASSISTANT CONTENT):
 
 ABOUT CONTENT THE ASSISTANT CREATED, SAID, OR COMMITTED TO (HIGH PRIORITY):
+- Decisions: choices, decisions, or commitments the assistant made (e.g., "I'll post hourly", "I'll continue this story", "I decided to...")
 - Creative content: stories, characters, settings, plot points, world-building details the assistant created
 - Memes, jokes, or recurring themes the assistant created
 - Projects, narratives, or creative works the assistant is developing
@@ -1806,12 +1806,13 @@ User said hello
 Assistant responded with a greeting
 
 CRITICAL RULES: 
-- EXTRACT facts about what the ASSISTANT said, created, or committed to - this is CRITICAL
-- Extract facts about BOTH the user AND content/commitments the assistant created
+- EXTRACT facts about what the ASSISTANT said, created, committed to, or DECIDED - this is CRITICAL
+- Extract facts about BOTH the user AND content/commitments/decisions the assistant made
+- Pay special attention to DECISIONS and COMMITMENTS the assistant made (e.g., "I'll do X", "I decided to Y", "I'm creating Z")
 - Pay special attention to story elements, characters, settings, and creative content the assistant introduced
-- Remember commitments the assistant made (e.g., "I'll do X", "I'm creating Y")
+- Remember commitments the assistant made (e.g., "I'll do X", "I'm creating Y", "I decided to...")
 - Be selective - only extract facts that are explicitly stated and will persist
-- Include creative content, technical information, and ongoing commitments
+- Include creative content, technical information, ongoing commitments, and decisions
 - If unsure whether something should be remembered, DON'T extract it
 - Output ONLY facts, no reasoning, no analysis, no explanations
 - Use clear, concise statements
@@ -1874,11 +1875,8 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )  # Increased for better extraction
                         if self.auto_memory:
                             print(colored("   ✓ Backend returned result", "green"))
-                        return result
 
                         # Extract text from backend result (same format as ChatWrapper)
-                        import re
-
                         if isinstance(result, str):
                             response = result.strip()
                         elif isinstance(result, list) and len(result) > 0:
@@ -1907,15 +1905,15 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         # Note: We keep <think> tags in the extraction result since we want to extract
                         # facts from the assistant's thinking process. The extraction LLM should
                         # focus on facts, not reasoning, but we don't strip thinking tags here.
-                        result = response.strip()
+                        response = response.strip()
                         if self.auto_memory:
                             print(
                                 colored(
-                                    f"🔍 Extraction LLM response received ({len(result)} chars)",
+                                    f"   🔍 Processed extraction response ({len(response)} chars)",
                                     "cyan",
                                 )
                             )
-                        return result
+                        return response
 
                 loop = asyncio.get_event_loop()
                 if self.auto_memory:
@@ -1934,12 +1932,16 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 memories = []
 
                 if self.auto_memory:
+                    print()
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
                     print(
                         colored(
-                            f"📝 Parsing extraction result ({len(extraction_result)} chars)",
+                            f"📝 PARSING EXTRACTION RESULT ({len(extraction_result)} chars)",
                             "cyan",
+                            attrs=["bold"],
                         )
                     )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
 
                 # Extract lines from response
                 for line in extraction_result.strip().split("\n"):
@@ -1980,10 +1982,12 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 if self.auto_memory:
                     print(
                         colored(
-                            f"📊 Extraction parsing complete: found {len(memories)} potential memories",
+                            f"📊 Parsed {len(memories)} potential memory/memories from extraction",
                             "cyan",
+                            attrs=["bold"],
                         )
                     )
+                    print()
 
                 if memories:
                     print()
@@ -2058,6 +2062,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )
                     print()
                 else:
+                    # No memories extracted
                     if self.auto_memory:
                         print()
                         print(
@@ -2067,46 +2072,71 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                                 attrs=["bold"],
                             )
                         )
+                        if extraction_result:
+                            # Show what the LLM returned for debugging
+                            result_preview = extraction_result[:300].replace(
+                                "\n", " | "
+                            )
+                            print(
+                                colored(
+                                    f"   LLM extraction result: {result_preview}...",
+                                    "cyan",
+                                )
+                            )
+                        print()
+
+                # Update backward-compatible list (regardless of whether memories were extracted)
+                self.memory = self.memory_manager.get_all_memories()
+
+                # Check if we should consolidate based on new memory count
+                if (
+                    self.memory_consolidation_interval_hours > 0
+                    and self._memories_since_consolidation
+                    >= self._consolidation_threshold
+                ):
+                    if self.auto_memory:
                         print(
                             colored(
-                                f"   Extraction result was: {extraction_result[:200] if extraction_result else 'empty'}",
+                                f"🔄 Triggering consolidation: {self._memories_since_consolidation} new memories since last consolidation",
                                 "cyan",
                             )
                         )
-                        print()
-
-                    # Update backward-compatible list
-                    self.memory = self.memory_manager.get_all_memories()
-
-                    # Check if we should consolidate based on new memory count
-                    if (
-                        self.memory_consolidation_interval_hours > 0
-                        and self._memories_since_consolidation
-                        >= self._consolidation_threshold
-                    ):
-                        # Queue consolidation request (non-blocking)
-                        asyncio.create_task(
-                            self._queue_consolidation(
-                                force=True, reason="memory_threshold"
-                            )
-                        )
-
+                    # Queue consolidation request (non-blocking)
+                    asyncio.create_task(
+                        self._queue_consolidation(force=True, reason="memory_threshold")
+                    )
             except Exception as e:
                 # Log errors but don't fail - auto-memory is best-effort
-                if self.auto_memory:  # Only log if enabled
-                    print()
+                if self.auto_memory:
                     print(
                         colored(
-                            f"❌ Auto-memory extraction failed: {e}",
+                            f"❌ Memory extraction failed: {e}",
                             "red",
                             attrs=["bold"],
                         )
                     )
                     import traceback
 
-                    print(colored("Full traceback:", "red"))
                     traceback.print_exc()
-                    print()
+
+        # Actually run the extraction function
+        if self.auto_memory:
+            print(
+                colored(
+                    "🚀 About to call extract_memories()...", "cyan", attrs=["bold"]
+                )
+            )
+        await extract_memories()
+        if self.auto_memory:
+            print()
+            print(
+                colored(
+                    "✅ Memory extraction task completed successfully",
+                    "green",
+                    attrs=["bold"],
+                )
+            )
+            print()
 
     async def _queue_consolidation(self, force: bool = False, reason: str = "time"):
         """Queue a consolidation request.
@@ -2176,8 +2206,6 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )
                     )
                 elif reason == "time":
-                    from datetime import datetime
-
                     now = datetime.now()
                     if self._last_consolidation_time:
                         hours_since = (
@@ -2209,8 +2237,6 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     )
 
                 # Update state
-                from datetime import datetime
-
                 self._last_consolidation_time = datetime.now()
                 self._memories_since_consolidation = (
                     0  # Reset counter after consolidation
