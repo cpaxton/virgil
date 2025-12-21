@@ -614,8 +614,21 @@ class Friend(DiscordBot):
         print()
 
         # Add metadata about where this memory came from
+        guild_id = (
+            task.channel.guild.id
+            if hasattr(task.channel, "guild") and task.channel.guild
+            else None
+        )
+        guild_name = (
+            task.channel.guild.name
+            if hasattr(task.channel, "guild") and task.channel.guild
+            else None
+        )
         metadata = {
             "channel": task.channel.name,
+            "channel_id": task.channel.id,
+            "guild": guild_name,
+            "guild_id": guild_id,
             "user": task.user_name,
             "created_via": "remember_action",
         }
@@ -1070,9 +1083,23 @@ class Friend(DiscordBot):
                 else user_name
             )
 
+            # Get guild info if available
+            guild_id = (
+                task.channel.guild.id
+                if hasattr(task.channel, "guild") and task.channel.guild
+                else None
+            )
+            guild_name = (
+                task.channel.guild.name
+                if hasattr(task.channel, "guild") and task.channel.guild
+                else None
+            )
+
             reminder = self.reminder_manager.add_reminder(
                 channel_id=task.channel.id,
                 channel_name=task.channel.name,
+                guild_id=guild_id,
+                guild_name=guild_name,
                 user_id=user_id_to_use or task.user_id,
                 user_name=user_name_to_use,
                 reminder_time=reminder_time,
@@ -1236,6 +1263,18 @@ class Friend(DiscordBot):
                     channel = task.channel
                     channel_name = channel.name
 
+                # Get guild info if available
+                guild_id = (
+                    channel.guild.id
+                    if hasattr(channel, "guild") and channel.guild
+                    else None
+                )
+                guild_name = (
+                    channel.guild.name
+                    if hasattr(channel, "guild") and channel.guild
+                    else None
+                )
+
                 scheduled_task = self.scheduler.add_task(
                     task_type="post",
                     message=schedule_message,
@@ -1243,6 +1282,8 @@ class Friend(DiscordBot):
                     schedule_value=schedule_value,
                     channel_id=channel.id,
                     channel_name=channel.name,
+                    guild_id=guild_id,
+                    guild_name=guild_name,
                 )
                 # Terminal output
                 print(
@@ -1675,8 +1716,23 @@ Output now (facts only, one per line, extract everything important):"""
                                 colored(f"  [{idx}] ", "cyan", attrs=["bold"])
                                 + colored(memory_content, "green", attrs=["bold"])
                             )
+                            # Get guild info if available
+                            guild_id = (
+                                task.channel.guild.id
+                                if hasattr(task.channel, "guild") and task.channel.guild
+                                else None
+                            )
+                            guild_name = (
+                                task.channel.guild.name
+                                if hasattr(task.channel, "guild") and task.channel.guild
+                                else None
+                            )
+
                             metadata = {
                                 "channel": task.channel.name,
+                                "channel_id": task.channel.id,
+                                "guild": guild_name,
+                                "guild_id": guild_id,
                                 "user": task.user_name,
                                 "created_via": "auto_extraction",
                                 "source_message": user_message[
