@@ -962,6 +962,7 @@ class Friend(DiscordBot):
                 "weather": "cyan",
                 "edit_image": "magenta",
                 "remind": "yellow",
+                "show_remind": "cyan",
                 "edit_remind": "yellow",
                 "delete_remind": "red",
                 "schedule": "yellow",
@@ -1274,6 +1275,268 @@ class Friend(DiscordBot):
             await task.channel.send(
                 f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
             )
+
+    async def _handle_show_remind_action(self, task: Task, content: str):
+        """Handle the 'show_remind' action - display all reminders for the current user."""
+        all_reminders = self.reminder_manager.get_all_reminders()
+        user_reminders = [r for r in all_reminders if r.user_id == task.user_id]
+
+        if not user_reminders:
+            await task.channel.send("*You have no active reminders.*")
+            return
+
+        # Terminal output
+        print(
+            colored(
+                f"📋 Showing {len(user_reminders)} reminder(s) for {task.user_name}:",
+                "cyan",
+                attrs=["bold"],
+            )
+        )
+
+        # Format reminders for display
+        reminder_lines = []
+        for reminder in user_reminders:
+            time_str = reminder.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+            location = f"#{reminder.channel_name}" if reminder.channel_name else "DM"
+            reminder_lines.append(
+                f"**ID {reminder.reminder_id}**: '{reminder.message}' at {time_str} in {location}"
+            )
+
+            # Terminal output
+            print(colored(f"  [{reminder.reminder_id}] ", "cyan", attrs=["bold"]))
+            print(colored(f"    Message: {reminder.message}", "white"))
+            print(colored(f"    Time: {time_str}", "cyan"))
+            print(colored(f"    Location: {location}", "cyan"))
+            print()
+
+        # Send to channel (split into chunks if too long)
+        response = (
+            f"**📋 Your Reminders ({len(user_reminders)} total):**\n\n"
+            + "\n\n".join(reminder_lines)
+        )
+
+        # Split into chunks if too long (Discord limit is 2000 chars)
+        while len(response) > 0:
+            chunk = response[:1900]
+            # Try to break at a reminder boundary
+            last_newline = chunk.rfind("\n\n")
+            if last_newline > 1000:  # Only break if we have a reasonable chunk
+                chunk = response[:last_newline]
+            await task.channel.send(chunk)
+            response = response[len(chunk) :].lstrip()
+
+    async def _handle_edit_remind_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'edit_remind' action - edit an existing reminder.
+
+        Args:
+            task: The task containing channel and context information.
+            content: New message content (optional).
+            attributes: Dictionary containing:
+                - reminder_id: The ID of the reminder to edit (required)
+                - time: New time (optional, format: "HH:MM:SS" for relative or "YYYY-MM-DD HH:MM:SS" for absolute)
+                - message: New message (optional, can also be in content)
+        """
+        reminder_id = attributes.get("reminder_id")
+
+        if not reminder_id:
+            # Try to parse reminder_id from content if not in attributes
+            content_stripped = content.strip() if content else ""
+            id_match = re.search(
+                r"(?:reminder\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                reminder_id = id_match.group(1)
+
+        if not reminder_id:
+            # Show all reminders so user can see IDs
+            all_reminders = self.reminder_manager.get_all_reminders()
+            user_reminders = [r for r in all_reminders if r.user_id == task.user_id]
+
+            if not user_reminders:
+                await task.channel.send("*No reminders found to edit.*")
+                return
+
+            reminder_list = []
+            for r in user_reminders[:10]:
+                time_str = r.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+                reminder_list.append(
+                    f"ID {r.reminder_id}: '{r.message[:50]}...' at {time_str}"
+                )
+
+            await task.channel.send(
+                "*Please specify a reminder ID to edit. Your reminders:*\n"
+                + "\n".join(reminder_list)
+            )
+            return
+
+        # Find the reminder
+        all_reminders = self.reminder_manager.get_all_reminders()
+        reminder_to_edit = None
+        for r in all_reminders:
+            if r.reminder_id == str(reminder_id):
+                reminder_to_edit = r
+                break
+
+        if not reminder_to_edit:
+            await task.channel.send(f"*Reminder ID '{reminder_id}' not found.*")
+            return
+
+        # Check if user owns this reminder
+        if reminder_to_edit.user_id != task.user_id:
+            await task.channel.send("*You can only edit your own reminders.*")
+            return
+
+        # Parse new values
+        new_message = attributes.get("message") or content.strip() if content else None
+        new_time_str = attributes.get("time")
+        new_reminder_time = None
+
+        if new_time_str:
+            # Parse time using the same method as _handle_remind_action
+            # Accepts "HH:MM:SS" for relative or "YYYY-MM-DD HH:MM:SS" for absolute
+            parsed_time = self._parse_reminder_time(new_time_str, "")
+            if not parsed_time:
+                await task.channel.send(
+                    f"*Could not parse time '{new_time_str}'. Use format 'HH:MM:SS' for relative or 'YYYY-MM-DD HH:MM:SS' for absolute.*"
+                )
+                return
+
+            if parsed_time.get("reminder_time"):
+                new_reminder_time = parsed_time["reminder_time"]
+            elif parsed_time.get("time_delta"):
+                new_reminder_time = datetime.now() + parsed_time["time_delta"]
+            else:
+                await task.channel.send(
+                    f"*Could not parse time '{new_time_str}'. Use format 'HH:MM:SS' for relative or 'YYYY-MM-DD HH:MM:SS' for absolute.*"
+                )
+                return
+
+        # Update reminder
+        updated = self.reminder_manager.update_reminder(
+            str(reminder_id),
+            message=new_message,
+            reminder_time=new_reminder_time,
+        )
+
+        if not updated:
+            await task.channel.send(f"*Failed to update reminder ID '{reminder_id}'.*")
+            return
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"✏️  EDITED REMINDER: ID={reminder_id}",
+                "yellow",
+                attrs=["bold"],
+            )
+        )
+        if new_message:
+            print(colored(f"  New message: {new_message}", "white"))
+        if new_reminder_time:
+            print(
+                colored(
+                    f"  New time: {new_reminder_time.strftime('%Y-%m-%d %H:%M:%S')}",
+                    "cyan",
+                )
+            )
+        print()
+
+        # User confirmation
+        confirm_msg = f"✓ Updated reminder (ID: {reminder_id})"
+        if new_message:
+            confirm_msg += f": '{new_message[:100]}'"
+        if new_reminder_time:
+            confirm_msg += (
+                f" (new time: {new_reminder_time.strftime('%Y-%m-%d %H:%M:%S')})"
+            )
+        await task.channel.send(confirm_msg)
+
+    async def _handle_delete_remind_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'delete_remind' action - delete an existing reminder.
+
+        Args:
+            task: The task containing channel and context information.
+            content: Optional content (not used, reminder_id comes from attributes).
+            attributes: Dictionary containing:
+                - reminder_id: The ID of the reminder to delete (required)
+        """
+        reminder_id = attributes.get("reminder_id")
+
+        if not reminder_id:
+            # Try to parse from content
+            content_stripped = content.strip() if content else ""
+            id_match = re.search(
+                r"(?:reminder\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                reminder_id = id_match.group(1)
+
+        if not reminder_id:
+            # Show all reminders so user can see IDs
+            all_reminders = self.reminder_manager.get_all_reminders()
+            user_reminders = [r for r in all_reminders if r.user_id == task.user_id]
+
+            if not user_reminders:
+                await task.channel.send("*No reminders found to delete.*")
+                return
+
+            reminder_list = []
+            for r in user_reminders[:10]:
+                time_str = r.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+                reminder_list.append(
+                    f"ID {r.reminder_id}: '{r.message[:50]}...' at {time_str}"
+                )
+
+            await task.channel.send(
+                "*Please specify a reminder ID to delete. Your reminders:*\n"
+                + "\n".join(reminder_list)
+            )
+            return
+
+        # Find the reminder
+        all_reminders = self.reminder_manager.get_all_reminders()
+        reminder_to_delete = None
+        for r in all_reminders:
+            if r.reminder_id == str(reminder_id):
+                reminder_to_delete = r
+                break
+
+        if not reminder_to_delete:
+            await task.channel.send(f"*Reminder ID '{reminder_id}' not found.*")
+            return
+
+        # Check if user owns this reminder
+        if reminder_to_delete.user_id != task.user_id:
+            await task.channel.send("*You can only delete your own reminders.*")
+            return
+
+        # Delete reminder
+        self.reminder_manager.remove_reminder(str(reminder_id))
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"🗑️  DELETED REMINDER: ID={reminder_id}",
+                "red",
+                attrs=["bold"],
+            )
+        )
+        print(colored(f"  Message: {reminder_to_delete.message}", "white"))
+        time_str = reminder_to_delete.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+        print(colored(f"  Time: {time_str}", "cyan"))
+        print()
+
+        # User confirmation
+        await task.channel.send(
+            f"✓ Deleted reminder (ID: {reminder_id}): '{reminder_to_delete.message[:100]}'"
+        )
 
     async def _handle_schedule_action(self, task: Task, content: str, attributes: dict):
         """Handle the 'schedule' action - create a scheduled task.
@@ -2554,6 +2817,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 "weather": "cyan",
                 "edit_image": "magenta",
                 "remind": "yellow",
+                "show_remind": "cyan",
                 "edit_remind": "yellow",
                 "delete_remind": "red",
                 "schedule": "yellow",
@@ -2593,6 +2857,8 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     await self._handle_edit_image_action(task, content)
                 elif action == "remind":
                     await self._handle_remind_action(task, content, attributes)
+                elif action == "show_remind":
+                    await self._handle_show_remind_action(task, content)
                 elif action == "edit_remind":
                     await self._handle_edit_remind_action(task, content, attributes)
                 elif action == "delete_remind":

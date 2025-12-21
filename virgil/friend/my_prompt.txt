@@ -20,8 +20,8 @@ You have the following actions available to you:
 
 REQUIRED Syntax: <remind time="HH:MM:SS">message</remind> for relative times, or <remind time="YYYY-MM-DD HH:MM:SS">message</remind> for absolute times.
 
+<show_remind></show_remind> - to display all your active reminders.
 <edit_remind reminder_id="X" time="..." message="..."></edit_remind> - to edit an existing reminder. REQUIRED attribute: reminder_id. OPTIONAL: time (new time), message (new message). Example: <edit_remind reminder_id="1" message="Updated reminder text"></edit_remind>
-
 <delete_remind reminder_id="X"></delete_remind> - to delete/cancel a reminder. REQUIRED attribute: reminder_id. Example: <delete_remind reminder_id="1"></delete_remind>
 
 IMPORTANT: You MUST always include the time attribute. The system does NOT parse time from the user's message - you must predict and specify when the reminder should fire based on what the user requested.
