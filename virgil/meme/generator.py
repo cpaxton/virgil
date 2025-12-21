@@ -15,6 +15,7 @@
 # Description: This file contains the code for generating a meme based on a prompt.
 #
 from pathlib import Path
+from typing import Union, Optional
 
 from virgil.backend import get_backend
 
@@ -36,8 +37,38 @@ def load_prompt() -> str:
 
 
 class MemeGenerator:
-    def __init__(self, backend: str = "gemma", memory_manager=None):
-        self.backend = get_backend(backend)
+    def __init__(
+        self,
+        backend: Union[str, object, None] = None,
+        memory_manager=None,
+        backend_name: Optional[str] = None,
+    ):
+        """
+        Initialize the MemeGenerator.
+
+        Args:
+            backend: Backend instance to reuse (avoids loading duplicate models in GPU memory),
+                    or backend name string (for backward compatibility). If None, uses backend_name.
+            memory_manager: Optional memory manager for RAG support.
+            backend_name: Backend name string to use if backend is None. Defaults to "gemma".
+                        Only used if backend is None.
+
+        Note: For backward compatibility, if backend is a string, it's treated as a backend name.
+              To pass a backend instance, ensure it's an object (not a string).
+        """
+        # Handle backward compatibility: if backend is a string, treat it as backend_name
+        if isinstance(backend, str):
+            backend_name = backend
+            backend = None
+
+        # Reuse backend instance if provided (to avoid duplicate GPU memory usage)
+        # Otherwise create a new backend instance
+        if backend is not None:
+            self.backend = backend
+        else:
+            # Use backend_name if provided, otherwise default to "gemma"
+            final_backend_name = backend_name if backend_name is not None else "gemma"
+            self.backend = get_backend(final_backend_name)
         self.base_prompt = load_prompt()
         self.memory_manager = memory_manager
 

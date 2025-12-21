@@ -338,9 +338,9 @@ class Friend(DiscordBot):
         )
 
         # Initialize meme generator with memory manager for RAG support
-        # Use the same backend as the chat
+        # Reuse the same backend instance to avoid duplicate GPU memory usage
         self.meme_generator = MemeGenerator(
-            backend=self.backend_name, memory_manager=self.memory_manager
+            backend=self.backend, memory_manager=self.memory_manager
         )
         print(colored("🎭 Meme generator initialized with RAG memory support", "cyan"))
 

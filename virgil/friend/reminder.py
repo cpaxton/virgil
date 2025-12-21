@@ -174,13 +174,13 @@ class ReminderManager:
             reminder_id=reminder_id,
             channel_id=channel_id,
             channel_name=channel_name,
-            guild_id=guild_id,
-            guild_name=guild_name,
             user_id=user_id,
             user_name=user_name,
             reminder_time=reminder_time,
             message=message,
             created_at=datetime.now(),
+            guild_id=guild_id,
+            guild_name=guild_name,
         )
 
         self.reminders[reminder_id] = reminder
