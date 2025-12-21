@@ -951,11 +951,46 @@ class Friend(DiscordBot):
                     "cyan",
                 )
             )
-            asyncio.create_task(
+            # Create task and ensure it runs - add error callback
+            extraction_task = asyncio.create_task(
                 self._extract_auto_memories(
                     task, user_message_for_extraction, original_response
                 )
             )
+
+            def task_done_callback(task):
+                try:
+                    # Check if task completed successfully
+                    if task.done():
+                        exc = task.exception()
+                        if exc:
+                            print(
+                                colored(
+                                    f"❌ Memory extraction task failed: {exc}",
+                                    "red",
+                                    attrs=["bold"],
+                                )
+                            )
+                            import traceback
+
+                            traceback.print_exception(type(exc), exc, exc.__traceback__)
+                        else:
+                            print(
+                                colored(
+                                    "✓ Memory extraction task completed",
+                                    "green",
+                                )
+                            )
+                except Exception as e:
+                    print(
+                        colored(
+                            f"❌ Error in extraction task callback: {e}",
+                            "red",
+                            attrs=["bold"],
+                        )
+                    )
+
+            extraction_task.add_done_callback(task_done_callback)
 
         print()
         print(
@@ -1800,16 +1835,35 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 # Small delay to ensure response is fully sent before extraction
                 await asyncio.sleep(0.5)
 
+                if self.auto_memory:
+                    print(colored("   ⏳ Calling extraction LLM...", "cyan"))
+
                 def _prompt_with_lock():
                     # CRITICAL: Use _chat_lock to ensure backend resource is not used concurrently
                     # This prevents GPU memory conflicts - only one LLM call at a time
+                    print(
+                        colored("   🔒 Acquiring chat lock for extraction...", "cyan")
+                    )
                     with self._chat_lock:
+                        print(
+                            colored(
+                                "   ✓ Chat lock acquired, calling backend...", "cyan"
+                            )
+                        )
                         # Use backend directly for memory extraction to avoid polluting conversation history
                         # This is a dedicated extraction query with a specialized prompt
                         messages = [{"role": "user", "content": extraction_prompt}]
+                        print(
+                            colored(
+                                f"   📤 Sending extraction prompt ({len(extraction_prompt)} chars)...",
+                                "cyan",
+                            )
+                        )
                         result = self.backend(
                             messages, max_new_tokens=512
                         )  # Increased for better extraction
+                        print(colored("   ✓ Backend returned result", "green"))
+                        return result
 
                         # Extract text from backend result (same format as ChatWrapper)
                         import re
@@ -1853,7 +1907,16 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         return result
 
                 loop = asyncio.get_event_loop()
+                if self.auto_memory:
+                    print(colored("   ⏳ Running extraction in executor...", "cyan"))
                 extraction_result = await loop.run_in_executor(None, _prompt_with_lock)
+                if self.auto_memory:
+                    print(
+                        colored(
+                            f"   ✓ Extraction LLM returned ({len(extraction_result)} chars)",
+                            "green",
+                        )
+                    )
 
                 # Parse extracted memories - LLM-driven, minimal filtering
                 # Trust the extraction LLM and consolidation to handle quality
