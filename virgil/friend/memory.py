@@ -57,11 +57,15 @@ class Memory:
 
     @classmethod
     def from_dict(cls, data: dict):
-        """Create Memory from dictionary."""
+        """Create Memory from dictionary.
+
+        Note: Embeddings are NOT loaded from JSON - they are regenerated lazily
+        when needed since they're deterministic from content. This keeps JSON files small.
+        """
         return cls(
             id=data["id"],
             content=data["content"],
-            embedding=data.get("embedding"),
+            embedding=None,  # Don't load embeddings - regenerate lazily
             metadata=data.get("metadata", {}),
             created_at=data.get("created_at"),
             accessed_at=data.get("accessed_at"),
@@ -133,8 +137,11 @@ class MemoryManager:
                             self.memories[memory.id] = memory
                     elif isinstance(data, dict) and "memories" in data:
                         # New format: dict with metadata
+                        # Embeddings are NOT loaded - they will be regenerated lazily when needed
                         for mem_data in data["memories"]:
                             memory = Memory.from_dict(mem_data)
+                            # Don't load embeddings from JSON - regenerate lazily
+                            memory.embedding = None
                             self.memories[memory.id] = memory
             except Exception as e:
                 print(f"Error loading memories from {self.storage_file}: {e}")
@@ -173,12 +180,29 @@ class MemoryManager:
             print(f"Error migrating from legacy format: {e}")
 
     def _save_memories(self):
-        """Save memories to storage file."""
+        """Save memories to storage file.
+
+        Embeddings are NOT persisted - they are regenerated on load since they're
+        deterministic from the content. This keeps the JSON file small and efficient.
+        """
         try:
+            # Save memories WITHOUT embeddings to keep JSON file small
+            # Embeddings will be regenerated on load since they're deterministic
             memories_data = {
                 "version": "1.0",
                 "mode": self.mode,
-                "memories": [mem.to_dict() for mem in self.memories.values()],
+                "memories": [
+                    {
+                        "id": mem.id,
+                        "content": mem.content,
+                        "metadata": mem.metadata,
+                        "created_at": mem.created_at,
+                        "accessed_at": mem.accessed_at,
+                        "access_count": mem.access_count,
+                        # Embedding is NOT saved - will be regenerated on load
+                    }
+                    for mem in self.memories.values()
+                ],
             }
             with open(self.storage_file, "w") as f:
                 json.dump(memories_data, f, indent=2)
@@ -297,6 +321,13 @@ class MemoryManager:
         if not self.memories:
             return []
 
+        # Ensure embeddings are generated for all memories (lazy generation)
+        for memory in self.memories.values():
+            if memory.embedding is None and self.mode in ("rag", "hybrid"):
+                embedding = self._get_embedding(memory.content)
+                if embedding is not None:
+                    memory.embedding = embedding.tolist()
+
         max_results = max_results or self.max_memories
 
         # Generate query embedding
@@ -305,17 +336,12 @@ class MemoryManager:
             # Fallback to all memories if embedding fails
             return list(self.memories.values())[:max_results]
 
-        # Compute similarities
+        # Compute similarities (embeddings already generated above)
         similarities = []
         for memory in self.memories.values():
+            # Embedding should already be generated above, but check just in case
             if memory.embedding is None:
-                # Generate embedding if missing
-                embedding = self._get_embedding(memory.content)
-                if embedding is not None:
-                    memory.embedding = embedding.tolist()
-                    self._save_memories()
-                else:
-                    continue
+                continue  # Skip if embedding generation failed
 
             # Convert to numpy array
             mem_embedding = np.array(memory.embedding)
