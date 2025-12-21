@@ -1567,18 +1567,15 @@ class Friend(DiscordBot):
             return
 
         # Create prompt for memory extraction - LLM-driven approach
-        extraction_prompt = f"""You are a memory extraction system. Extract ONLY persistent, important facts about the USER that would be useful to remember across multiple conversations.
+        extraction_prompt = f"""You are a memory extraction system. Extract persistent, important facts that would be useful to remember across multiple conversations.
 
 Conversation:
 User: {user_message}
-Assistant: {assistant_response[:500]}
+Assistant: {assistant_response[:1000]}
 
-ONLY extract facts that are:
-1. PERSISTENT - Will still be true in future conversations (not ephemeral conversation state)
-2. ABOUT THE USER - Personal facts, preferences, relationships, interests, skills
-3. ACTIONABLE - Would help personalize future interactions
+Extract facts in these categories:
 
-EXTRACT:
+ABOUT THE USER:
 - Names, nicknames, preferred names
 - Personal information (job, location, interests, hobbies) - ONLY if explicitly stated
 - Preferences (colors, foods, styles, technologies, tools) - ONLY if explicitly stated
@@ -1586,6 +1583,17 @@ EXTRACT:
 - Skills, expertise, or areas of knowledge - ONLY if clearly stated
 - Personal history or experiences shared - ONLY if significant
 - Projects or work - ONLY if named or described in detail
+
+ABOUT CREATIVE CONTENT THE ASSISTANT CREATED:
+- Story elements: character names, settings, plot points, world-building details
+- Meme themes or recurring jokes
+- Creative projects or narratives the assistant is developing
+- Ongoing creative content (e.g., "hourly story series", "character X's adventures")
+
+ABOUT COMMITMENTS OR ONGOING ACTIVITIES:
+- Things the assistant committed to doing (e.g., "posting hourly stories", "continuing a series")
+- Scheduled activities or recurring content the assistant is creating
+- Ongoing narratives or creative works in progress
 
 DO NOT EXTRACT:
 - Ephemeral conversation state (channel names, message types, incomplete inputs)
@@ -1598,14 +1606,14 @@ DO NOT EXTRACT:
 
 Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
 Examples of GOOD output:
-User prefers dark mode
 User's name is Alice
 User works at TechCorp as a software engineer
 User loves pizza and Italian food
-User is learning Python programming
-User has a cat named Whiskers
-User is working on a project called "ProjectX"
-User prefers to be called "Al"
+Story character: Lira is an inventor exploring the Clockwork Forest
+Story character: Bolt is Lira's robot companion
+Story setting: The Chrono Core is a destination in the story
+Assistant is posting hourly story segments in #ask-a-robot
+Story theme: A realm where gears replaced trees
 
 Examples of BAD output (DO NOT EXTRACT THESE):
 Interaction occurred on channel #ask-a-robot
@@ -1615,10 +1623,11 @@ User has engaged in meme-suggestion interactions
 Channel context implies user expects interactive responses
 No explicit new information provided
 User sent a message
-Previous meme generation involved robot themes
 
 CRITICAL RULES: 
-- Be VERY selective - only extract facts that are explicitly stated and will persist
+- Extract facts about BOTH the user AND creative content the assistant created
+- Be selective - only extract facts that are explicitly stated and will persist
+- Include story elements, characters, settings, and ongoing creative content
 - If unsure whether something should be remembered, DON'T extract it
 - Output ONLY facts, no reasoning, no analysis, no explanations
 - Use clear, concise statements
@@ -1626,9 +1635,8 @@ CRITICAL RULES:
 - Do NOT number items or use bullet points
 - Do NOT use phrases like "The user said" or "The assistant mentioned"
 - Do NOT include your thought process - just the facts
-- Do NOT extract ephemeral conversation state or obvious context
 
-Output now (facts only, one per line, be very selective - only persistent user facts):"""
+Output now (facts only, one per line, include user facts AND creative content facts):"""
 
         try:
             # Run extraction in background to avoid blocking
