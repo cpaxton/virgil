@@ -404,3 +404,166 @@ class MemoryManager:
         self.memories.clear()
         self._embedding_cache.clear()
         self._save_memories()
+
+    def consolidate_memories(
+        self,
+        similarity_threshold: float = 0.85,
+        use_llm: bool = False,
+        backend=None,
+    ) -> Dict[str, int]:
+        """
+        Consolidate similar memories by merging duplicates and near-duplicates.
+
+        Args:
+            similarity_threshold: Similarity threshold for considering memories as duplicates (0.0-1.0). Higher = more strict.
+            use_llm: If True, use LLM to intelligently merge similar memories. If False, keep the most recent/accessed memory.
+            backend: Optional backend instance for LLM-based merging (required if use_llm=True)
+
+        Returns:
+            Dict with consolidation stats: {"merged": count, "removed": count, "kept": count}
+        """
+        if len(self.memories) < 2:
+            return {"merged": 0, "removed": 0, "kept": len(self.memories)}
+
+        # Ensure all memories have embeddings
+        for memory in self.memories.values():
+            if memory.embedding is None and self.mode in ("rag", "hybrid"):
+                embedding = self._get_embedding(memory.content)
+                if embedding is not None:
+                    memory.embedding = embedding.tolist()
+
+        # Find similar memories using clustering
+        memory_list = list(self.memories.values())
+        to_remove = set()
+        merged_groups = []
+
+        # Group similar memories
+        for i, mem1 in enumerate(memory_list):
+            if mem1.id in to_remove:
+                continue
+
+            group = [mem1]
+            mem1_embedding = np.array(mem1.embedding) if mem1.embedding else None
+
+            if mem1_embedding is None:
+                continue
+
+            for j, mem2 in enumerate(memory_list[i + 1 :], start=i + 1):
+                if mem2.id in to_remove:
+                    continue
+
+                mem2_embedding = np.array(mem2.embedding) if mem2.embedding else None
+                if mem2_embedding is None:
+                    continue
+
+                # Compute similarity
+                similarity = np.dot(mem1_embedding, mem2_embedding)
+
+                if similarity >= similarity_threshold:
+                    group.append(mem2)
+                    to_remove.add(mem2.id)
+
+            if len(group) > 1:
+                merged_groups.append(group)
+
+        # Merge groups
+        merged_count = 0
+        removed_count = len(to_remove)
+
+        for group in merged_groups:
+            if len(group) <= 1:
+                continue
+
+            # Sort by access_count and accessed_at (prefer frequently accessed, recent memories)
+            group.sort(
+                key=lambda m: (
+                    m.access_count,
+                    m.accessed_at or m.created_at or "",
+                ),
+                reverse=True,
+            )
+
+            # Keep the best memory, merge others into it
+            kept_memory = group[0]
+            to_merge = group[1:]
+
+            if use_llm and backend:
+                # Use LLM to intelligently merge memories
+                merge_prompt = f"""Merge these related memories into a single, concise fact:
+
+{chr(10).join(f"- {m.content}" for m in group)}
+
+Output a single merged memory that captures the essential information. Be concise and factual."""
+
+                try:
+                    messages = [{"role": "user", "content": merge_prompt}]
+                    result = backend(messages, max_new_tokens=128)
+
+                    # Extract merged content
+                    if isinstance(result, str):
+                        merged_content = result.strip()
+                    elif isinstance(result, list) and len(result) > 0:
+                        if isinstance(result[0], dict):
+                            generated_text = result[0].get("generated_text", [])
+                            if (
+                                isinstance(generated_text, list)
+                                and len(generated_text) > 0
+                            ):
+                                last_msg = generated_text[-1]
+                                if isinstance(last_msg, dict):
+                                    merged_content = last_msg.get(
+                                        "content", str(last_msg)
+                                    ).strip()
+                                else:
+                                    merged_content = str(last_msg).strip()
+                            elif isinstance(generated_text, str):
+                                merged_content = generated_text.strip()
+                            else:
+                                merged_content = str(generated_text).strip()
+                        else:
+                            merged_content = str(result[0]).strip()
+                    else:
+                        merged_content = str(result).strip()
+
+                    # Remove <think> tags if present
+                    import re
+
+                    merged_content = re.sub(
+                        r"<think>.*?</think>", "", merged_content, flags=re.DOTALL
+                    )
+                    merged_content = merged_content.strip()
+
+                    if merged_content and len(merged_content) > 5:
+                        kept_memory.content = merged_content
+                        # Regenerate embedding for merged content
+                        embedding = self._get_embedding(merged_content)
+                        if embedding is not None:
+                            kept_memory.embedding = embedding.tolist()
+                except Exception as e:
+                    print(f"Warning: LLM merge failed, using kept memory: {e}")
+                    # Fall back to keeping the best memory as-is
+
+            # Update metadata to indicate consolidation
+            if "consolidated_from" not in kept_memory.metadata:
+                kept_memory.metadata["consolidated_from"] = []
+            kept_memory.metadata["consolidated_from"].extend([m.id for m in to_merge])
+            kept_memory.metadata["consolidated_at"] = datetime.now().isoformat()
+
+            merged_count += len(to_merge)
+
+        # Remove merged memories
+        for mem_id in to_remove:
+            memory = self.memories[mem_id]
+            # Remove from cache
+            if memory.content in self._embedding_cache:
+                del self._embedding_cache[memory.content]
+            del self.memories[mem_id]
+
+        if merged_count > 0 or removed_count > 0:
+            self._save_memories()
+
+        return {
+            "merged": merged_count,
+            "removed": removed_count,
+            "kept": len(self.memories),
+        }

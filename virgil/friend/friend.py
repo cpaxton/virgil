@@ -123,6 +123,7 @@ class Friend(DiscordBot):
         memory_max_results: int = 10,
         memory_similarity_threshold: float = 0.3,
         auto_memory: bool = True,
+        memory_consolidation_interval_hours: int = 12,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -142,6 +143,7 @@ class Friend(DiscordBot):
             memory_max_results (int): Maximum number of memories to retrieve in RAG mode. Defaults to 10.
             memory_similarity_threshold (float): Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.
             auto_memory (bool): Automatically extract and store important information from conversations. Defaults to True.
+            memory_consolidation_interval_hours (int): Hours between memory consolidation runs. Set to 0 to disable. Defaults to 12.
         """
 
         self.backend = get_backend(backend)
@@ -248,6 +250,10 @@ class Friend(DiscordBot):
         # Reminder system
         self.reminder_manager = ReminderManager()
         self.reminder_manager.set_execution_callback(self._execute_reminder)
+
+        # Memory consolidation
+        self.memory_consolidation_interval_hours = memory_consolidation_interval_hours
+        self._last_consolidation_time = None
 
         # Scheduler system
         self.scheduler = Scheduler()
@@ -360,6 +366,10 @@ class Friend(DiscordBot):
             except Exception as e:
                 print(colored(f"Failed to initialize MCP server: {e}", "yellow"))
                 print("Continuing without MCP server...")
+
+        # Check if it's time to consolidate memories
+        if self.memory_consolidation_interval_hours > 0:
+            self._check_and_consolidate_memories()
 
         # Format prompt with memories
         # For static mode: include all memories in system prompt
@@ -1655,181 +1665,216 @@ CRITICAL RULES:
 
 Output now (facts only, one per line, include user facts AND assistant-created content/commitments):"""
 
-        try:
-            # Dedicated memory extraction query - runs in background after response is sent
-            async def extract_memories():
-                try:
-                    # Small delay to ensure response is fully sent before extraction
-                    await asyncio.sleep(0.5)
+        # Dedicated memory extraction query - runs in background after response is sent
+        async def extract_memories():
+            try:
+                # Small delay to ensure response is fully sent before extraction
+                await asyncio.sleep(0.5)
 
-                    def _prompt_with_lock():
-                        # CRITICAL: Use _chat_lock to ensure backend resource is not used concurrently
-                        # This prevents GPU memory conflicts - only one LLM call at a time
-                        with self._chat_lock:
-                            # Use backend directly for memory extraction to avoid polluting conversation history
-                            # This is a dedicated extraction query with a specialized prompt
-                            messages = [{"role": "user", "content": extraction_prompt}]
-                            result = self.backend(
-                                messages, max_new_tokens=512
-                            )  # Increased for better extraction
+                def _prompt_with_lock():
+                    # CRITICAL: Use _chat_lock to ensure backend resource is not used concurrently
+                    # This prevents GPU memory conflicts - only one LLM call at a time
+                    with self._chat_lock:
+                        # Use backend directly for memory extraction to avoid polluting conversation history
+                        # This is a dedicated extraction query with a specialized prompt
+                        messages = [{"role": "user", "content": extraction_prompt}]
+                        result = self.backend(
+                            messages, max_new_tokens=512
+                        )  # Increased for better extraction
 
-                            # Extract text from backend result (same format as ChatWrapper)
-                            import re
+                        # Extract text from backend result (same format as ChatWrapper)
+                        import re
 
-                            if isinstance(result, str):
-                                response = result.strip()
-                            elif isinstance(result, list) and len(result) > 0:
-                                if isinstance(result[0], dict):
-                                    generated_text = result[0].get("generated_text", [])
-                                    if (
-                                        isinstance(generated_text, list)
-                                        and len(generated_text) > 0
-                                    ):
-                                        last_msg = generated_text[-1]
-                                        if isinstance(last_msg, dict):
-                                            response = last_msg.get(
-                                                "content", str(last_msg)
-                                            ).strip()
-                                        else:
-                                            response = str(last_msg).strip()
-                                    elif isinstance(generated_text, str):
-                                        response = generated_text.strip()
+                        if isinstance(result, str):
+                            response = result.strip()
+                        elif isinstance(result, list) and len(result) > 0:
+                            if isinstance(result[0], dict):
+                                generated_text = result[0].get("generated_text", [])
+                                if (
+                                    isinstance(generated_text, list)
+                                    and len(generated_text) > 0
+                                ):
+                                    last_msg = generated_text[-1]
+                                    if isinstance(last_msg, dict):
+                                        response = last_msg.get(
+                                            "content", str(last_msg)
+                                        ).strip()
                                     else:
-                                        response = str(generated_text).strip()
+                                        response = str(last_msg).strip()
+                                elif isinstance(generated_text, str):
+                                    response = generated_text.strip()
                                 else:
-                                    response = str(result[0]).strip()
+                                    response = str(generated_text).strip()
                             else:
-                                response = str(result).strip()
+                                response = str(result[0]).strip()
+                        else:
+                            response = str(result).strip()
 
-                            # Remove <think> tags if present
-                            response = re.sub(
-                                r"<think>.*?</think>", "", response, flags=re.DOTALL
-                            )
-                            return response.strip()
+                        # Remove <think> tags if present
+                        response = re.sub(
+                            r"<think>.*?</think>", "", response, flags=re.DOTALL
+                        )
+                        return response.strip()
 
-                    loop = asyncio.get_event_loop()
-                    extraction_result = await loop.run_in_executor(
-                        None, _prompt_with_lock
+                loop = asyncio.get_event_loop()
+                extraction_result = await loop.run_in_executor(None, _prompt_with_lock)
+
+                # Parse extracted memories - LLM-driven, minimal filtering
+                memories = []
+
+                # Extract lines from response
+                for line in extraction_result.strip().split("\n"):
+                    line = line.strip()
+
+                    # Skip empty lines and action tags
+                    if not line or line.startswith("<"):
+                        continue
+
+                    # Skip "NONE" response
+                    if line.upper() == "NONE":
+                        continue
+
+                    # Skip very long lines (likely explanations, not facts)
+                    if len(line) > 250:
+                        continue
+
+                    # Skip lines that are clearly meta-commentary (minimal filtering)
+                    line_lower = line.lower()
+                    skip_patterns = (
+                        "output format",
+                        "examples of",
+                        "critical",
+                        "conversation:",
+                        "user:",
+                        "assistant:",
+                        "extract",
+                        "output now",
+                        "facts about",
+                    )
+                    if any(line_lower.startswith(pattern) for pattern in skip_patterns):
+                        continue
+
+                    # Skip lines that are clearly reasoning (minimal check)
+                    reasoning_indicators = (
+                        "okay, let's",
+                        "first, looking",
+                        "i should",
+                        "let me",
+                        "the user said",
+                        "the assistant",
+                    )
+                    if any(
+                        indicator in line_lower for indicator in reasoning_indicators
+                    ):
+                        continue
+
+                    # Check if this memory already exists (avoid duplicates)
+                    existing_memories = self.memory_manager.get_all_memories()
+                    if line not in existing_memories:
+                        memories.append(line)
+
+                # Add extracted memories
+                if memories:
+                    print()
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored(
+                            f"💾 AUTO-EXTRACTED {len(memories)} NEW MEMORY/MEMORIES",
+                            "blue",
+                            attrs=["bold", "underline"],
+                        )
+                    )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    for idx, memory_content in enumerate(memories, 1):
+                        print(
+                            colored(f"  [{idx}] ", "cyan", attrs=["bold"])
+                            + colored(memory_content, "green", attrs=["bold"])
+                        )
+                        # Get guild info if available
+                        guild_id = (
+                            task.channel.guild.id
+                            if hasattr(task.channel, "guild") and task.channel.guild
+                            else None
+                        )
+                        guild_name = (
+                            task.channel.guild.name
+                            if hasattr(task.channel, "guild") and task.channel.guild
+                            else None
+                        )
+
+                        metadata = {
+                            "channel": task.channel.name,
+                            "channel_id": task.channel.id,
+                            "guild": guild_name,
+                            "guild_id": guild_id,
+                            "user": task.user_name,
+                            "created_via": "auto_extraction",
+                            "source_message": user_message[
+                                :100
+                            ],  # Store snippet for context
+                        }
+                        self.memory_manager.add_memory(
+                            memory_content, metadata=metadata
+                        )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print()
+
+                    # Update backward-compatible list
+                    self.memory = self.memory_manager.get_all_memories()
+
+            except Exception as e:
+                # Silently fail - auto-memory is best-effort
+                if self.auto_memory:  # Only log if enabled
+                    print(f"Note: Auto-memory extraction failed: {e}")
+
+    def _check_and_consolidate_memories(self):
+        """Check if it's time to consolidate memories and run consolidation if needed."""
+        if self.memory_consolidation_interval_hours <= 0:
+            return
+
+        from datetime import datetime, timedelta
+
+        now = datetime.now()
+
+        # Check if we need to consolidate
+        if self._last_consolidation_time is None:
+            # First time - set initial time
+            self._last_consolidation_time = now
+            return
+
+        hours_since_consolidation = (
+            now - self._last_consolidation_time
+        ).total_seconds() / 3600
+
+        if hours_since_consolidation >= self.memory_consolidation_interval_hours:
+            # Time to consolidate
+            print(
+                colored(
+                    f"🔄 Running memory consolidation (last run: {hours_since_consolidation:.1f} hours ago)",
+                    "cyan",
+                )
+            )
+
+            try:
+                stats = self.memory_manager.consolidate_memories(
+                    similarity_threshold=0.85, use_llm=False
+                )
+
+                if stats["merged"] > 0 or stats["removed"] > 0:
+                    print(
+                        colored(
+                            f"✓ Consolidated memories: {stats['merged']} merged, {stats['removed']} removed, {stats['kept']} kept",
+                            "green",
+                        )
+                    )
+                else:
+                    print(
+                        colored("✓ No similar memories found to consolidate", "green")
                     )
 
-                    # Parse extracted memories - LLM-driven, minimal filtering
-                    memories = []
-
-                    # Extract lines from response
-                    for line in extraction_result.strip().split("\n"):
-                        line = line.strip()
-
-                        # Skip empty lines and action tags
-                        if not line or line.startswith("<"):
-                            continue
-
-                        # Skip "NONE" response
-                        if line.upper() == "NONE":
-                            continue
-
-                        # Skip very long lines (likely explanations, not facts)
-                        if len(line) > 250:
-                            continue
-
-                        # Skip lines that are clearly meta-commentary (minimal filtering)
-                        line_lower = line.lower()
-                        skip_patterns = (
-                            "output format",
-                            "examples of",
-                            "critical",
-                            "conversation:",
-                            "user:",
-                            "assistant:",
-                            "extract",
-                            "output now",
-                            "facts about",
-                        )
-                        if any(
-                            line_lower.startswith(pattern) for pattern in skip_patterns
-                        ):
-                            continue
-
-                        # Skip lines that are clearly reasoning (minimal check)
-                        reasoning_indicators = (
-                            "okay, let's",
-                            "first, looking",
-                            "i should",
-                            "let me",
-                            "the user said",
-                            "the assistant",
-                        )
-                        if any(
-                            indicator in line_lower
-                            for indicator in reasoning_indicators
-                        ):
-                            continue
-
-                        # Check if this memory already exists (avoid duplicates)
-                        existing_memories = self.memory_manager.get_all_memories()
-                        if line not in existing_memories:
-                            memories.append(line)
-
-                    # Add extracted memories
-                    if memories:
-                        print()
-                        print(colored("=" * 60, "cyan", attrs=["bold"]))
-                        print(
-                            colored(
-                                f"💾 AUTO-EXTRACTED {len(memories)} NEW MEMORY/MEMORIES",
-                                "blue",
-                                attrs=["bold", "underline"],
-                            )
-                        )
-                        print(colored("=" * 60, "cyan", attrs=["bold"]))
-                        for idx, memory_content in enumerate(memories, 1):
-                            print(
-                                colored(f"  [{idx}] ", "cyan", attrs=["bold"])
-                                + colored(memory_content, "green", attrs=["bold"])
-                            )
-                            # Get guild info if available
-                            guild_id = (
-                                task.channel.guild.id
-                                if hasattr(task.channel, "guild") and task.channel.guild
-                                else None
-                            )
-                            guild_name = (
-                                task.channel.guild.name
-                                if hasattr(task.channel, "guild") and task.channel.guild
-                                else None
-                            )
-
-                            metadata = {
-                                "channel": task.channel.name,
-                                "channel_id": task.channel.id,
-                                "guild": guild_name,
-                                "guild_id": guild_id,
-                                "user": task.user_name,
-                                "created_via": "auto_extraction",
-                                "source_message": user_message[
-                                    :100
-                                ],  # Store snippet for context
-                            }
-                            self.memory_manager.add_memory(
-                                memory_content, metadata=metadata
-                            )
-                        print(colored("=" * 60, "cyan", attrs=["bold"]))
-                        print()
-
-                        # Update backward-compatible list
-                        self.memory = self.memory_manager.get_all_memories()
-
-                except Exception as e:
-                    # Silently fail - auto-memory is best-effort
-                    if self.auto_memory:  # Only log if enabled
-                        print(f"Note: Auto-memory extraction failed: {e}")
-
-            # Run dedicated extraction query in background (non-blocking)
-            # This happens after responses are sent, using a separate LLM query
-            asyncio.create_task(extract_memories())
-
-        except Exception:
-            # Silently fail - auto-memory is best-effort
-            pass
+                self._last_consolidation_time = now
+            except Exception as e:
+                print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
 
     async def _execute_action_plan(self, task: Task, response: str):
         """Execute an action plan parsed from an LLM response.
