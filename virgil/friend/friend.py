@@ -254,6 +254,8 @@ class Friend(DiscordBot):
         # Memory consolidation
         self.memory_consolidation_interval_hours = memory_consolidation_interval_hours
         self._last_consolidation_time = None
+        self._memories_since_consolidation = 0
+        self._consolidation_threshold = 15  # Consolidate after 15 new memories
 
         # Scheduler system
         self.scheduler = Scheduler()
@@ -652,6 +654,21 @@ class Friend(DiscordBot):
 
         # Add to memory manager
         self.memory_manager.add_memory(content, metadata=metadata)
+        # Track new memories for consolidation
+        self._memories_since_consolidation += 1
+
+        # Check if we should consolidate based on new memory count
+        if (
+            self.memory_consolidation_interval_hours > 0
+            and self._memories_since_consolidation >= self._consolidation_threshold
+        ):
+            print(
+                colored(
+                    f"🔄 Triggering consolidation: {self._memories_since_consolidation} new memories since last consolidation",
+                    "cyan",
+                )
+            )
+            self._check_and_consolidate_memories(force=True)
 
         # Update backward-compatible memory list
         self.memory = self.memory_manager.get_all_memories()
@@ -1816,20 +1833,40 @@ Output now (facts only, one per line, include user facts AND assistant-created c
                         self.memory_manager.add_memory(
                             memory_content, metadata=metadata
                         )
+                        # Track new memories for consolidation
+                        self._memories_since_consolidation += 1
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
                     print()
 
                     # Update backward-compatible list
                     self.memory = self.memory_manager.get_all_memories()
 
+                    # Check if we should consolidate based on new memory count
+                    if (
+                        self.memory_consolidation_interval_hours > 0
+                        and self._memories_since_consolidation
+                        >= self._consolidation_threshold
+                    ):
+                        print(
+                            colored(
+                                f"🔄 Triggering consolidation: {self._memories_since_consolidation} new memories since last consolidation",
+                                "cyan",
+                            )
+                        )
+                        self._check_and_consolidate_memories(force=True)
+
             except Exception as e:
                 # Silently fail - auto-memory is best-effort
                 if self.auto_memory:  # Only log if enabled
                     print(f"Note: Auto-memory extraction failed: {e}")
 
-    def _check_and_consolidate_memories(self):
-        """Check if it's time to consolidate memories and run consolidation if needed."""
-        if self.memory_consolidation_interval_hours <= 0:
+    def _check_and_consolidate_memories(self, force: bool = False):
+        """Check if it's time to consolidate memories and run consolidation if needed.
+
+        Args:
+            force: If True, run consolidation immediately regardless of time threshold.
+        """
+        if self.memory_consolidation_interval_hours <= 0 and not force:
             return
 
         from datetime import datetime, timedelta
@@ -1837,16 +1874,54 @@ Output now (facts only, one per line, include user facts AND assistant-created c
         now = datetime.now()
 
         # Check if we need to consolidate
-        if self._last_consolidation_time is None:
-            # First time - set initial time
+        if not force:
+            if self._last_consolidation_time is None:
+                # First time - set initial time
+                self._last_consolidation_time = now
+                return
+
+            hours_since_consolidation = (
+                now - self._last_consolidation_time
+            ).total_seconds() / 3600
+
+            if hours_since_consolidation < self.memory_consolidation_interval_hours:
+                return
+
+        # Run consolidation (either forced or time-based)
+        if force:
+            print(
+                colored(
+                    f"🔄 Running memory consolidation (triggered by {self._memories_since_consolidation} new memories)",
+                    "cyan",
+                )
+            )
+        else:
+            print(
+                colored(
+                    f"🔄 Running memory consolidation (last run: {hours_since_consolidation:.1f} hours ago)",
+                    "cyan",
+                )
+            )
+
+        try:
+            stats = self.memory_manager.consolidate_memories(
+                similarity_threshold=0.85, use_llm=False
+            )
+
+            if stats["merged"] > 0 or stats["removed"] > 0:
+                print(
+                    colored(
+                        f"✓ Consolidated memories: {stats['merged']} merged, {stats['removed']} removed, {stats['kept']} kept",
+                        "green",
+                    )
+                )
+            else:
+                print(colored("✓ No similar memories found to consolidate", "green"))
+
             self._last_consolidation_time = now
-            return
-
-        hours_since_consolidation = (
-            now - self._last_consolidation_time
-        ).total_seconds() / 3600
-
-        if hours_since_consolidation >= self.memory_consolidation_interval_hours:
+            self._memories_since_consolidation = 0  # Reset counter after consolidation
+        except Exception as e:
+            print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
             # Time to consolidate
             print(
                 colored(
