@@ -132,6 +132,14 @@ class MemeGenerator:
         else:
             response_text = str(result).strip()
 
+        # Remove <think> tags if present (both closed and unclosed)
+        response_text = re.sub(
+            r"<think>.*?</think>", "", response_text, flags=re.DOTALL
+        )
+        # Also remove unclosed <think> tags
+        response_text = re.sub(r"<think>.*$", "", response_text, flags=re.DOTALL)
+        response_text = response_text.strip()
+
         # Parse IMAGE: and CAPTION: from response
         image_prompt = None
         caption = response_text  # Default to full response if parsing fails

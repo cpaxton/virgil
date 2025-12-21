@@ -17,6 +17,7 @@
 import click
 import os
 import signal
+import re
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
@@ -537,9 +538,13 @@ class Friend(DiscordBot):
         import re
 
         formatted_message = response.strip()
-        # Remove <think>...</think> tags
+        # Remove <think>...</think> tags (both closed and unclosed)
         formatted_message = re.sub(
             r"<think>.*?</think>", "", formatted_message, flags=re.DOTALL
+        )
+        # Remove unclosed <think> tags (thinking in progress)
+        formatted_message = re.sub(
+            r"<think>.*$", "", formatted_message, flags=re.DOTALL
         )
         # Extract from <say> tags if present, otherwise use as-is
         say_match = re.search(r"<say>(.*?)</say>", formatted_message, re.DOTALL)
@@ -889,6 +894,13 @@ class Friend(DiscordBot):
             response = self.chat.prompt(
                 text, verbose=True, assistant_history_prefix=""
             )  # f"{self._user_name} on #{channel_name}: ")
+
+            # Check if response has unclosed <think> tag - if so, strip it and continue
+            if "<think>" in response and "</think>" not in response:
+                # Remove unclosed think tag and everything after it
+                response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
+                # Optionally, we could add a "Thinking..." message, but for now just strip it
+
             action_plan = self.parser.parse(response)
 
         # Auto-extract memories from conversation if enabled
