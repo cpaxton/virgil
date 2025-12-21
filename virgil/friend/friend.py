@@ -1922,34 +1922,6 @@ Output now (facts only, one per line, include user facts AND assistant-created c
             self._memories_since_consolidation = 0  # Reset counter after consolidation
         except Exception as e:
             print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
-            # Time to consolidate
-            print(
-                colored(
-                    f"🔄 Running memory consolidation (last run: {hours_since_consolidation:.1f} hours ago)",
-                    "cyan",
-                )
-            )
-
-            try:
-                stats = self.memory_manager.consolidate_memories(
-                    similarity_threshold=0.85, use_llm=False
-                )
-
-                if stats["merged"] > 0 or stats["removed"] > 0:
-                    print(
-                        colored(
-                            f"✓ Consolidated memories: {stats['merged']} merged, {stats['removed']} removed, {stats['kept']} kept",
-                            "green",
-                        )
-                    )
-                else:
-                    print(
-                        colored("✓ No similar memories found to consolidate", "green")
-                    )
-
-                self._last_consolidation_time = now
-            except Exception as e:
-                print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
 
     async def _execute_action_plan(self, task: Task, response: str):
         """Execute an action plan parsed from an LLM response.
