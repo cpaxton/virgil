@@ -938,61 +938,6 @@ class Friend(DiscordBot):
 
             action_plan = self.parser.parse(response)
 
-        # Auto-extract memories from conversation if enabled
-        # Run this AFTER responses are sent, in background, with full response text (including thinking)
-        if self.auto_memory:
-            # Don't await - let it run in background after we finish responding
-            # Pass original_response which includes thinking content
-            # Use the original user message (before memory context was prepended) for extraction
-            user_message_for_extraction = (
-                task.message
-            )  # Original message without memory context
-            print(
-                colored(
-                    f"🚀 Launching memory extraction task (user_msg_len={len(user_message_for_extraction)}, response_len={len(original_response)})",
-                    "cyan",
-                )
-            )
-            # Create task and ensure it runs in background
-            # This runs AFTER the response is sent, so it doesn't slow down the Discord user experience
-            # But we show all debug output in terminal for clarity
-            extraction_task = asyncio.create_task(
-                self._extract_auto_memories(
-                    task, user_message_for_extraction, original_response
-                )
-            )
-
-            def task_done_callback(task):
-                try:
-                    # This callback fires when the task completes
-                    # Only log errors here - let the extraction function print its own status
-                    exc = task.exception()
-                    if exc:
-                        print()
-                        print(
-                            colored(
-                                f"❌ Memory extraction task failed with exception: {exc}",
-                                "red",
-                                attrs=["bold"],
-                            )
-                        )
-                        import traceback
-
-                        traceback.print_exception(type(exc), exc, exc.__traceback__)
-                        print()
-                except Exception as e:
-                    print()
-                    print(
-                        colored(
-                            f"❌ Error in extraction task callback: {e}",
-                            "red",
-                            attrs=["bold"],
-                        )
-                    )
-                    print()
-
-            extraction_task.add_done_callback(task_done_callback)
-
         print()
         print(
             colored(
@@ -1054,6 +999,60 @@ class Friend(DiscordBot):
                 await self._handle_show_schedule_action(task, content)
             elif action == "help":
                 await self._handle_help_action(task, content)
+
+        # Auto-extract memories from conversation if enabled
+        # Run this AFTER all actions are executed and messages are sent
+        # This runs in background, so it doesn't slow down the Discord user experience
+        if self.auto_memory:
+            # Use the original user message (before memory context was prepended) for extraction
+            user_message_for_extraction = (
+                task.message
+            )  # Original message without memory context
+            print()
+            print(
+                colored(
+                    f"🚀 Launching memory extraction task (user_msg_len={len(user_message_for_extraction)}, response_len={len(original_response)})",
+                    "cyan",
+                    attrs=["bold"],
+                )
+            )
+            # Create task and ensure it runs in background
+            # This runs AFTER all Discord messages are sent, so it doesn't slow down the user experience
+            # But we show all debug output in terminal for clarity
+            extraction_task = asyncio.create_task(
+                self._extract_auto_memories(
+                    task, user_message_for_extraction, original_response
+                )
+            )
+
+            def task_done_callback(task):
+                try:
+                    # This callback fires when the task completes
+                    # Only log errors here - let the extraction function print its own status
+                    exc = task.exception()
+                    if exc:
+                        print()
+                        print(
+                            colored(
+                                f"❌ Memory extraction task failed with exception: {exc}",
+                                "red",
+                                attrs=["bold"],
+                            )
+                        )
+                        traceback.print_exception(type(exc), exc, exc.__traceback__)
+                        print()
+                except Exception as e:
+                    print()
+                    print(
+                        colored(
+                            f"❌ Error in extraction task callback: {e}",
+                            "red",
+                            attrs=["bold"],
+                        )
+                    )
+                    print()
+
+            extraction_task.add_done_callback(task_done_callback)
 
     def _parse_reminder_time(self, time_str: str, content: str) -> Optional[dict]:
         """
@@ -1828,8 +1827,17 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
         # Terminal output is verbose for debugging, but doesn't slow down Discord chat
         async def extract_memories():
             try:
+                # IMPORTANT: Wait a moment to ensure Discord messages are fully sent
+                # This ensures extraction happens AFTER the user sees the response
+                await asyncio.sleep(1.0)  # Increased delay to ensure messages are sent
+
                 if self.auto_memory:
-                    print(colored("🔍 Starting memory extraction...", "cyan"))
+                    print()
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored("🔍 STARTING MEMORY EXTRACTION", "cyan", attrs=["bold"])
+                    )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
                     print(colored(f"   User message: {user_message[:100]}...", "cyan"))
                     print(
                         colored(
@@ -1837,8 +1845,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                             "cyan",
                         )
                     )
-                # Small delay to ensure response is fully sent before extraction
-                await asyncio.sleep(0.5)
+                    print()
 
                 if self.auto_memory:
                     print(colored("   ⏳ Calling extraction LLM...", "cyan"))
@@ -2306,9 +2313,11 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 print(colored(f"      Attributes: {attributes}", "grey"))
 
             # Route to appropriate action handler
+            # Messages are sent immediately here - extraction runs in background after
             try:
                 if action == "say":
                     await self._handle_say_action(task, content)
+                    # Message sent to Discord immediately - extraction will run in background
                 elif action == "imagine":
                     await self._handle_imagine_action(task, content)
                 elif action == "meme":
