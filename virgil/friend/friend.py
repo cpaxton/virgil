@@ -941,8 +941,20 @@ class Friend(DiscordBot):
         if self.auto_memory:
             # Don't await - let it run in background after we finish responding
             # Pass original_response which includes thinking content
+            # Use the original user message (before memory context was prepended) for extraction
+            user_message_for_extraction = (
+                task.message
+            )  # Original message without memory context
+            print(
+                colored(
+                    f"🚀 Launching memory extraction task (user_msg_len={len(user_message_for_extraction)}, response_len={len(original_response)})",
+                    "cyan",
+                )
+            )
             asyncio.create_task(
-                self._extract_auto_memories(task, text, original_response)
+                self._extract_auto_memories(
+                    task, user_message_for_extraction, original_response
+                )
             )
 
         print()
@@ -1598,23 +1610,89 @@ class Friend(DiscordBot):
             assistant_response: The assistant's response.
         """
         if not self.auto_memory:
+            print(
+                colored(
+                    "⚠️  Auto-memory is disabled, skipping extraction",
+                    "yellow",
+                )
+            )
             return
 
         # Skip if this is an explicit task or very short messages
-        if task.explicit or len(user_message) < 10:
+        if task.explicit:
+            print(
+                colored(
+                    "⚠️  Skipping memory extraction: explicit task",
+                    "yellow",
+                )
+            )
+            return
+        if len(user_message) < 10:
+            print(
+                colored(
+                    f"⚠️  Skipping memory extraction: message too short ({len(user_message)} chars)",
+                    "yellow",
+                )
+            )
             return
 
         # Create prompt for memory extraction - LLM-driven approach
         # This is a dedicated extraction query that runs AFTER responses are sent
         # Note: assistant_response may include <think> tags - extract facts from both thinking and final output
+
+        # Get recent conversation history for context (last few exchanges)
+        conversation_context = ""
+        try:
+            # Get recent history from chat wrapper (last 4-6 messages for context)
+            if (
+                hasattr(self.chat, "conversation_history")
+                and len(self.chat.conversation_history) > 0
+            ):
+                # Get last few exchanges (user + assistant pairs)
+                # Exclude the current exchange since we already have it above
+                recent_history = (
+                    self.chat.conversation_history[:-2]
+                    if len(self.chat.conversation_history) > 2
+                    else []
+                )
+                recent_history = recent_history[-6:]  # Last 6 messages = ~3 exchanges
+                history_lines = []
+                for msg in recent_history:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    # Skip system messages and very long content
+                    if role != "system" and len(content) < 500:
+                        role_label = "User" if role == "user" else "Assistant"
+                        # Truncate long messages and remove action tags for cleaner context
+                        clean_content = (
+                            content[:300].replace("<think>", "").replace("</think>", "")
+                        )
+                        history_lines.append(f"{role_label}: {clean_content}")
+
+                if history_lines:
+                    conversation_context = (
+                        "\n\nRecent conversation context:\n"
+                        + "\n".join(history_lines)
+                        + "\n"
+                    )
+        except Exception as e:
+            # If history access fails, just continue without it
+            if self.auto_memory:
+                print(
+                    colored(
+                        f"Note: Could not access conversation history: {e}", "yellow"
+                    )
+                )
+
         extraction_prompt = f"""You are a memory extraction system. Extract persistent, important facts that would be useful to remember across multiple conversations.
 
 IMPORTANT: Extract facts about BOTH what the USER said AND what the ASSISTANT said/created/committed to.
 The assistant response may include <think>...</think> tags with reasoning - extract facts from both the thinking process and the final output.
 
-Conversation:
+Current exchange:
 User: {user_message}
 Assistant: {assistant_response}
+{conversation_context}
 
 Extract facts in these categories (PRIORITIZE ASSISTANT CONTENT):
 
@@ -1711,9 +1789,12 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
         async def extract_memories():
             try:
                 if self.auto_memory:
+                    print(colored("🔍 Starting memory extraction...", "cyan"))
+                    print(colored(f"   User message: {user_message[:100]}...", "cyan"))
                     print(
                         colored(
-                            "🔍 Starting memory extraction...", "cyan", attrs=["dim"]
+                            f"   Response length: {len(assistant_response)} chars",
+                            "cyan",
                         )
                     )
                 # Small delay to ensure response is fully sent before extraction
@@ -1761,7 +1842,15 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         # Note: We keep <think> tags in the extraction result since we want to extract
                         # facts from the assistant's thinking process. The extraction LLM should
                         # focus on facts, not reasoning, but we don't strip thinking tags here.
-                        return response.strip()
+                        result = response.strip()
+                        if self.auto_memory:
+                            print(
+                                colored(
+                                    f"🔍 Extraction LLM response received ({len(result)} chars)",
+                                    "cyan",
+                                )
+                            )
+                        return result
 
                 loop = asyncio.get_event_loop()
                 extraction_result = await loop.run_in_executor(None, _prompt_with_lock)
@@ -1769,6 +1858,14 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 # Parse extracted memories - LLM-driven, minimal filtering
                 # Trust the extraction LLM and consolidation to handle quality
                 memories = []
+
+                if self.auto_memory:
+                    print(
+                        colored(
+                            f"📝 Parsing extraction result ({len(extraction_result)} chars)",
+                            "cyan",
+                        )
+                    )
 
                 # Extract lines from response
                 for line in extraction_result.strip().split("\n"):
@@ -1850,7 +1947,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )
                         # Track new memories for consolidation
                         self._memories_since_consolidation += 1
-                        print(colored("    ✓ Saved to memory", "green", attrs=["dim"]))
+                        print(colored("    ✓ Saved to memory", "green"))
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
                     print(
                         colored(
@@ -1866,7 +1963,6 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                             colored(
                                 "ℹ️  No new memories extracted from this conversation",
                                 "cyan",
-                                attrs=["dim"],
                             )
                         )
 
