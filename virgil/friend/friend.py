@@ -904,8 +904,10 @@ class Friend(DiscordBot):
             action_plan = self.parser.parse(response)
 
         # Auto-extract memories from conversation if enabled
+        # Run this AFTER responses are sent, in background, with full response text
         if self.auto_memory:
-            await self._extract_auto_memories(task, text, response)
+            # Don't await - let it run in background after we finish responding
+            asyncio.create_task(self._extract_auto_memories(task, text, response))
 
         print()
         print(
@@ -1567,11 +1569,12 @@ class Friend(DiscordBot):
             return
 
         # Create prompt for memory extraction - LLM-driven approach
+        # This is a dedicated extraction query that runs AFTER responses are sent
         extraction_prompt = f"""You are a memory extraction system. Extract persistent, important facts that would be useful to remember across multiple conversations.
 
 Conversation:
 User: {user_message}
-Assistant: {assistant_response[:1000]}
+Assistant: {assistant_response}
 
 Extract facts in these categories:
 
@@ -1583,37 +1586,49 @@ ABOUT THE USER:
 - Skills, expertise, or areas of knowledge - ONLY if clearly stated
 - Personal history or experiences shared - ONLY if significant
 - Projects or work - ONLY if named or described in detail
+- Opinions, viewpoints, or beliefs expressed
+- Goals, plans, or intentions mentioned
 
-ABOUT CREATIVE CONTENT THE ASSISTANT CREATED:
-- Story elements: character names, settings, plot points, world-building details
-- Meme themes or recurring jokes
-- Creative projects or narratives the assistant is developing
-- Ongoing creative content (e.g., "hourly story series", "character X's adventures")
-
-ABOUT COMMITMENTS OR ONGOING ACTIVITIES:
-- Things the assistant committed to doing (e.g., "posting hourly stories", "continuing a series")
+ABOUT CONTENT THE ASSISTANT CREATED OR COMMITTED TO:
+- Creative content: stories, characters, settings, plot points, world-building details
+- Memes, jokes, or recurring themes the assistant created
+- Projects, narratives, or creative works the assistant is developing
+- Commitments: things the assistant committed to doing (e.g., "posting hourly content", "continuing a series")
 - Scheduled activities or recurring content the assistant is creating
-- Ongoing narratives or creative works in progress
+- Ongoing narratives, series, or creative works in progress
+- Technical information: code snippets, solutions, or technical details shared
+- Educational content: explanations, tutorials, or knowledge shared
+
+ABOUT CONVERSATION CONTEXT (if significant):
+- Important decisions made or agreements reached
+- Problems solved or solutions provided
+- Topics of ongoing discussion that should be remembered
+- Context that would help in future conversations
 
 DO NOT EXTRACT:
 - Ephemeral conversation state (channel names, message types, incomplete inputs)
 - Obvious context (what channel we're on, that a message was sent)
-- Transient interactions (testing, typos, single questions)
+- Transient interactions (testing, typos, single questions without substance)
 - Things that are obvious from the current conversation
 - Meta-information about the conversation itself
 - Speculation or inference (only extract explicit facts)
 - Things the user might be doing (testing, asking) - only what they ARE or HAVE
+- Generic pleasantries or acknowledgments without substance
 
 Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
 Examples of GOOD output:
 User's name is Alice
 User works at TechCorp as a software engineer
 User loves pizza and Italian food
+User is learning Python programming
+User prefers dark mode interfaces
 Story character: Lira is an inventor exploring the Clockwork Forest
 Story character: Bolt is Lira's robot companion
 Story setting: The Chrono Core is a destination in the story
 Assistant is posting hourly story segments in #ask-a-robot
-Story theme: A realm where gears replaced trees
+User mentioned they're working on a project called "ProjectX"
+Assistant explained how to use async/await in Python
+User prefers to be called "Al" instead of "Alice"
 
 Examples of BAD output (DO NOT EXTRACT THESE):
 Interaction occurred on channel #ask-a-robot
@@ -1623,11 +1638,13 @@ User has engaged in meme-suggestion interactions
 Channel context implies user expects interactive responses
 No explicit new information provided
 User sent a message
+User said hello
+Assistant responded with a greeting
 
 CRITICAL RULES: 
-- Extract facts about BOTH the user AND creative content the assistant created
+- Extract facts about BOTH the user AND content/commitments the assistant created
 - Be selective - only extract facts that are explicitly stated and will persist
-- Include story elements, characters, settings, and ongoing creative content
+- Include creative content, technical information, and ongoing commitments
 - If unsure whether something should be remembered, DON'T extract it
 - Output ONLY facts, no reasoning, no analysis, no explanations
 - Use clear, concise statements
@@ -1636,19 +1653,25 @@ CRITICAL RULES:
 - Do NOT use phrases like "The user said" or "The assistant mentioned"
 - Do NOT include your thought process - just the facts
 
-Output now (facts only, one per line, include user facts AND creative content facts):"""
+Output now (facts only, one per line, include user facts AND assistant-created content/commitments):"""
 
         try:
-            # Run extraction in background to avoid blocking
+            # Dedicated memory extraction query - runs in background after response is sent
             async def extract_memories():
                 try:
+                    # Small delay to ensure response is fully sent before extraction
+                    await asyncio.sleep(0.5)
 
                     def _prompt_with_lock():
+                        # CRITICAL: Use _chat_lock to ensure backend resource is not used concurrently
+                        # This prevents GPU memory conflicts - only one LLM call at a time
                         with self._chat_lock:
                             # Use backend directly for memory extraction to avoid polluting conversation history
-                            # Create a one-off message list for this extraction task
+                            # This is a dedicated extraction query with a specialized prompt
                             messages = [{"role": "user", "content": extraction_prompt}]
-                            result = self.backend(messages, max_new_tokens=256)
+                            result = self.backend(
+                                messages, max_new_tokens=512
+                            )  # Increased for better extraction
 
                             # Extract text from backend result (same format as ChatWrapper)
                             import re
@@ -1800,7 +1823,8 @@ Output now (facts only, one per line, include user facts AND creative content fa
                     if self.auto_memory:  # Only log if enabled
                         print(f"Note: Auto-memory extraction failed: {e}")
 
-            # Run in background
+            # Run dedicated extraction query in background (non-blocking)
+            # This happens after responses are sent, using a separate LLM query
             asyncio.create_task(extract_memories())
 
         except Exception:
@@ -2429,8 +2453,8 @@ Your response:"""
             # Hint to AI that user mentioned a reminder, but don't auto-parse
             text += " [User mentioned a reminder - use <remind> action if you want to create one]"
         if has_schedule_keywords:
-            # Hint to AI that user mentioned scheduling, but don't auto-parse
-            text += " [User mentioned scheduling - use <schedule> action with type and value attributes if you want to create one]"
+            # Don't add hints - let the LLM decide based on the prompt instructions
+            pass
 
         self.push_task(
             channel=message.channel,
