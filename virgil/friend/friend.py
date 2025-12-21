@@ -1710,6 +1710,12 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
         # Dedicated memory extraction query - runs in background after response is sent
         async def extract_memories():
             try:
+                if self.auto_memory:
+                    print(
+                        colored(
+                            "🔍 Starting memory extraction...", "cyan", attrs=["dim"]
+                        )
+                    )
                 # Small delay to ensure response is fully sent before extraction
                 await asyncio.sleep(0.5)
 
@@ -1844,8 +1850,25 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )
                         # Track new memories for consolidation
                         self._memories_since_consolidation += 1
+                        print(colored("    ✓ Saved to memory", "green", attrs=["dim"]))
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored(
+                            f"✅ Successfully saved {len(memories)} memory/memories",
+                            "green",
+                            attrs=["bold"],
+                        )
+                    )
                     print()
+                else:
+                    if self.auto_memory:
+                        print(
+                            colored(
+                                "ℹ️  No new memories extracted from this conversation",
+                                "cyan",
+                                attrs=["dim"],
+                            )
+                        )
 
                     # Update backward-compatible list
                     self.memory = self.memory_manager.get_all_memories()
@@ -1864,9 +1887,18 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )
 
             except Exception as e:
-                # Silently fail - auto-memory is best-effort
+                # Log errors but don't fail - auto-memory is best-effort
                 if self.auto_memory:  # Only log if enabled
-                    print(f"Note: Auto-memory extraction failed: {e}")
+                    print(
+                        colored(
+                            f"⚠️  Auto-memory extraction failed: {e}",
+                            "yellow",
+                            attrs=["bold"],
+                        )
+                    )
+                    import traceback
+
+                    traceback.print_exc()
 
     async def _queue_consolidation(self, force: bool = False, reason: str = "time"):
         """Queue a consolidation request.
