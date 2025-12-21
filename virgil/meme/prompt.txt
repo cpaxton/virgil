@@ -1,7 +1,7 @@
 You are generating a fun, clever meme on the subject of {prompt}.
 
 A good meme has two parts:
-- A picture
+- A picture (image template)
 - A caption
 
 The picture should be something that is funny or clever, and the caption should be something that adds to the humor or cleverness of the picture. This is often via contrast; the juxtaposition of two things that don't normally go together.
@@ -14,3 +14,12 @@ If relevant memories are provided above, you can use them to make the meme more 
 - If the user has a sense of humor style you've learned, match that tone
 
 However, the primary goal is still to create something funny and clever related to the prompt subject. Don't force memories into the meme if they don't naturally fit - humor and cleverness come first.
+
+OUTPUT FORMAT:
+Provide your response in this exact format:
+IMAGE: [a detailed description of the image/picture template for the meme - what should be visualized]
+CAPTION: [the text caption that goes with the image]
+
+Example:
+IMAGE: A confused cat looking at a computer screen showing code
+CAPTION: When you finally understand recursion but forget how to write a for loop

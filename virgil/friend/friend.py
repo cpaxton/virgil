@@ -338,9 +338,11 @@ class Friend(DiscordBot):
         )
 
         # Initialize meme generator with memory manager for RAG support
-        # Reuse the same backend instance to avoid duplicate GPU memory usage
+        # Reuse the same backend instance and image service to avoid duplicate GPU memory usage
         self.meme_generator = MemeGenerator(
-            backend=self.backend, memory_manager=self.memory_manager
+            backend=self.backend,
+            memory_manager=self.memory_manager,
+            image_service=self.image_service,
         )
         print(colored("🎭 Meme generator initialized with RAG memory support", "cyan"))
 
@@ -660,22 +662,20 @@ class Friend(DiscordBot):
 
         try:
             with self._chat_lock:
-                # Generate meme using the meme generator
-                meme_text = self.meme_generator.generate_meme(content)
-
-            # The meme generator returns text (caption), now we need to generate the image
-            # For now, we'll use the image service to generate an image based on the meme description
-            # In the future, the meme generator could return both caption and image prompt
-
-            # Extract image description from meme text (first line is usually the image description)
-            # Or use the content as the image prompt
-            image_prompt = content  # Use the original subject as image prompt
+                # Generate meme using the meme generator (returns image and caption)
+                meme_image, meme_text = self.meme_generator.generate_meme(content)
 
             print(colored(f"  ✓ Meme caption: {meme_text[:100]}...", "green"))
-            print(colored("  🎨 Generating meme image...", "magenta"))
 
-            with self._chat_lock:
-                image = self.image_service.generate_image(image_prompt)
+            # Use generated image if available, otherwise fallback
+            if meme_image:
+                print(colored("  ✓ Using generated meme image template", "green"))
+                image = meme_image
+            else:
+                # Fallback: generate image from original prompt if meme generator didn't provide one
+                print(colored("  🎨 Generating meme image from prompt...", "magenta"))
+                with self._chat_lock:
+                    image = self.image_service.generate_image(content)
 
             image.save("generated_meme.png")
 
@@ -1555,67 +1555,68 @@ class Friend(DiscordBot):
             return
 
         # Create prompt for memory extraction - LLM-driven approach
-        extraction_prompt = f"""You are a memory extraction system. Extract ALL important information from this conversation.
+        extraction_prompt = f"""You are a memory extraction system. Extract ONLY persistent, important facts about the USER that would be useful to remember across multiple conversations.
 
 Conversation:
 User: {user_message}
 Assistant: {assistant_response[:500]}
 
-Extract EVERYTHING that should be remembered for future conversations. This includes:
+ONLY extract facts that are:
+1. PERSISTENT - Will still be true in future conversations (not ephemeral conversation state)
+2. ABOUT THE USER - Personal facts, preferences, relationships, interests, skills
+3. ACTIONABLE - Would help personalize future interactions
 
-FACTS ABOUT THE USER:
+EXTRACT:
 - Names, nicknames, preferred names
-- Personal information (job, location, interests, hobbies)
-- Preferences (colors, foods, styles, technologies, tools)
-- Relationships (family, friends, colleagues mentioned)
-- Skills, expertise, or areas of knowledge
-- Personal history, experiences, stories shared
+- Personal information (job, location, interests, hobbies) - ONLY if explicitly stated
+- Preferences (colors, foods, styles, technologies, tools) - ONLY if explicitly stated
+- Relationships (family, friends, colleagues) - ONLY if names/details are given
+- Skills, expertise, or areas of knowledge - ONLY if clearly stated
+- Personal history or experiences shared - ONLY if significant
+- Projects or work - ONLY if named or described in detail
 
-FACTS ABOUT CONVERSATIONS:
-- Topics discussed
-- Questions asked (shows interests)
-- Problems mentioned or solved
-- Goals, plans, or intentions expressed
-- Opinions or viewpoints shared
-- Things the user likes or dislikes
-
-FACTS ABOUT CONTEXT:
-- Channel-specific information
-- Time-sensitive information
-- Important dates or events mentioned
-- Projects or work mentioned
+DO NOT EXTRACT:
+- Ephemeral conversation state (channel names, message types, incomplete inputs)
+- Obvious context (what channel we're on, that a message was sent)
+- Transient interactions (testing, typos, single questions)
+- Things that are obvious from the current conversation
+- Meta-information about the conversation itself
+- Speculation or inference (only extract explicit facts)
+- Things the user might be doing (testing, asking) - only what they ARE or HAVE
 
 Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
 Examples of GOOD output:
 User prefers dark mode
 User's name is Alice
 User works at TechCorp as a software engineer
-User mentioned they love pizza and Italian food
+User loves pizza and Italian food
 User is learning Python programming
 User has a cat named Whiskers
-User mentioned they're working on a project called "ProjectX"
-User prefers to be called "Al" instead of "Alice"
+User is working on a project called "ProjectX"
+User prefers to be called "Al"
 
-Examples of BAD output (DO NOT DO THIS):
-Okay, let's tackle this query
-First, looking at the conversation
-The user said they prefer dark mode
-I should extract the fact that...
-There's no information to remember
-Looking at the user's message, I can see...
+Examples of BAD output (DO NOT EXTRACT THESE):
+Interaction occurred on channel #ask-a-robot
+Current message contains incomplete input
+User may be testing minimal input handling
+User has engaged in meme-suggestion interactions
+Channel context implies user expects interactive responses
+No explicit new information provided
+User sent a message
+Previous meme generation involved robot themes
 
 CRITICAL RULES: 
-- Extract EVERYTHING important, not just obvious facts
+- Be VERY selective - only extract facts that are explicitly stated and will persist
+- If unsure whether something should be remembered, DON'T extract it
 - Output ONLY facts, no reasoning, no analysis, no explanations
 - Use clear, concise statements
 - If no facts exist, output ONLY: NONE
 - Do NOT number items or use bullet points
 - Do NOT use phrases like "The user said" or "The assistant mentioned"
 - Do NOT include your thought process - just the facts
-- Include subtle preferences and interests, not just explicit statements
-- Extract context clues (e.g., if user asks about Python, they might be interested in programming)
+- Do NOT extract ephemeral conversation state or obvious context
 
-Output now (facts only, one per line, extract everything important):"""
+Output now (facts only, one per line, be very selective - only persistent user facts):"""
 
         try:
             # Run extraction in background to avoid blocking
@@ -2005,14 +2006,19 @@ Your response:"""
                                 # Generate meme and send via DM
                                 if self.meme_generator:
                                     try:
-                                        meme_text = self.meme_generator.generate_meme(
-                                            content
+                                        meme_image, meme_text = (
+                                            self.meme_generator.generate_meme(content)
                                         )
-                                        image_prompt = content
-                                        with self._chat_lock:
-                                            image = self.image_service.generate_image(
-                                                image_prompt
-                                            )
+                                        # Use generated image if available, otherwise fallback
+                                        if meme_image:
+                                            image = meme_image
+                                        else:
+                                            with self._chat_lock:
+                                                image = (
+                                                    self.image_service.generate_image(
+                                                        content
+                                                    )
+                                                )
 
                                         if self.message_service:
                                             await self.message_service.send_image(
