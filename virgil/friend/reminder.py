@@ -37,13 +37,13 @@ class Reminder:
     reminder_id: str
     channel_id: Optional[int]
     channel_name: Optional[str]
-    guild_id: Optional[int] = None
-    guild_name: Optional[str] = None
     user_id: int
     user_name: str
     reminder_time: datetime
     message: str
     created_at: datetime
+    guild_id: Optional[int] = None
+    guild_name: Optional[str] = None
     executed: bool = False
 
     def to_dict(self):

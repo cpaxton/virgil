@@ -38,13 +38,13 @@ class ScheduledTask:
     task_type: str  # "post" or "dm"
     channel_id: Optional[int]
     channel_name: Optional[str]
-    guild_id: Optional[int] = None
-    guild_name: Optional[str] = None
     user_id: Optional[int]
     user_name: Optional[str]
     message: str
     schedule_type: str  # "daily", "hourly", "weekly", "interval"
     schedule_value: str  # Time string (e.g., "14:30") or interval (e.g., "1 hour")
+    guild_id: Optional[int] = None
+    guild_name: Optional[str] = None
     enabled: bool = True
     created_at: str = None
     last_executed: Optional[str] = None
