@@ -1822,15 +1822,23 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
 
         # Dedicated memory extraction query - runs in background after response is sent
         async def extract_memories():
+            import sys
+
             try:
                 if self.auto_memory:
-                    print(colored("🔍 Starting memory extraction...", "cyan"))
-                    print(colored(f"   User message: {user_message[:100]}...", "cyan"))
+                    print(
+                        colored("🔍 Starting memory extraction...", "cyan"), flush=True
+                    )
+                    print(
+                        colored(f"   User message: {user_message[:100]}...", "cyan"),
+                        flush=True,
+                    )
                     print(
                         colored(
                             f"   Response length: {len(assistant_response)} chars",
                             "cyan",
-                        )
+                        ),
+                        flush=True,
                     )
                 # Small delay to ensure response is fully sent before extraction
                 await asyncio.sleep(0.5)
@@ -1966,6 +1974,14 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         memories.append(line)
 
                 # Add extracted memories
+                if self.auto_memory:
+                    print(
+                        colored(
+                            f"📊 Extraction parsing complete: found {len(memories)} potential memories",
+                            "cyan",
+                        )
+                    )
+
                 if memories:
                     print()
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
@@ -1977,6 +1993,8 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         )
                     )
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    saved_count = 0
+                    skipped_count = 0
                     for idx, memory_content in enumerate(memories, 1):
                         print(
                             colored(f"  [{idx}] ", "cyan", attrs=["bold"])
@@ -2005,29 +2023,54 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                                 :100
                             ],  # Store snippet for context
                         }
-                        self.memory_manager.add_memory(
-                            memory_content, metadata=metadata
-                        )
-                        # Track new memories for consolidation
-                        self._memories_since_consolidation += 1
-                        print(colored("    ✓ Saved to memory", "green"))
+
+                        # Check if memory already exists before adding
+                        existing_memories = self.memory_manager.get_all_memories()
+                        if memory_content not in existing_memories:
+                            self.memory_manager.add_memory(
+                                memory_content, metadata=metadata
+                            )
+                            # Track new memories for consolidation
+                            self._memories_since_consolidation += 1
+                            saved_count += 1
+                            print(colored("    ✓ Saved to memory", "green"))
+                        else:
+                            skipped_count += 1
+                            print(colored("    ⊘ Skipped (duplicate)", "yellow"))
+
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
                     print(
                         colored(
-                            f"✅ Successfully saved {len(memories)} memory/memories",
+                            f"✅ Successfully saved {saved_count} new memory/memories",
                             "green",
                             attrs=["bold"],
                         )
                     )
+                    if skipped_count > 0:
+                        print(
+                            colored(
+                                f"   ({skipped_count} skipped as duplicates)",
+                                "yellow",
+                            )
+                        )
                     print()
                 else:
                     if self.auto_memory:
+                        print()
                         print(
                             colored(
                                 "ℹ️  No new memories extracted from this conversation",
                                 "cyan",
+                                attrs=["bold"],
                             )
                         )
+                        print(
+                            colored(
+                                f"   Extraction result was: {extraction_result[:200] if extraction_result else 'empty'}",
+                                "cyan",
+                            )
+                        )
+                        print()
 
                     # Update backward-compatible list
                     self.memory = self.memory_manager.get_all_memories()
@@ -2048,16 +2091,19 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
             except Exception as e:
                 # Log errors but don't fail - auto-memory is best-effort
                 if self.auto_memory:  # Only log if enabled
+                    print()
                     print(
                         colored(
-                            f"⚠️  Auto-memory extraction failed: {e}",
-                            "yellow",
+                            f"❌ Auto-memory extraction failed: {e}",
+                            "red",
                             attrs=["bold"],
                         )
                     )
                     import traceback
 
+                    print(colored("Full traceback:", "red"))
                     traceback.print_exc()
+                    print()
 
     async def _queue_consolidation(self, force: bool = False, reason: str = "time"):
         """Queue a consolidation request.
