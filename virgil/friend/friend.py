@@ -1625,14 +1625,40 @@ Output now (facts only, one per line, be very selective - only persistent user f
 
                     def _prompt_with_lock():
                         with self._chat_lock:
-                            response = self.chat.prompt(
-                                extraction_prompt,
-                                verbose=False,
-                                assistant_history_prefix="",
-                            )
-                            # Remove <think> tags if present
+                            # Use backend directly for memory extraction to avoid polluting conversation history
+                            # Create a one-off message list for this extraction task
+                            messages = [{"role": "user", "content": extraction_prompt}]
+                            result = self.backend(messages, max_new_tokens=256)
+
+                            # Extract text from backend result (same format as ChatWrapper)
                             import re
 
+                            if isinstance(result, str):
+                                response = result.strip()
+                            elif isinstance(result, list) and len(result) > 0:
+                                if isinstance(result[0], dict):
+                                    generated_text = result[0].get("generated_text", [])
+                                    if (
+                                        isinstance(generated_text, list)
+                                        and len(generated_text) > 0
+                                    ):
+                                        last_msg = generated_text[-1]
+                                        if isinstance(last_msg, dict):
+                                            response = last_msg.get(
+                                                "content", str(last_msg)
+                                            ).strip()
+                                        else:
+                                            response = str(last_msg).strip()
+                                    elif isinstance(generated_text, str):
+                                        response = generated_text.strip()
+                                    else:
+                                        response = str(generated_text).strip()
+                                else:
+                                    response = str(result[0]).strip()
+                            else:
+                                response = str(result).strip()
+
+                            # Remove <think> tags if present
                             response = re.sub(
                                 r"<think>.*?</think>", "", response, flags=re.DOTALL
                             )
