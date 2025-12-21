@@ -45,6 +45,7 @@ dependencies = [
     "autoawq>=0.2.9",
     "triton",
     "mcp>=1.0.0",
+    "sentence-transformers>=2.2.0",
 ]
 
 [project.urls]

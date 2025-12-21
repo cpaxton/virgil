@@ -43,6 +43,8 @@ class ScheduledTask:
     message: str
     schedule_type: str  # "daily", "hourly", "weekly", "interval"
     schedule_value: str  # Time string (e.g., "14:30") or interval (e.g., "1 hour")
+    guild_id: Optional[int] = None
+    guild_name: Optional[str] = None
     enabled: bool = True
     created_at: str = None
     last_executed: Optional[str] = None
@@ -152,7 +154,7 @@ class ScheduledTask:
 
     def to_dict(self) -> dict:
         """Convert to dictionary for YAML serialization."""
-        return {
+        result = {
             "task_id": self.task_id,
             "task_type": self.task_type,
             "channel_id": self.channel_id,
@@ -167,6 +169,12 @@ class ScheduledTask:
             "last_executed": self.last_executed,
             "next_execution": self.next_execution,
         }
+        # Add guild info if present (optional for backward compatibility)
+        if self.guild_id is not None:
+            result["guild_id"] = self.guild_id
+        if self.guild_name is not None:
+            result["guild_name"] = self.guild_name
+        return result
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -176,6 +184,8 @@ class ScheduledTask:
             task_type=data["task_type"],
             channel_id=data.get("channel_id"),
             channel_name=data.get("channel_name"),
+            guild_id=data.get("guild_id"),
+            guild_name=data.get("guild_name"),
             user_id=data.get("user_id"),
             user_name=data.get("user_name"),
             message=data["message"],
@@ -261,6 +271,8 @@ class Scheduler:
         channel_name: Optional[str] = None,
         user_id: Optional[int] = None,
         user_name: Optional[str] = None,
+        guild_id: Optional[int] = None,
+        guild_name: Optional[str] = None,
     ) -> ScheduledTask:
         """
         Add a new scheduled task.
@@ -274,6 +286,8 @@ class Scheduler:
             channel_name: Channel name for "post" tasks
             user_id: User ID for "dm" tasks
             user_name: User name for "dm" tasks
+            guild_id: Discord guild/server ID (optional)
+            guild_name: Discord guild/server name (optional)
 
         Returns:
             The created ScheduledTask object
@@ -291,6 +305,8 @@ class Scheduler:
             message=message,
             schedule_type=schedule_type,
             schedule_value=schedule_value,
+            guild_id=guild_id,
+            guild_name=guild_name,
         )
 
         self.tasks[task_id] = task

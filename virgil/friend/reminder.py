@@ -42,11 +42,13 @@ class Reminder:
     reminder_time: datetime
     message: str
     created_at: datetime
+    guild_id: Optional[int] = None
+    guild_name: Optional[str] = None
     executed: bool = False
 
     def to_dict(self):
         """Convert reminder to dictionary for serialization."""
-        return {
+        result = {
             "reminder_id": self.reminder_id,
             "channel_id": self.channel_id,
             "channel_name": self.channel_name,
@@ -57,6 +59,12 @@ class Reminder:
             "created_at": self.created_at.isoformat(),
             "executed": self.executed,
         }
+        # Add guild info if present (optional for backward compatibility)
+        if self.guild_id is not None:
+            result["guild_id"] = self.guild_id
+        if self.guild_name is not None:
+            result["guild_name"] = self.guild_name
+        return result
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -65,6 +73,8 @@ class Reminder:
             reminder_id=data["reminder_id"],
             channel_id=data.get("channel_id"),
             channel_name=data.get("channel_name"),
+            guild_id=data.get("guild_id"),
+            guild_name=data.get("guild_name"),
             user_id=data["user_id"],
             user_name=data["user_name"],
             reminder_time=datetime.fromisoformat(data["reminder_time"]),
@@ -138,6 +148,8 @@ class ReminderManager:
         user_name: str,
         reminder_time: datetime,
         message: str,
+        guild_id: Optional[int] = None,
+        guild_name: Optional[str] = None,
     ) -> Reminder:
         """
         Add a new reminder.
@@ -149,6 +161,8 @@ class ReminderManager:
             user_name: Discord user name/display name
             reminder_time: When to execute the reminder
             message: The reminder message to send
+            guild_id: Discord guild/server ID (optional)
+            guild_name: Discord guild/server name (optional)
 
         Returns:
             The created Reminder object
@@ -165,6 +179,8 @@ class ReminderManager:
             reminder_time=reminder_time,
             message=message,
             created_at=datetime.now(),
+            guild_id=guild_id,
+            guild_name=guild_name,
         )
 
         self.reminders[reminder_id] = reminder
