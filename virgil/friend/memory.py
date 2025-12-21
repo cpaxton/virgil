@@ -489,15 +489,41 @@ class MemoryManager:
 
             if use_llm and backend:
                 # Use LLM to intelligently merge memories
-                merge_prompt = f"""Merge these related memories into a single, concise fact:
+                # Build context about the memories being merged
+                memory_details = []
+                for idx, m in enumerate(group, 1):
+                    access_info = f" (accessed {m.access_count} times"
+                    if m.accessed_at:
+                        access_info += f", last accessed {m.accessed_at[:10]}"
+                    access_info += ")"
+                    memory_details.append(f"{idx}. {m.content}{access_info}")
 
-{chr(10).join(f"- {m.content}" for m in group)}
+                merge_prompt = f"""You are a memory consolidation system. Merge these related memories into a single, comprehensive fact.
 
-Output a single merged memory that captures the essential information. Be concise and factual."""
+Memories to merge:
+{chr(10).join(memory_details)}
+
+Your task:
+1. Identify the core fact or information that all memories share
+2. Combine any unique details from each memory into a unified statement
+3. Preserve important specifics (names, dates, preferences, commitments, story elements)
+4. Remove redundancy while keeping all essential information
+5. Create a clear, factual statement that captures everything important
+
+Guidelines:
+- If memories are about the same fact with different details, merge them into one comprehensive fact
+- If memories are about different aspects of the same topic, combine them intelligently
+- Preserve specific details: names, numbers, dates, preferences, story elements
+- Keep the most specific and informative version of shared information
+- If one memory is clearly more detailed/complete, use it as the base and add missing details from others
+- Output format: A single, clear, factual statement (one sentence or short paragraph)
+
+Output the merged memory now (factual statement only, no explanations):"""
 
                 try:
                     messages = [{"role": "user", "content": merge_prompt}]
-                    result = backend(messages, max_new_tokens=128)
+                    # Increased token limit for comprehensive merging
+                    result = backend(messages, max_new_tokens=256)
 
                     # Extract merged content
                     if isinstance(result, str):
@@ -525,13 +551,19 @@ Output a single merged memory that captures the essential information. Be concis
                     else:
                         merged_content = str(result).strip()
 
-                    # Remove <think> tags if present
+                    # Remove <think> tags if present (but allow facts from thinking to be preserved)
                     import re
 
+                    # Remove closed think tags
                     merged_content = re.sub(
                         r"<think>.*?</think>", "", merged_content, flags=re.DOTALL
                     )
-                    merged_content = merged_content.strip()
+                    # Remove unclosed think tags
+                    merged_content = re.sub(
+                        r"<think>.*$", "", merged_content, flags=re.DOTALL
+                    )
+                    # Clean up extra whitespace
+                    merged_content = re.sub(r"\s+", " ", merged_content).strip()
 
                     if merged_content and len(merged_content) > 5:
                         kept_memory.content = merged_content

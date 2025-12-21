@@ -925,19 +925,25 @@ class Friend(DiscordBot):
                 text, verbose=True, assistant_history_prefix=""
             )  # f"{self._user_name} on #{channel_name}: ")
 
-            # Check if response has unclosed <think> tag - if so, strip it and continue
+            # Store original response for memory extraction (includes thinking)
+            original_response = response
+
+            # For action parsing, strip unclosed <think> tags to avoid breaking action parsing
+            # But keep the original response for memory extraction so facts from thinking can be captured
             if "<think>" in response and "</think>" not in response:
-                # Remove unclosed think tag and everything after it
+                # Remove unclosed think tag and everything after it for action parsing
                 response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
-                # Optionally, we could add a "Thinking..." message, but for now just strip it
 
             action_plan = self.parser.parse(response)
 
         # Auto-extract memories from conversation if enabled
-        # Run this AFTER responses are sent, in background, with full response text
+        # Run this AFTER responses are sent, in background, with full response text (including thinking)
         if self.auto_memory:
             # Don't await - let it run in background after we finish responding
-            asyncio.create_task(self._extract_auto_memories(task, text, response))
+            # Pass original_response which includes thinking content
+            asyncio.create_task(
+                self._extract_auto_memories(task, text, original_response)
+            )
 
         print()
         print(
@@ -1600,9 +1606,11 @@ class Friend(DiscordBot):
 
         # Create prompt for memory extraction - LLM-driven approach
         # This is a dedicated extraction query that runs AFTER responses are sent
+        # Note: assistant_response may include <think> tags - extract facts from both thinking and final output
         extraction_prompt = f"""You are a memory extraction system. Extract persistent, important facts that would be useful to remember across multiple conversations.
 
 IMPORTANT: Extract facts about BOTH what the USER said AND what the ASSISTANT said/created/committed to.
+The assistant response may include <think>...</think> tags with reasoning - extract facts from both the thinking process and the final output.
 
 Conversation:
 User: {user_message}
@@ -1744,16 +1752,16 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         else:
                             response = str(result).strip()
 
-                        # Remove <think> tags if present
-                        response = re.sub(
-                            r"<think>.*?</think>", "", response, flags=re.DOTALL
-                        )
+                        # Note: We keep <think> tags in the extraction result since we want to extract
+                        # facts from the assistant's thinking process. The extraction LLM should
+                        # focus on facts, not reasoning, but we don't strip thinking tags here.
                         return response.strip()
 
                 loop = asyncio.get_event_loop()
                 extraction_result = await loop.run_in_executor(None, _prompt_with_lock)
 
                 # Parse extracted memories - LLM-driven, minimal filtering
+                # Trust the extraction LLM and consolidation to handle quality
                 memories = []
 
                 # Extract lines from response
@@ -1768,11 +1776,8 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     if line.upper() == "NONE":
                         continue
 
-                    # Skip very long lines (likely explanations, not facts)
-                    if len(line) > 250:
-                        continue
-
-                    # Skip lines that are clearly meta-commentary (minimal filtering)
+                    # Skip lines that are clearly meta-commentary from the prompt itself
+                    # (Let consolidation handle quality - trust the extraction LLM)
                     line_lower = line.lower()
                     skip_patterns = (
                         "output format",
@@ -1788,42 +1793,8 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     if any(line_lower.startswith(pattern) for pattern in skip_patterns):
                         continue
 
-                    # Skip lines that are clearly reasoning (minimal check)
-                    # Note: We DO want to extract facts about what the assistant said/created,
-                    # so we only skip lines that are clearly meta-reasoning, not factual statements
-                    reasoning_indicators = (
-                        "okay, let's",
-                        "first, looking",
-                        "i should",
-                        "let me",
-                        "the user said",  # Skip meta-commentary about user statements
-                        "the assistant said",  # Skip meta-commentary format (but allow "Assistant created X")
-                        "the assistant mentioned",  # Skip meta-commentary format
-                    )
-                    # Only skip if it's clearly reasoning, not if it's a factual statement about assistant content
-                    # Allow lines that start with factual patterns like "Assistant", "Story", etc.
-                    is_factual_assistant_content = any(
-                        line_lower.startswith(prefix)
-                        for prefix in (
-                            "assistant",
-                            "story",
-                            "character",
-                            "setting",
-                            "plot",
-                            "meme",
-                            "project",
-                        )
-                    )
-                    if (
-                        any(
-                            indicator in line_lower
-                            for indicator in reasoning_indicators
-                        )
-                        and not is_factual_assistant_content
-                    ):
-                        continue
-
                     # Check if this memory already exists (avoid duplicates)
+                    # Consolidation will handle merging similar memories later
                     existing_memories = self.memory_manager.get_all_memories()
                     if line not in existing_memories:
                         memories.append(line)
