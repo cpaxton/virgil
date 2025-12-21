@@ -256,6 +256,8 @@ class Friend(DiscordBot):
         self._last_consolidation_time = None
         self._memories_since_consolidation = 0
         self._consolidation_threshold = 15  # Consolidate after 15 new memories
+        self._consolidation_queue = asyncio.Queue()  # Queue for consolidation tasks
+        self._consolidation_task = None  # Background task for processing queue
 
         # Scheduler system
         self.scheduler = Scheduler()
@@ -369,9 +371,13 @@ class Friend(DiscordBot):
                 print(colored(f"Failed to initialize MCP server: {e}", "yellow"))
                 print("Continuing without MCP server...")
 
-        # Check if it's time to consolidate memories
+        # Start background consolidation queue processor
         if self.memory_consolidation_interval_hours > 0:
-            self._check_and_consolidate_memories()
+            self._consolidation_task = asyncio.create_task(
+                self._process_consolidation_queue()
+            )
+            # Check if it's time to consolidate memories (queue initial check)
+            asyncio.create_task(self._check_and_consolidate_memories())
 
         # Format prompt with memories
         # For static mode: include all memories in system prompt
@@ -662,13 +668,10 @@ class Friend(DiscordBot):
             self.memory_consolidation_interval_hours > 0
             and self._memories_since_consolidation >= self._consolidation_threshold
         ):
-            print(
-                colored(
-                    f"🔄 Triggering consolidation: {self._memories_since_consolidation} new memories since last consolidation",
-                    "cyan",
-                )
+            # Queue consolidation request (non-blocking)
+            asyncio.create_task(
+                self._queue_consolidation(force=True, reason="memory_threshold")
             )
-            self._check_and_consolidate_memories(force=True)
 
         # Update backward-compatible memory list
         self.memory = self.memory_manager.get_all_memories()
@@ -1599,11 +1602,27 @@ class Friend(DiscordBot):
         # This is a dedicated extraction query that runs AFTER responses are sent
         extraction_prompt = f"""You are a memory extraction system. Extract persistent, important facts that would be useful to remember across multiple conversations.
 
+IMPORTANT: Extract facts about BOTH what the USER said AND what the ASSISTANT said/created/committed to.
+
 Conversation:
 User: {user_message}
 Assistant: {assistant_response}
 
-Extract facts in these categories:
+Extract facts in these categories (PRIORITIZE ASSISTANT CONTENT):
+
+ABOUT CONTENT THE ASSISTANT CREATED, SAID, OR COMMITTED TO (HIGH PRIORITY):
+- Creative content: stories, characters, settings, plot points, world-building details the assistant created
+- Memes, jokes, or recurring themes the assistant created
+- Projects, narratives, or creative works the assistant is developing
+- Commitments: things the assistant committed to doing (e.g., "I'll post hourly content", "I'll continue this series", "I'll remember that")
+- Scheduled activities or recurring content the assistant is creating
+- Ongoing narratives, series, or creative works in progress
+- Technical information: code snippets, solutions, or technical details the assistant shared
+- Educational content: explanations, tutorials, or knowledge the assistant provided
+- Facts the assistant stated about itself, its capabilities, or its plans
+- Story elements: characters, settings, plot developments the assistant introduced
+- World-building: locations, rules, systems the assistant created
+- Any ongoing creative work or series the assistant is developing
 
 ABOUT THE USER:
 - Names, nicknames, preferred names
@@ -1615,16 +1634,6 @@ ABOUT THE USER:
 - Projects or work - ONLY if named or described in detail
 - Opinions, viewpoints, or beliefs expressed
 - Goals, plans, or intentions mentioned
-
-ABOUT CONTENT THE ASSISTANT CREATED OR COMMITTED TO:
-- Creative content: stories, characters, settings, plot points, world-building details
-- Memes, jokes, or recurring themes the assistant created
-- Projects, narratives, or creative works the assistant is developing
-- Commitments: things the assistant committed to doing (e.g., "posting hourly content", "continuing a series")
-- Scheduled activities or recurring content the assistant is creating
-- Ongoing narratives, series, or creative works in progress
-- Technical information: code snippets, solutions, or technical details shared
-- Educational content: explanations, tutorials, or knowledge shared
 
 ABOUT CONVERSATION CONTEXT (if significant):
 - Important decisions made or agreements reached
@@ -1643,18 +1652,23 @@ DO NOT EXTRACT:
 - Generic pleasantries or acknowledgments without substance
 
 Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
-Examples of GOOD output:
+Examples of GOOD output (especially assistant content):
+Story character: Lira is an inventor exploring the Clockwork Forest
+Story character: Bolt is Lira's robot companion
+Story setting: The Chrono Core is a destination in the story
+Assistant is posting hourly story segments in #ask-a-robot
+Assistant created a meme series called "Tech Tuesday"
+Assistant committed to continuing the story about the space station
+Assistant explained that Python async/await uses event loops
+Assistant created a character named Zara who is a time traveler
+Story plot: The heroes are searching for the lost artifact
+Assistant is developing a quiz series about programming
 User's name is Alice
 User works at TechCorp as a software engineer
 User loves pizza and Italian food
 User is learning Python programming
 User prefers dark mode interfaces
-Story character: Lira is an inventor exploring the Clockwork Forest
-Story character: Bolt is Lira's robot companion
-Story setting: The Chrono Core is a destination in the story
-Assistant is posting hourly story segments in #ask-a-robot
 User mentioned they're working on a project called "ProjectX"
-Assistant explained how to use async/await in Python
 User prefers to be called "Al" instead of "Alice"
 
 Examples of BAD output (DO NOT EXTRACT THESE):
@@ -1669,7 +1683,10 @@ User said hello
 Assistant responded with a greeting
 
 CRITICAL RULES: 
+- EXTRACT facts about what the ASSISTANT said, created, or committed to - this is CRITICAL
 - Extract facts about BOTH the user AND content/commitments the assistant created
+- Pay special attention to story elements, characters, settings, and creative content the assistant introduced
+- Remember commitments the assistant made (e.g., "I'll do X", "I'm creating Y")
 - Be selective - only extract facts that are explicitly stated and will persist
 - Include creative content, technical information, and ongoing commitments
 - If unsure whether something should be remembered, DON'T extract it
@@ -1680,7 +1697,7 @@ CRITICAL RULES:
 - Do NOT use phrases like "The user said" or "The assistant mentioned"
 - Do NOT include your thought process - just the facts
 
-Output now (facts only, one per line, include user facts AND assistant-created content/commitments):"""
+Output now (facts only, one per line, PRIORITIZE assistant-created content/commitments, then user facts):"""
 
         # Dedicated memory extraction query - runs in background after response is sent
         async def extract_memories():
@@ -1772,16 +1789,37 @@ Output now (facts only, one per line, include user facts AND assistant-created c
                         continue
 
                     # Skip lines that are clearly reasoning (minimal check)
+                    # Note: We DO want to extract facts about what the assistant said/created,
+                    # so we only skip lines that are clearly meta-reasoning, not factual statements
                     reasoning_indicators = (
                         "okay, let's",
                         "first, looking",
                         "i should",
                         "let me",
-                        "the user said",
-                        "the assistant",
+                        "the user said",  # Skip meta-commentary about user statements
+                        "the assistant said",  # Skip meta-commentary format (but allow "Assistant created X")
+                        "the assistant mentioned",  # Skip meta-commentary format
                     )
-                    if any(
-                        indicator in line_lower for indicator in reasoning_indicators
+                    # Only skip if it's clearly reasoning, not if it's a factual statement about assistant content
+                    # Allow lines that start with factual patterns like "Assistant", "Story", etc.
+                    is_factual_assistant_content = any(
+                        line_lower.startswith(prefix)
+                        for prefix in (
+                            "assistant",
+                            "story",
+                            "character",
+                            "setting",
+                            "plot",
+                            "meme",
+                            "project",
+                        )
+                    )
+                    if (
+                        any(
+                            indicator in line_lower
+                            for indicator in reasoning_indicators
+                        )
+                        and not is_factual_assistant_content
                     ):
                         continue
 
@@ -1847,29 +1885,37 @@ Output now (facts only, one per line, include user facts AND assistant-created c
                         and self._memories_since_consolidation
                         >= self._consolidation_threshold
                     ):
-                        print(
-                            colored(
-                                f"🔄 Triggering consolidation: {self._memories_since_consolidation} new memories since last consolidation",
-                                "cyan",
+                        # Queue consolidation request (non-blocking)
+                        asyncio.create_task(
+                            self._queue_consolidation(
+                                force=True, reason="memory_threshold"
                             )
                         )
-                        self._check_and_consolidate_memories(force=True)
 
             except Exception as e:
                 # Silently fail - auto-memory is best-effort
                 if self.auto_memory:  # Only log if enabled
                     print(f"Note: Auto-memory extraction failed: {e}")
 
-    def _check_and_consolidate_memories(self, force: bool = False):
-        """Check if it's time to consolidate memories and run consolidation if needed.
+    async def _queue_consolidation(self, force: bool = False, reason: str = "time"):
+        """Queue a consolidation request.
 
         Args:
             force: If True, run consolidation immediately regardless of time threshold.
+            reason: Reason for consolidation ("time", "memory_threshold", etc.)
+        """
+        await self._consolidation_queue.put({"force": force, "reason": reason})
+
+    async def _check_and_consolidate_memories(self, force: bool = False):
+        """Check if it's time to consolidate memories and queue consolidation if needed.
+
+        Args:
+            force: If True, queue consolidation immediately regardless of time threshold.
         """
         if self.memory_consolidation_interval_hours <= 0 and not force:
             return
 
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         now = datetime.now()
 
@@ -1887,41 +1933,89 @@ Output now (facts only, one per line, include user facts AND assistant-created c
             if hours_since_consolidation < self.memory_consolidation_interval_hours:
                 return
 
-        # Run consolidation (either forced or time-based)
-        if force:
-            print(
-                colored(
-                    f"🔄 Running memory consolidation (triggered by {self._memories_since_consolidation} new memories)",
-                    "cyan",
-                )
-            )
-        else:
-            print(
-                colored(
-                    f"🔄 Running memory consolidation (last run: {hours_since_consolidation:.1f} hours ago)",
-                    "cyan",
-                )
-            )
+        # Queue consolidation request
+        await self._queue_consolidation(
+            force=force, reason="time" if not force else "manual"
+        )
 
-        try:
-            stats = self.memory_manager.consolidate_memories(
-                similarity_threshold=0.85, use_llm=False
-            )
+    async def _process_consolidation_queue(self):
+        """Background task to process consolidation queue.
 
-            if stats["merged"] > 0 or stats["removed"] > 0:
-                print(
-                    colored(
-                        f"✓ Consolidated memories: {stats['merged']} merged, {stats['removed']} removed, {stats['kept']} kept",
-                        "green",
+        Runs consolidation requests from the queue, ensuring only one consolidation
+        runs at a time and doesn't block the main event loop.
+        """
+        while True:
+            try:
+                # Wait for consolidation request
+                request = await self._consolidation_queue.get()
+                reason = request.get("reason", "unknown")
+
+                # Run consolidation in executor to avoid blocking
+                def run_consolidation():
+                    return self.memory_manager.consolidate_memories(
+                        similarity_threshold=0.85, use_llm=False
                     )
-                )
-            else:
-                print(colored("✓ No similar memories found to consolidate", "green"))
 
-            self._last_consolidation_time = now
-            self._memories_since_consolidation = 0  # Reset counter after consolidation
-        except Exception as e:
-            print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
+                # Show consolidation message
+                if reason == "memory_threshold":
+                    print(
+                        colored(
+                            f"🔄 Running memory consolidation (triggered by {self._memories_since_consolidation} new memories)",
+                            "cyan",
+                        )
+                    )
+                elif reason == "time":
+                    from datetime import datetime
+
+                    now = datetime.now()
+                    if self._last_consolidation_time:
+                        hours_since = (
+                            now - self._last_consolidation_time
+                        ).total_seconds() / 3600
+                        print(
+                            colored(
+                                f"🔄 Running memory consolidation (last run: {hours_since:.1f} hours ago)",
+                                "cyan",
+                            )
+                        )
+                    else:
+                        print(colored("🔄 Running memory consolidation", "cyan"))
+
+                # Run consolidation in executor (non-blocking)
+                loop = asyncio.get_event_loop()
+                stats = await loop.run_in_executor(None, run_consolidation)
+
+                if stats["merged"] > 0 or stats["removed"] > 0:
+                    print(
+                        colored(
+                            f"✓ Consolidated memories: {stats['merged']} merged, {stats['removed']} removed, {stats['kept']} kept",
+                            "green",
+                        )
+                    )
+                else:
+                    print(
+                        colored("✓ No similar memories found to consolidate", "green")
+                    )
+
+                # Update state
+                from datetime import datetime
+
+                self._last_consolidation_time = datetime.now()
+                self._memories_since_consolidation = (
+                    0  # Reset counter after consolidation
+                )
+
+                # Mark task as done
+                self._consolidation_queue.task_done()
+
+            except Exception as e:
+                print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
+                # Mark task as done even on error
+                if not self._consolidation_queue.empty():
+                    try:
+                        self._consolidation_queue.task_done()
+                    except ValueError:
+                        pass
 
     async def _execute_action_plan(self, task: Task, response: str):
         """Execute an action plan parsed from an LLM response.
