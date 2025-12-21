@@ -142,8 +142,13 @@ class ChatbotActionParser(Parser):
             "weather",
             "edit_image",
             "remind",
+            "show_remind",
+            "edit_remind",
+            "delete_remind",
             "schedule",
             "show_schedule",
+            "unschedule",
+            "edit_schedule",
             "help",
         ]
         extracted_tags = extract_tags(text, tags_to_extract, prune_thoughts=True)

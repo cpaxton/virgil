@@ -962,8 +962,12 @@ class Friend(DiscordBot):
                 "weather": "cyan",
                 "edit_image": "magenta",
                 "remind": "yellow",
+                "edit_remind": "yellow",
+                "delete_remind": "red",
                 "schedule": "yellow",
                 "show_schedule": "cyan",
+                "unschedule": "red",
+                "edit_schedule": "yellow",
                 "help": "blue",
             }
             action_color = action_colors.get(action, "white")
@@ -993,10 +997,20 @@ class Friend(DiscordBot):
                 await self._handle_edit_image_action(task, content)
             elif action == "remind":
                 await self._handle_remind_action(task, content, attributes)
+            elif action == "show_remind":
+                await self._handle_show_remind_action(task, content)
+            elif action == "edit_remind":
+                await self._handle_edit_remind_action(task, content, attributes)
+            elif action == "delete_remind":
+                await self._handle_delete_remind_action(task, content, attributes)
             elif action == "schedule":
                 await self._handle_schedule_action(task, content, attributes)
             elif action == "show_schedule":
                 await self._handle_show_schedule_action(task, content)
+            elif action == "unschedule":
+                await self._handle_unschedule_action(task, content, attributes)
+            elif action == "edit_schedule":
+                await self._handle_edit_schedule_action(task, content, attributes)
             elif action == "help":
                 await self._handle_help_action(task, content)
 
@@ -1584,6 +1598,249 @@ class Friend(DiscordBot):
                 chunk = response[:last_newline]
             await task.channel.send(chunk)
             response = response[len(chunk) :].lstrip()
+
+    async def _handle_unschedule_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'unschedule' action - remove a scheduled task.
+
+        Args:
+            task: The task containing channel and context information.
+            content: Optional content (not used, task_id comes from attributes).
+            attributes: Dictionary containing:
+                - task_id: The ID of the scheduled task to remove (required)
+        """
+        task_id = attributes.get("task_id")
+
+        if not task_id:
+            # Try to parse task_id from content if not in attributes
+            content_stripped = content.strip() if content else ""
+            # Try to extract task ID from content (e.g., "task 1" or "1" or "ID: 1")
+            id_match = re.search(
+                r"(?:task\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                task_id = id_match.group(1)
+
+        if not task_id:
+            # Show all tasks so user can see IDs
+            all_tasks = self.scheduler.get_all_tasks()
+            if not all_tasks:
+                await task.channel.send("*No scheduled tasks found to unschedule.*")
+                return
+
+            task_list = []
+            for t in all_tasks:
+                if t.task_type == "post":
+                    location = (
+                        f"#{t.channel_name}" if t.channel_name else "unknown channel"
+                    )
+                else:
+                    location = f"DM to {t.user_name}" if t.user_name else "unknown user"
+
+                schedule_desc = f"{t.schedule_type}"
+                if t.schedule_value:
+                    schedule_desc += f" ({t.schedule_value})"
+
+                task_list.append(
+                    f"ID {t.task_id}: {t.message[:50]}... in {location} ({schedule_desc})"
+                )
+
+            await task.channel.send(
+                "*Please specify a task ID to unschedule. Available tasks:*\n"
+                + "\n".join(task_list[:10])  # Show first 10
+            )
+            return
+
+        # Find and remove the task
+        all_tasks = self.scheduler.get_all_tasks()
+        task_to_remove = None
+        for t in all_tasks:
+            if t.task_id == str(task_id):
+                task_to_remove = t
+                break
+
+        if not task_to_remove:
+            await task.channel.send(
+                f"*Task ID '{task_id}' not found. Use <show_schedule> to see all scheduled tasks.*"
+            )
+            return
+
+        # Remove the task
+        self.scheduler.remove_task(str(task_id))
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"🗑️  REMOVED SCHEDULED TASK: ID={task_id}",
+                "red",
+                attrs=["bold"],
+            )
+        )
+        if task_to_remove.task_type == "post":
+            location = (
+                f"#{task_to_remove.channel_name}"
+                if task_to_remove.channel_name
+                else "unknown channel"
+            )
+        else:
+            location = (
+                f"DM to {task_to_remove.user_name}"
+                if task_to_remove.user_name
+                else "unknown user"
+            )
+        print(colored(f"  Message: {task_to_remove.message}", "white"))
+        print(colored(f"  Location: {location}", "cyan"))
+        schedule_desc = f"{task_to_remove.schedule_type}"
+        if task_to_remove.schedule_value:
+            schedule_desc += f" ({task_to_remove.schedule_value})"
+        print(colored(f"  Schedule: {schedule_desc}", "yellow"))
+        print()
+
+        # User confirmation
+        await task.channel.send(
+            f"✓ Removed scheduled task (ID: {task_id}): '{task_to_remove.message[:100]}'"
+        )
+
+    async def _handle_edit_schedule_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'edit_schedule' action - edit an existing scheduled task.
+
+        Args:
+            task: The task containing channel and context information.
+            content: New message content (optional).
+            attributes: Dictionary containing:
+                - task_id: The ID of the scheduled task to edit (required)
+                - message: New message (optional, can also be in content)
+                - type: New schedule type (optional: "daily", "hourly", "weekly", "interval")
+                - value: New schedule value (optional: e.g., "14:30", "5 minutes", "")
+                - channel: New channel name (optional, WITHOUT # prefix)
+        """
+        task_id = attributes.get("task_id")
+
+        if not task_id:
+            # Try to parse from content
+            content_stripped = content.strip() if content else ""
+            id_match = re.search(
+                r"(?:task\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                task_id = id_match.group(1)
+
+        if not task_id:
+            # Show all tasks so user can see IDs
+            all_tasks = self.scheduler.get_all_tasks()
+            if not all_tasks:
+                await task.channel.send("*No scheduled tasks found to edit.*")
+                return
+
+            task_list = []
+            for t in all_tasks:
+                if t.task_type == "post":
+                    location = (
+                        f"#{t.channel_name}" if t.channel_name else "unknown channel"
+                    )
+                else:
+                    location = f"DM to {t.user_name}" if t.user_name else "unknown user"
+
+                schedule_desc = f"{t.schedule_type}"
+                if t.schedule_value:
+                    schedule_desc += f" ({t.schedule_value})"
+
+                task_list.append(
+                    f"ID {t.task_id}: {t.message[:50]}... in {location} ({schedule_desc})"
+                )
+
+            await task.channel.send(
+                "*Please specify a task ID to edit. Available tasks:*\n"
+                + "\n".join(task_list[:10])
+            )
+            return
+
+        # Find the task
+        all_tasks = self.scheduler.get_all_tasks()
+        task_to_edit = None
+        for t in all_tasks:
+            if t.task_id == str(task_id):
+                task_to_edit = t
+                break
+
+        if not task_to_edit:
+            await task.channel.send(
+                f"*Task ID '{task_id}' not found. Use <show_schedule> to see all scheduled tasks.*"
+            )
+            return
+
+        # Parse new values
+        new_message = attributes.get("message") or content.strip() if content else None
+        new_schedule_type = attributes.get("type")
+        new_schedule_value = attributes.get("value")
+        new_channel_name = attributes.get("channel")
+
+        # Strip # prefix from channel name if present
+        if new_channel_name and new_channel_name.startswith("#"):
+            new_channel_name = new_channel_name[1:]
+
+        new_channel_id = None
+        if new_channel_name:
+            # Find channel by name
+            for ch in self.client.get_all_channels():
+                if ch.name == new_channel_name:
+                    new_channel_id = ch.id
+                    break
+            if not new_channel_id:
+                await task.channel.send(
+                    f"*Could not find channel '{new_channel_name}'.*"
+                )
+                return
+
+        # Update task
+        updated = self.scheduler.update_task(
+            str(task_id),
+            message=new_message,
+            schedule_type=new_schedule_type,
+            schedule_value=new_schedule_value,
+            channel_id=new_channel_id,
+            channel_name=new_channel_name,
+        )
+
+        if not updated:
+            await task.channel.send(f"*Failed to update task ID '{task_id}'.*")
+            return
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"✏️  EDITED SCHEDULED TASK: ID={task_id}",
+                "yellow",
+                attrs=["bold"],
+            )
+        )
+        if new_message:
+            print(colored(f"  New message: {new_message}", "white"))
+        if new_schedule_type:
+            print(colored(f"  New schedule type: {new_schedule_type}", "cyan"))
+        if new_schedule_value is not None:
+            print(colored(f"  New schedule value: {new_schedule_value}", "cyan"))
+        if new_channel_name:
+            print(colored(f"  New channel: #{new_channel_name}", "cyan"))
+        print()
+
+        # User confirmation
+        confirm_msg = f"✓ Updated scheduled task (ID: {task_id})"
+        if new_message:
+            confirm_msg += f": '{new_message[:100]}'"
+        if new_schedule_type or new_schedule_value is not None:
+            schedule_desc = new_schedule_type or task_to_edit.schedule_type
+            if new_schedule_value is not None:
+                schedule_desc += f" ({new_schedule_value})"
+            elif task_to_edit.schedule_value:
+                schedule_desc += f" ({task_to_edit.schedule_value})"
+            confirm_msg += f" - Schedule: {schedule_desc}"
+        await task.channel.send(confirm_msg)
 
     async def _handle_help_action(self, task: Task, content: str):
         """Handle the 'help' action - retrieve documentation.
@@ -2297,8 +2554,12 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 "weather": "cyan",
                 "edit_image": "magenta",
                 "remind": "yellow",
+                "edit_remind": "yellow",
+                "delete_remind": "red",
                 "schedule": "yellow",
                 "show_schedule": "cyan",
+                "unschedule": "red",
+                "edit_schedule": "yellow",
                 "help": "blue",
             }
             action_color = action_colors.get(action, "white")
@@ -2332,10 +2593,18 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     await self._handle_edit_image_action(task, content)
                 elif action == "remind":
                     await self._handle_remind_action(task, content, attributes)
+                elif action == "edit_remind":
+                    await self._handle_edit_remind_action(task, content, attributes)
+                elif action == "delete_remind":
+                    await self._handle_delete_remind_action(task, content, attributes)
                 elif action == "schedule":
                     await self._handle_schedule_action(task, content, attributes)
                 elif action == "show_schedule":
                     await self._handle_show_schedule_action(task, content)
+                elif action == "unschedule":
+                    await self._handle_unschedule_action(task, content, attributes)
+                elif action == "edit_schedule":
+                    await self._handle_edit_schedule_action(task, content, attributes)
                 elif action == "help":
                     await self._handle_help_action(task, content)
             except Exception as e:

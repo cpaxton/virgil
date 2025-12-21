@@ -202,6 +202,40 @@ class ReminderManager:
             del self.reminders[reminder_id]
             self._save_reminders()
 
+    def update_reminder(
+        self,
+        reminder_id: str,
+        message: Optional[str] = None,
+        reminder_time: Optional[datetime] = None,
+    ) -> bool:
+        """
+        Update an existing reminder.
+
+        Args:
+            reminder_id: ID of the reminder to update
+            message: New message (optional)
+            reminder_time: New reminder time (optional)
+
+        Returns:
+            True if reminder was updated, False if not found
+        """
+        if reminder_id not in self.reminders:
+            return False
+
+        reminder = self.reminders[reminder_id]
+
+        if message is not None:
+            reminder.message = message
+        if reminder_time is not None:
+            reminder.reminder_time = reminder_time
+
+        self._save_reminders()
+        return True
+
+    def get_all_reminders(self) -> list[Reminder]:
+        """Get all active reminders."""
+        return [r for r in self.reminders.values() if not r.executed]
+
     def start(self):
         """Start the reminder checking loop."""
         if not self._running:

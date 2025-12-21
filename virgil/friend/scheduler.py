@@ -340,6 +340,52 @@ class Scheduler:
             del self.tasks[task_id]
             self._save_schedules()
 
+    def update_task(
+        self,
+        task_id: str,
+        message: Optional[str] = None,
+        schedule_type: Optional[str] = None,
+        schedule_value: Optional[str] = None,
+        channel_id: Optional[int] = None,
+        channel_name: Optional[str] = None,
+    ) -> bool:
+        """
+        Update an existing scheduled task.
+
+        Args:
+            task_id: ID of the task to update
+            message: New message (optional)
+            schedule_type: New schedule type (optional)
+            schedule_value: New schedule value (optional)
+            channel_id: New channel ID (optional)
+            channel_name: New channel name (optional)
+
+        Returns:
+            True if task was updated, False if not found
+        """
+        if task_id not in self.tasks:
+            return False
+
+        task = self.tasks[task_id]
+
+        if message is not None:
+            task.message = message
+        if schedule_type is not None:
+            task.schedule_type = schedule_type
+        if schedule_value is not None:
+            task.schedule_value = schedule_value
+        if channel_id is not None:
+            task.channel_id = channel_id
+        if channel_name is not None:
+            task.channel_name = channel_name
+
+        # Recalculate next execution if schedule changed
+        if schedule_type is not None or schedule_value is not None:
+            task.next_execution = task._calculate_next_execution()
+
+        self._save_schedules()
+        return True
+
     def disable_task(self, task_id: str):
         """Disable a scheduled task."""
         if task_id in self.tasks:
