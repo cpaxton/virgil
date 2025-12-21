@@ -951,7 +951,9 @@ class Friend(DiscordBot):
                     "cyan",
                 )
             )
-            # Create task and ensure it runs - add error callback
+            # Create task and ensure it runs in background
+            # This runs AFTER the response is sent, so it doesn't slow down the Discord user experience
+            # But we show all debug output in terminal for clarity
             extraction_task = asyncio.create_task(
                 self._extract_auto_memories(
                     task, user_message_for_extraction, original_response
@@ -1821,24 +1823,18 @@ CRITICAL RULES:
 Output now (facts only, one per line, PRIORITIZE assistant-created content/commitments, then user facts):"""
 
         # Dedicated memory extraction query - runs in background after response is sent
+        # This is completely non-blocking - runs AFTER Discord response is sent
+        # Terminal output is verbose for debugging, but doesn't slow down Discord chat
         async def extract_memories():
-            import sys
-
             try:
                 if self.auto_memory:
-                    print(
-                        colored("🔍 Starting memory extraction...", "cyan"), flush=True
-                    )
-                    print(
-                        colored(f"   User message: {user_message[:100]}...", "cyan"),
-                        flush=True,
-                    )
+                    print(colored("🔍 Starting memory extraction...", "cyan"))
+                    print(colored(f"   User message: {user_message[:100]}...", "cyan"))
                     print(
                         colored(
                             f"   Response length: {len(assistant_response)} chars",
                             "cyan",
-                        ),
-                        flush=True,
+                        )
                     )
                 # Small delay to ensure response is fully sent before extraction
                 await asyncio.sleep(0.5)
@@ -1849,28 +1845,35 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 def _prompt_with_lock():
                     # CRITICAL: Use _chat_lock to ensure backend resource is not used concurrently
                     # This prevents GPU memory conflicts - only one LLM call at a time
-                    print(
-                        colored("   🔒 Acquiring chat lock for extraction...", "cyan")
-                    )
-                    with self._chat_lock:
+                    if self.auto_memory:
                         print(
                             colored(
-                                "   ✓ Chat lock acquired, calling backend...", "cyan"
+                                "   🔒 Acquiring chat lock for extraction...", "cyan"
                             )
                         )
+                    with self._chat_lock:
+                        if self.auto_memory:
+                            print(
+                                colored(
+                                    "   ✓ Chat lock acquired, calling backend...",
+                                    "cyan",
+                                )
+                            )
                         # Use backend directly for memory extraction to avoid polluting conversation history
                         # This is a dedicated extraction query with a specialized prompt
                         messages = [{"role": "user", "content": extraction_prompt}]
-                        print(
-                            colored(
-                                f"   📤 Sending extraction prompt ({len(extraction_prompt)} chars)...",
-                                "cyan",
+                        if self.auto_memory:
+                            print(
+                                colored(
+                                    f"   📤 Sending extraction prompt ({len(extraction_prompt)} chars)...",
+                                    "cyan",
+                                )
                             )
-                        )
                         result = self.backend(
                             messages, max_new_tokens=512
                         )  # Increased for better extraction
-                        print(colored("   ✓ Backend returned result", "green"))
+                        if self.auto_memory:
+                            print(colored("   ✓ Backend returned result", "green"))
                         return result
 
                         # Extract text from backend result (same format as ChatWrapper)
