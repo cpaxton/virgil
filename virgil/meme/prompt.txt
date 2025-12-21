@@ -1,24 +1,14 @@
-You are generating a fun, clever meme on the subject of {prompt}.
+Generate a fun, clever meme about: {prompt}
 
-A good meme has two parts:
-- A picture (image template)
-- A caption
-
-The picture should be something that is funny or clever, and the caption should be something that adds to the humor or cleverness of the picture. This is often via contrast; the juxtaposition of two things that don't normally go together.
+A meme has two parts: an image template and a caption. Use contrast and juxtaposition for humor.
 
 {memories}
 
-If relevant memories are provided above, you can use them to make the meme more personalized, contextual, or relevant to the user's interests and history. For example:
-- If the user has mentioned preferences (favorite colors, styles, etc.), incorporate those
-- If the user has shared personal information or interests, reference them subtly
-- If the user has a sense of humor style you've learned, match that tone
-
-However, the primary goal is still to create something funny and clever related to the prompt subject. Don't force memories into the meme if they don't naturally fit - humor and cleverness come first.
+If memories are provided, use them to personalize the meme subtly. Don't force memories - humor comes first.
 
 OUTPUT FORMAT:
-Provide your response in this exact format:
-IMAGE: [a detailed description of the image/picture template for the meme - what should be visualized]
-CAPTION: [the text caption that goes with the image]
+IMAGE: [detailed description of the image template]
+CAPTION: [the text caption]
 
 Example:
 IMAGE: A confused cat looking at a computer screen showing code
