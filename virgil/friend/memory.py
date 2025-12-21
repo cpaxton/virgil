@@ -321,29 +321,28 @@ class MemoryManager:
         if not self.memories:
             return []
 
-        # Ensure embeddings are generated for all memories (lazy generation)
-        for memory in self.memories.values():
-            if memory.embedding is None and self.mode in ("rag", "hybrid"):
-                embedding = self._get_embedding(memory.content)
-                if embedding is not None:
-                    memory.embedding = embedding.tolist()
-
         max_results = max_results or self.max_memories
 
-        # Generate query embedding
+        # Generate query embedding first
         query_embedding = self._get_embedding(query)
         if query_embedding is None:
             # Fallback to all memories if embedding fails
             return list(self.memories.values())[:max_results]
 
-        # Compute similarities (embeddings already generated above)
+        # Generate embeddings lazily - only as we need them for similarity computation
+        # Embeddings are cached in _embedding_cache, so regenerating is fast if already computed
         similarities = []
         for memory in self.memories.values():
-            # Embedding should already be generated above, but check just in case
-            if memory.embedding is None:
-                continue  # Skip if embedding generation failed
+            # Generate embedding lazily if not already cached
+            if memory.embedding is None and self.mode in ("rag", "hybrid"):
+                # Check cache first (fast), then generate if needed
+                embedding = self._get_embedding(memory.content)
+                if embedding is not None:
+                    memory.embedding = embedding.tolist()
+                else:
+                    continue  # Skip if embedding generation failed
 
-            # Convert to numpy array
+            # Convert to numpy array (use cached embedding from memory object)
             mem_embedding = np.array(memory.embedding)
             # Compute cosine similarity
             similarity = np.dot(query_embedding, mem_embedding)
