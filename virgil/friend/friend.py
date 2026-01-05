@@ -14,34 +14,57 @@
 
 # (c) 2024 by Chris Paxton
 
-import click
+# Standard library imports
+import asyncio
+import io
 import os
+import random
+import re
 import signal
+import threading
+import time
+import traceback
+from datetime import datetime, timedelta
+from typing import Optional
+
+# Third-party imports
+import click
+import discord
+from PIL import Image
+from termcolor import colored
+import torch  # This only works on Ampere+ GPUs
+
+# Local imports
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
-from typing import Optional
-import random
-import threading
-import time
-from termcolor import colored
-import io
-import discord
-from PIL import Image
-
-# This only works on Ampere+ GPUs
-import torch
 
 # Enable TensorFloat-32 (TF32) on Ampere GPUs for faster matrix multiplications
 # Need to let Ruff know this is okay
 # ruff: noqa: F401
 # ruff: noqa: E402
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
+# Use new API to avoid deprecation warnings (prioritize new API, fallback to old)
+if torch.cuda.is_available():
+    # New API for controlling TF32 precision (PyTorch 2.9+)
+    if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
+        torch.backends.cuda.matmul.fp32_precision = "tf32"
+    else:
+        # Fallback for older PyTorch versions
+        torch.backends.cuda.matmul.allow_tf32 = True
+
+    if hasattr(torch.backends.cudnn, "conv") and hasattr(
+        torch.backends.cudnn.conv, "fp32_precision"
+    ):
+        torch.backends.cudnn.conv.fp32_precision = "tf32"
+    else:
+        # Fallback for older PyTorch versions
+        torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder
 from virgil.friend.scheduler import Scheduler, ScheduledTask
+from virgil.friend.memory import MemoryManager
+from virgil.meme.generator import MemeGenerator
 from virgil.image import (
     DiffuserImageGenerator,
     FluxImageGenerator,
@@ -56,8 +79,6 @@ from virgil.utils.weather import (
 from virgil.services.image_service import VirgilImageService
 from virgil.services.message_service import DiscordMessageService
 from virgil.mcp.server import VirgilMCPServer
-import asyncio
-from datetime import datetime, timedelta
 from virgil.utils.docs import (
     list_available_docs,
     format_doc_summary,
@@ -102,6 +123,11 @@ class Friend(DiscordBot):
         weather_api_key: Optional[str] = None,
         enable_mcp: bool = False,
         restrict_to_allowed_channels: bool = True,
+        memory_mode: str = "rag",
+        memory_max_results: int = 10,
+        memory_similarity_threshold: float = 0.3,
+        auto_memory: bool = True,
+        memory_consolidation_interval_hours: int = 12,
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -117,9 +143,15 @@ class Friend(DiscordBot):
             weather_api_key (Optional[str]): OpenWeatherMap API key for weather functionality. Defaults to None.
             enable_mcp (bool): Whether to enable MCP server alongside Discord bot. Defaults to False.
             restrict_to_allowed_channels (bool): Whether to restrict automated messages (reminders/scheduled tasks) to allowed channels only. Defaults to True.
+            memory_mode (str): Memory retrieval mode: "static" (all memories), "rag" (semantic search), or "hybrid" (rag with static fallback). Defaults to "rag".
+            memory_max_results (int): Maximum number of memories to retrieve in RAG mode. Defaults to 10.
+            memory_similarity_threshold (float): Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.
+            auto_memory (bool): Automatically extract and store important information from conversations. Defaults to True.
+            memory_consolidation_interval_hours (int): Hours between memory consolidation runs. Set to 0 to disable. Defaults to 12.
         """
 
         self.backend = get_backend(backend)
+        self.backend_name = backend  # Store backend name for meme generator
         self.chat = ChatWrapper(
             self.backend, max_history_length=max_history_length, preserve=2
         )
@@ -155,24 +187,19 @@ class Friend(DiscordBot):
 
         super(Friend, self).__init__(token)
 
-        # Check to see if memory file exists
-        # Memory is stored as a text file with a list of messages
-        # Each message is just a string
-        # The file is stored in the same directory as the bot
-        # The file is named "memory.txt"
-        memory_file = "memory.txt"
-        # If the file does not exist, create it
-        if not os.path.exists(memory_file):
-            with open(memory_file, "w") as file:
-                file.write("")
-            memory = []
-        else:
-            # If the file does exist, load the memory into memory
-            with open(memory_file, "r") as file:
-                memory = file.read().split("\n")
+        # Initialize memory manager with RAG support
+        self.memory_manager = MemoryManager(
+            mode=memory_mode,
+            max_memories=memory_max_results,
+            similarity_threshold=memory_similarity_threshold,
+        )
 
-        # Loaded memory
-        self.memory = memory
+        # Auto-memory extraction enabled
+        self.auto_memory = auto_memory
+
+        # Keep backward compatibility: expose memory list for old code
+        # This will be deprecated but maintained for compatibility
+        self.memory = self.memory_manager.get_all_memories()
 
         if isinstance(image_generator, str):
             if image_generator.lower() == "diffuser":
@@ -208,6 +235,9 @@ class Friend(DiscordBot):
         # Initialize services
         self.image_service = VirgilImageService(image_gen)
 
+        # Initialize meme generator (will be connected to memory_manager in on_ready)
+        self.meme_generator = None
+
         # Initialize message service with Discord-specific functions
         # Note: We'll set this up after the client is ready in on_ready()
         self.message_service = None
@@ -224,6 +254,14 @@ class Friend(DiscordBot):
         # Reminder system
         self.reminder_manager = ReminderManager()
         self.reminder_manager.set_execution_callback(self._execute_reminder)
+
+        # Memory consolidation
+        self.memory_consolidation_interval_hours = memory_consolidation_interval_hours
+        self._last_consolidation_time = None
+        self._memories_since_consolidation = 0
+        self._consolidation_threshold = 15  # Consolidate after 15 new memories
+        self._consolidation_queue = asyncio.Queue()  # Queue for consolidation tasks
+        self._consolidation_task = None  # Background task for processing queue
 
         # Scheduler system
         self.scheduler = Scheduler()
@@ -314,6 +352,15 @@ class Friend(DiscordBot):
             discord_user_getter=get_user,
         )
 
+        # Initialize meme generator with memory manager for RAG support
+        # Reuse the same backend instance and image service to avoid duplicate GPU memory usage
+        self.meme_generator = MemeGenerator(
+            backend=self.backend,
+            memory_manager=self.memory_manager,
+            image_service=self.image_service,
+        )
+        print(colored("🎭 Meme generator initialized with RAG memory support", "cyan"))
+
         # Initialize MCP server if enabled
         if self.enable_mcp:
             try:
@@ -328,10 +375,25 @@ class Friend(DiscordBot):
                 print(colored(f"Failed to initialize MCP server: {e}", "yellow"))
                 print("Continuing without MCP server...")
 
+        # Start background consolidation queue processor
+        if self.memory_consolidation_interval_hours > 0:
+            self._consolidation_task = asyncio.create_task(
+                self._process_consolidation_queue()
+            )
+            # Check if it's time to consolidate memories (queue initial check)
+            asyncio.create_task(self._check_and_consolidate_memories())
+
+        # Format prompt with memories
+        # For static mode: include all memories in system prompt
+        # For RAG/hybrid mode: memories will be injected per-query, so leave empty here
+        memories_text = ""
+        if self.memory_manager.mode == "static":
+            memories_text = "\n".join(self.memory_manager.get_all_memories())
+
         self.prompt = self.raw_prompt.format(
             username=self._user_name,
             user_id=self._user_id,
-            memories="\n".join(self.memory),
+            memories=memories_text,
         )
 
         if self.sent_prompt is False:
@@ -495,12 +557,14 @@ class Friend(DiscordBot):
         Returns:
             Clean plain text message
         """
-        import re
-
         formatted_message = response.strip()
-        # Remove <think>...</think> tags
+        # Remove <think>...</think> tags (both closed and unclosed)
         formatted_message = re.sub(
             r"<think>.*?</think>", "", formatted_message, flags=re.DOTALL
+        )
+        # Remove unclosed <think> tags (thinking in progress)
+        formatted_message = re.sub(
+            r"<think>.*$", "", formatted_message, flags=re.DOTALL
         )
         # Extract from <say> tags if present, otherwise use as-is
         say_match = re.search(r"<say>(.*?)</say>", formatted_message, re.DOTALL)
@@ -562,16 +626,122 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: The content to remember.
         """
-        print(colored(f"💾 Remembering: {content}", "blue"))
-        # Add this to memory
-        self.memory.append(content)
+        print()
+        print(colored("=" * 60, "cyan", attrs=["bold"]))
+        print(
+            colored(
+                "💾 EXPLICIT MEMORY ADDED",
+                "blue",
+                attrs=["bold", "underline"],
+            )
+        )
+        print(colored("=" * 60, "cyan", attrs=["bold"]))
+        print(colored(f"  {content}", "green", attrs=["bold"]))
+        print(colored("=" * 60, "cyan", attrs=["bold"]))
+        print()
 
-        # Save memory to file
-        with open("memory.txt", "w") as file:
-            for line in self.memory:
-                file.write(line + "\n")
+        # Add metadata about where this memory came from
+        guild_id = (
+            task.channel.guild.id
+            if hasattr(task.channel, "guild") and task.channel.guild
+            else None
+        )
+        guild_name = (
+            task.channel.guild.name
+            if hasattr(task.channel, "guild") and task.channel.guild
+            else None
+        )
+        metadata = {
+            "channel": task.channel.name,
+            "channel_id": task.channel.id,
+            "guild": guild_name,
+            "guild_id": guild_id,
+            "user": task.user_name,
+            "created_via": "remember_action",
+        }
+
+        # Add to memory manager
+        self.memory_manager.add_memory(content, metadata=metadata)
+        # Track new memories for consolidation
+        self._memories_since_consolidation += 1
+
+        # Check if we should consolidate based on new memory count
+        if (
+            self.memory_consolidation_interval_hours > 0
+            and self._memories_since_consolidation >= self._consolidation_threshold
+        ):
+            # Queue consolidation request (non-blocking)
+            asyncio.create_task(
+                self._queue_consolidation(force=True, reason="memory_threshold")
+            )
+
+        # Update backward-compatible memory list
+        self.memory = self.memory_manager.get_all_memories()
 
         await task.channel.send("*Remembering: " + content + "*")
+
+    async def _handle_meme_action(self, task: Task, content: str):
+        """Handle the 'meme' action - generate and send a meme.
+
+        Args:
+            task: The task containing channel and context information.
+            content: The meme subject/prompt.
+        """
+        await task.channel.send("*Generating meme about: " + content + "...*")
+        time.sleep(0.1)  # Wait for message to be sent
+        print(colored(f"🎭 Generating meme for subject: {content}", "magenta"))
+
+        if not self.meme_generator:
+            await task.channel.send(
+                "*Sorry, meme generator is not available. Please try again later.*"
+            )
+            return
+
+        try:
+            with self._chat_lock:
+                # Generate meme using the meme generator (returns image and caption)
+                meme_image, meme_text = self.meme_generator.generate_meme(content)
+
+            print(colored(f"  ✓ Meme caption: {meme_text[:100]}...", "green"))
+
+            # Use generated image if available, otherwise fallback
+            if meme_image:
+                print(colored("  ✓ Using generated meme image template", "green"))
+                image = meme_image
+            else:
+                # Fallback: generate image from original prompt if meme generator didn't provide one
+                print(colored("  🎨 Generating meme image from prompt...", "magenta"))
+                with self._chat_lock:
+                    image = self.image_service.generate_image(content)
+
+            image.save("generated_meme.png")
+
+            # Send the meme image with caption
+            print(colored("  ✓ Sending meme to channel", "green"))
+            if self.message_service:
+                await self.message_service.send_image(
+                    image,
+                    channel_id=str(task.channel.id),
+                    caption=meme_text[:2000] if meme_text else None,  # Discord limit
+                )
+            else:
+                # Fallback to direct Discord send if service not initialized
+                byte_arr = io.BytesIO()
+                image.save(byte_arr, format="PNG")
+                byte_arr.seek(0)
+                file = discord.File(byte_arr, filename="meme.png")
+                caption = meme_text[:2000] if meme_text else None
+                if caption:
+                    await task.channel.send(caption, file=file)
+                else:
+                    await task.channel.send(file=file)
+        except Exception as e:
+            error_msg = f"*Error generating meme: {str(e)}*"
+            print(colored(f"Meme generation error: {e}", "red"))
+            import traceback
+
+            traceback.print_exc()
+            await task.channel.send(error_msg)
 
     async def _handle_forget_action(self, task: Task, content: str):
         """Handle the 'forget' action - remove from memory.
@@ -582,16 +752,14 @@ class Friend(DiscordBot):
         """
         print(colored(f"🗑️  Forgetting: {content}", "red"))
 
-        # Remove this from memory
-        try:
-            self.memory.remove(content)
-        except ValueError:
-            print(colored(" -> Could not find this in memory: ", content, "red"))
+        # Remove from memory manager
+        removed = self.memory_manager.remove_memory(content)
 
-        # Save memory to file
-        with open("memory.txt", "w") as file:
-            for line in self.memory:
-                file.write(line + "\n")
+        if removed:
+            # Update backward-compatible memory list
+            self.memory = self.memory_manager.get_all_memories()
+        else:
+            print(colored(" -> Could not find this in memory: ", content, "red"))
 
         await task.channel.send("*Forgetting: " + content + "*")
 
@@ -736,6 +904,21 @@ class Friend(DiscordBot):
         except Exception as e:
             print(colored("Error in handling task: " + str(e), "red"))
 
+        # Get relevant memories for this query (dynamic in RAG/hybrid mode)
+        # For RAG/hybrid modes, prepend memories as context to the user message
+        # For static mode, memories are already in the system prompt
+        if self.memory_manager.mode in ("rag", "hybrid"):
+            relevant_memories = self.memory_manager.get_memories_for_query(text)
+            if relevant_memories:
+                # Count memories (split by newline, filter empty)
+                memory_count = len(
+                    [m for m in relevant_memories.split("\n") if m.strip()]
+                )
+                # Prepend memories as context to the user message
+                memories_context = f"[Relevant memories:\n{relevant_memories}\n]\n\n"
+                text = memories_context + text
+                print(colored(f"📚 Retrieved {memory_count} relevant memories", "cyan"))
+
         response = None
         # try:
         # Now actually prompt the AI
@@ -743,7 +926,18 @@ class Friend(DiscordBot):
             response = self.chat.prompt(
                 text, verbose=True, assistant_history_prefix=""
             )  # f"{self._user_name} on #{channel_name}: ")
-        action_plan = self.parser.parse(response)
+
+            # Store original response for memory extraction (includes thinking)
+            original_response = response
+
+            # For action parsing, strip unclosed <think> tags to avoid breaking action parsing
+            # But keep the original response for memory extraction so facts from thinking can be captured
+            if "<think>" in response and "</think>" not in response:
+                # Remove unclosed think tag and everything after it for action parsing
+                response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
+
+            action_plan = self.parser.parse(response)
+
         print()
         print(
             colored(
@@ -768,8 +962,13 @@ class Friend(DiscordBot):
                 "weather": "cyan",
                 "edit_image": "magenta",
                 "remind": "yellow",
+                "show_remind": "cyan",
+                "edit_remind": "yellow",
+                "delete_remind": "red",
                 "schedule": "yellow",
                 "show_schedule": "cyan",
+                "unschedule": "red",
+                "edit_schedule": "yellow",
                 "help": "blue",
             }
             action_color = action_colors.get(action, "white")
@@ -787,6 +986,8 @@ class Friend(DiscordBot):
                 await self._handle_say_action(task, content)
             elif action == "imagine":
                 await self._handle_imagine_action(task, content)
+            elif action == "meme":
+                await self._handle_meme_action(task, content)
             elif action == "remember":
                 await self._handle_remember_action(task, content)
             elif action == "forget":
@@ -797,12 +998,76 @@ class Friend(DiscordBot):
                 await self._handle_edit_image_action(task, content)
             elif action == "remind":
                 await self._handle_remind_action(task, content, attributes)
+            elif action == "show_remind":
+                await self._handle_show_remind_action(task, content)
+            elif action == "edit_remind":
+                await self._handle_edit_remind_action(task, content, attributes)
+            elif action == "delete_remind":
+                await self._handle_delete_remind_action(task, content, attributes)
             elif action == "schedule":
                 await self._handle_schedule_action(task, content, attributes)
             elif action == "show_schedule":
                 await self._handle_show_schedule_action(task, content)
+            elif action == "unschedule":
+                await self._handle_unschedule_action(task, content, attributes)
+            elif action == "edit_schedule":
+                await self._handle_edit_schedule_action(task, content, attributes)
             elif action == "help":
                 await self._handle_help_action(task, content)
+
+        # Auto-extract memories from conversation if enabled
+        # Run this AFTER all actions are executed and messages are sent
+        # This runs in background, so it doesn't slow down the Discord user experience
+        if self.auto_memory:
+            # Use the original user message (before memory context was prepended) for extraction
+            user_message_for_extraction = (
+                task.message
+            )  # Original message without memory context
+            print()
+            print(
+                colored(
+                    f"🚀 Launching memory extraction task (user_msg_len={len(user_message_for_extraction)}, response_len={len(original_response)})",
+                    "cyan",
+                    attrs=["bold"],
+                )
+            )
+            # Create task and ensure it runs in background
+            # This runs AFTER all Discord messages are sent, so it doesn't slow down the user experience
+            # But we show all debug output in terminal for clarity
+            extraction_task = asyncio.create_task(
+                self._extract_auto_memories(
+                    task, user_message_for_extraction, original_response
+                )
+            )
+
+            def task_done_callback(task):
+                try:
+                    # This callback fires when the task completes
+                    # Only log errors here - let the extraction function print its own status
+                    exc = task.exception()
+                    if exc:
+                        print()
+                        print(
+                            colored(
+                                f"❌ Memory extraction task failed with exception: {exc}",
+                                "red",
+                                attrs=["bold"],
+                            )
+                        )
+                        traceback.print_exception(type(exc), exc, exc.__traceback__)
+                        print()
+                except Exception as e:
+                    print()
+                    print(
+                        colored(
+                            f"❌ Error in extraction task callback: {e}",
+                            "red",
+                            attrs=["bold"],
+                        )
+                    )
+                    print()
+
+            extraction_task.add_done_callback(task_done_callback)
 
     def _parse_reminder_time(self, time_str: str, content: str) -> Optional[dict]:
         """
@@ -930,9 +1195,23 @@ class Friend(DiscordBot):
                 else user_name
             )
 
+            # Get guild info if available
+            guild_id = (
+                task.channel.guild.id
+                if hasattr(task.channel, "guild") and task.channel.guild
+                else None
+            )
+            guild_name = (
+                task.channel.guild.name
+                if hasattr(task.channel, "guild") and task.channel.guild
+                else None
+            )
+
             reminder = self.reminder_manager.add_reminder(
                 channel_id=task.channel.id,
                 channel_name=task.channel.name,
+                guild_id=guild_id,
+                guild_name=guild_name,
                 user_id=user_id_to_use or task.user_id,
                 user_name=user_name_to_use,
                 reminder_time=reminder_time,
@@ -997,6 +1276,268 @@ class Friend(DiscordBot):
                 f"✓ Reminder set! I'll remind {', '.join(users_to_remind) if len(users_to_remind) > 1 else 'you'} in {time_desc}."
             )
 
+    async def _handle_show_remind_action(self, task: Task, content: str):
+        """Handle the 'show_remind' action - display all reminders for the current user."""
+        all_reminders = self.reminder_manager.get_all_reminders()
+        user_reminders = [r for r in all_reminders if r.user_id == task.user_id]
+
+        if not user_reminders:
+            await task.channel.send("*You have no active reminders.*")
+            return
+
+        # Terminal output
+        print(
+            colored(
+                f"📋 Showing {len(user_reminders)} reminder(s) for {task.user_name}:",
+                "cyan",
+                attrs=["bold"],
+            )
+        )
+
+        # Format reminders for display
+        reminder_lines = []
+        for reminder in user_reminders:
+            time_str = reminder.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+            location = f"#{reminder.channel_name}" if reminder.channel_name else "DM"
+            reminder_lines.append(
+                f"**ID {reminder.reminder_id}**: '{reminder.message}' at {time_str} in {location}"
+            )
+
+            # Terminal output
+            print(colored(f"  [{reminder.reminder_id}] ", "cyan", attrs=["bold"]))
+            print(colored(f"    Message: {reminder.message}", "white"))
+            print(colored(f"    Time: {time_str}", "cyan"))
+            print(colored(f"    Location: {location}", "cyan"))
+            print()
+
+        # Send to channel (split into chunks if too long)
+        response = (
+            f"**📋 Your Reminders ({len(user_reminders)} total):**\n\n"
+            + "\n\n".join(reminder_lines)
+        )
+
+        # Split into chunks if too long (Discord limit is 2000 chars)
+        while len(response) > 0:
+            chunk = response[:1900]
+            # Try to break at a reminder boundary
+            last_newline = chunk.rfind("\n\n")
+            if last_newline > 1000:  # Only break if we have a reasonable chunk
+                chunk = response[:last_newline]
+            await task.channel.send(chunk)
+            response = response[len(chunk) :].lstrip()
+
+    async def _handle_edit_remind_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'edit_remind' action - edit an existing reminder.
+
+        Args:
+            task: The task containing channel and context information.
+            content: New message content (optional).
+            attributes: Dictionary containing:
+                - reminder_id: The ID of the reminder to edit (required)
+                - time: New time (optional, format: "HH:MM:SS" for relative or "YYYY-MM-DD HH:MM:SS" for absolute)
+                - message: New message (optional, can also be in content)
+        """
+        reminder_id = attributes.get("reminder_id")
+
+        if not reminder_id:
+            # Try to parse reminder_id from content if not in attributes
+            content_stripped = content.strip() if content else ""
+            id_match = re.search(
+                r"(?:reminder\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                reminder_id = id_match.group(1)
+
+        if not reminder_id:
+            # Show all reminders so user can see IDs
+            all_reminders = self.reminder_manager.get_all_reminders()
+            user_reminders = [r for r in all_reminders if r.user_id == task.user_id]
+
+            if not user_reminders:
+                await task.channel.send("*No reminders found to edit.*")
+                return
+
+            reminder_list = []
+            for r in user_reminders[:10]:
+                time_str = r.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+                reminder_list.append(
+                    f"ID {r.reminder_id}: '{r.message[:50]}...' at {time_str}"
+                )
+
+            await task.channel.send(
+                "*Please specify a reminder ID to edit. Your reminders:*\n"
+                + "\n".join(reminder_list)
+            )
+            return
+
+        # Find the reminder
+        all_reminders = self.reminder_manager.get_all_reminders()
+        reminder_to_edit = None
+        for r in all_reminders:
+            if r.reminder_id == str(reminder_id):
+                reminder_to_edit = r
+                break
+
+        if not reminder_to_edit:
+            await task.channel.send(f"*Reminder ID '{reminder_id}' not found.*")
+            return
+
+        # Check if user owns this reminder
+        if reminder_to_edit.user_id != task.user_id:
+            await task.channel.send("*You can only edit your own reminders.*")
+            return
+
+        # Parse new values
+        new_message = attributes.get("message") or content.strip() if content else None
+        new_time_str = attributes.get("time")
+        new_reminder_time = None
+
+        if new_time_str:
+            # Parse time using the same method as _handle_remind_action
+            # Accepts "HH:MM:SS" for relative or "YYYY-MM-DD HH:MM:SS" for absolute
+            parsed_time = self._parse_reminder_time(new_time_str, "")
+            if not parsed_time:
+                await task.channel.send(
+                    f"*Could not parse time '{new_time_str}'. Use format 'HH:MM:SS' for relative or 'YYYY-MM-DD HH:MM:SS' for absolute.*"
+                )
+                return
+
+            if parsed_time.get("reminder_time"):
+                new_reminder_time = parsed_time["reminder_time"]
+            elif parsed_time.get("time_delta"):
+                new_reminder_time = datetime.now() + parsed_time["time_delta"]
+            else:
+                await task.channel.send(
+                    f"*Could not parse time '{new_time_str}'. Use format 'HH:MM:SS' for relative or 'YYYY-MM-DD HH:MM:SS' for absolute.*"
+                )
+                return
+
+        # Update reminder
+        updated = self.reminder_manager.update_reminder(
+            str(reminder_id),
+            message=new_message,
+            reminder_time=new_reminder_time,
+        )
+
+        if not updated:
+            await task.channel.send(f"*Failed to update reminder ID '{reminder_id}'.*")
+            return
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"✏️  EDITED REMINDER: ID={reminder_id}",
+                "yellow",
+                attrs=["bold"],
+            )
+        )
+        if new_message:
+            print(colored(f"  New message: {new_message}", "white"))
+        if new_reminder_time:
+            print(
+                colored(
+                    f"  New time: {new_reminder_time.strftime('%Y-%m-%d %H:%M:%S')}",
+                    "cyan",
+                )
+            )
+        print()
+
+        # User confirmation
+        confirm_msg = f"✓ Updated reminder (ID: {reminder_id})"
+        if new_message:
+            confirm_msg += f": '{new_message[:100]}'"
+        if new_reminder_time:
+            confirm_msg += (
+                f" (new time: {new_reminder_time.strftime('%Y-%m-%d %H:%M:%S')})"
+            )
+        await task.channel.send(confirm_msg)
+
+    async def _handle_delete_remind_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'delete_remind' action - delete an existing reminder.
+
+        Args:
+            task: The task containing channel and context information.
+            content: Optional content (not used, reminder_id comes from attributes).
+            attributes: Dictionary containing:
+                - reminder_id: The ID of the reminder to delete (required)
+        """
+        reminder_id = attributes.get("reminder_id")
+
+        if not reminder_id:
+            # Try to parse from content
+            content_stripped = content.strip() if content else ""
+            id_match = re.search(
+                r"(?:reminder\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                reminder_id = id_match.group(1)
+
+        if not reminder_id:
+            # Show all reminders so user can see IDs
+            all_reminders = self.reminder_manager.get_all_reminders()
+            user_reminders = [r for r in all_reminders if r.user_id == task.user_id]
+
+            if not user_reminders:
+                await task.channel.send("*No reminders found to delete.*")
+                return
+
+            reminder_list = []
+            for r in user_reminders[:10]:
+                time_str = r.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+                reminder_list.append(
+                    f"ID {r.reminder_id}: '{r.message[:50]}...' at {time_str}"
+                )
+
+            await task.channel.send(
+                "*Please specify a reminder ID to delete. Your reminders:*\n"
+                + "\n".join(reminder_list)
+            )
+            return
+
+        # Find the reminder
+        all_reminders = self.reminder_manager.get_all_reminders()
+        reminder_to_delete = None
+        for r in all_reminders:
+            if r.reminder_id == str(reminder_id):
+                reminder_to_delete = r
+                break
+
+        if not reminder_to_delete:
+            await task.channel.send(f"*Reminder ID '{reminder_id}' not found.*")
+            return
+
+        # Check if user owns this reminder
+        if reminder_to_delete.user_id != task.user_id:
+            await task.channel.send("*You can only delete your own reminders.*")
+            return
+
+        # Delete reminder
+        self.reminder_manager.remove_reminder(str(reminder_id))
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"🗑️  DELETED REMINDER: ID={reminder_id}",
+                "red",
+                attrs=["bold"],
+            )
+        )
+        print(colored(f"  Message: {reminder_to_delete.message}", "white"))
+        time_str = reminder_to_delete.reminder_time.strftime("%Y-%m-%d %H:%M:%S")
+        print(colored(f"  Time: {time_str}", "cyan"))
+        print()
+
+        # User confirmation
+        await task.channel.send(
+            f"✓ Deleted reminder (ID: {reminder_id}): '{reminder_to_delete.message[:100]}'"
+        )
+
     async def _handle_schedule_action(self, task: Task, content: str, attributes: dict):
         """Handle the 'schedule' action - create a scheduled task.
 
@@ -1037,13 +1578,19 @@ class Friend(DiscordBot):
             )
             return
 
-        if not schedule_value:
+        # For hourly schedules, empty value is valid. For other types, value is required.
+        if schedule_type != "hourly" and not schedule_value:
             await task.channel.send(
-                "*Error: The <schedule> tag requires a 'value' attribute. "
+                "*Error: The <schedule> tag requires a 'value' attribute for this schedule type. "
                 'Please use format like <schedule type="interval" value="5 minutes">message</schedule> '
-                'or <schedule type="daily" value="14:30">message</schedule>.*'
+                'or <schedule type="daily" value="14:30">message</schedule>. '
+                'For hourly schedules, use <schedule type="hourly" value="">message</schedule>.*'
             )
             return
+
+        # Normalize empty value for hourly schedules
+        if schedule_type == "hourly" and schedule_value == "":
+            schedule_value = ""  # Keep empty string for hourly
 
         try:
             # Create scheduled task
@@ -1090,6 +1637,18 @@ class Friend(DiscordBot):
                     channel = task.channel
                     channel_name = channel.name
 
+                # Get guild info if available
+                guild_id = (
+                    channel.guild.id
+                    if hasattr(channel, "guild") and channel.guild
+                    else None
+                )
+                guild_name = (
+                    channel.guild.name
+                    if hasattr(channel, "guild") and channel.guild
+                    else None
+                )
+
                 scheduled_task = self.scheduler.add_task(
                     task_type="post",
                     message=schedule_message,
@@ -1097,6 +1656,8 @@ class Friend(DiscordBot):
                     schedule_value=schedule_value,
                     channel_id=channel.id,
                     channel_name=channel.name,
+                    guild_id=guild_id,
+                    guild_name=guild_name,
                 )
                 # Terminal output
                 print(
@@ -1109,8 +1670,17 @@ class Friend(DiscordBot):
                 print(colored("  Type: post", "cyan"))
                 print(colored(f"  Message: {schedule_message}", "white"))
                 print(colored(f"  Channel: #{channel_name} (ID: {channel.id})", "cyan"))
+                schedule_display = (
+                    schedule_value
+                    if schedule_value
+                    else "every hour"
+                    if schedule_type == "hourly"
+                    else ""
+                )
                 print(
-                    colored(f"  Schedule: {schedule_type} - {schedule_value}", "yellow")
+                    colored(
+                        f"  Schedule: {schedule_type} - {schedule_display}", "yellow"
+                    )
                 )
                 print(
                     colored(
@@ -1120,8 +1690,10 @@ class Friend(DiscordBot):
 
                 # Format schedule description for user
                 schedule_desc = f"{schedule_type}"
-                if schedule_value:
+                if schedule_value and schedule_type != "hourly":
                     schedule_desc += f" ({schedule_value})"
+                elif schedule_type == "hourly":
+                    schedule_desc += " (every hour)"
 
                 await task.channel.send(
                     f"✓ Scheduled task created! I'll post '{schedule_message}' "
@@ -1160,8 +1732,17 @@ class Friend(DiscordBot):
                         f"  User: {user_name_to_use} (ID: {user_id_to_use})", "cyan"
                     )
                 )
+                schedule_display = (
+                    schedule_value
+                    if schedule_value
+                    else "every hour"
+                    if schedule_type == "hourly"
+                    else ""
+                )
                 print(
-                    colored(f"  Schedule: {schedule_type} - {schedule_value}", "yellow")
+                    colored(
+                        f"  Schedule: {schedule_type} - {schedule_display}", "yellow"
+                    )
                 )
                 print(
                     colored(
@@ -1171,8 +1752,10 @@ class Friend(DiscordBot):
 
                 # Format schedule description for user
                 schedule_desc = f"{schedule_type}"
-                if schedule_value:
+                if schedule_value and schedule_type != "hourly":
                     schedule_desc += f" ({schedule_value})"
+                elif schedule_type == "hourly":
+                    schedule_desc += " (every hour)"
 
                 await task.channel.send(
                     f"✓ Scheduled DM created! I'll DM you '{schedule_message}' "
@@ -1279,6 +1862,249 @@ class Friend(DiscordBot):
             await task.channel.send(chunk)
             response = response[len(chunk) :].lstrip()
 
+    async def _handle_unschedule_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'unschedule' action - remove a scheduled task.
+
+        Args:
+            task: The task containing channel and context information.
+            content: Optional content (not used, task_id comes from attributes).
+            attributes: Dictionary containing:
+                - task_id: The ID of the scheduled task to remove (required)
+        """
+        task_id = attributes.get("task_id")
+
+        if not task_id:
+            # Try to parse task_id from content if not in attributes
+            content_stripped = content.strip() if content else ""
+            # Try to extract task ID from content (e.g., "task 1" or "1" or "ID: 1")
+            id_match = re.search(
+                r"(?:task\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                task_id = id_match.group(1)
+
+        if not task_id:
+            # Show all tasks so user can see IDs
+            all_tasks = self.scheduler.get_all_tasks()
+            if not all_tasks:
+                await task.channel.send("*No scheduled tasks found to unschedule.*")
+                return
+
+            task_list = []
+            for t in all_tasks:
+                if t.task_type == "post":
+                    location = (
+                        f"#{t.channel_name}" if t.channel_name else "unknown channel"
+                    )
+                else:
+                    location = f"DM to {t.user_name}" if t.user_name else "unknown user"
+
+                schedule_desc = f"{t.schedule_type}"
+                if t.schedule_value:
+                    schedule_desc += f" ({t.schedule_value})"
+
+                task_list.append(
+                    f"ID {t.task_id}: {t.message[:50]}... in {location} ({schedule_desc})"
+                )
+
+            await task.channel.send(
+                "*Please specify a task ID to unschedule. Available tasks:*\n"
+                + "\n".join(task_list[:10])  # Show first 10
+            )
+            return
+
+        # Find and remove the task
+        all_tasks = self.scheduler.get_all_tasks()
+        task_to_remove = None
+        for t in all_tasks:
+            if t.task_id == str(task_id):
+                task_to_remove = t
+                break
+
+        if not task_to_remove:
+            await task.channel.send(
+                f"*Task ID '{task_id}' not found. Use <show_schedule> to see all scheduled tasks.*"
+            )
+            return
+
+        # Remove the task
+        self.scheduler.remove_task(str(task_id))
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"🗑️  REMOVED SCHEDULED TASK: ID={task_id}",
+                "red",
+                attrs=["bold"],
+            )
+        )
+        if task_to_remove.task_type == "post":
+            location = (
+                f"#{task_to_remove.channel_name}"
+                if task_to_remove.channel_name
+                else "unknown channel"
+            )
+        else:
+            location = (
+                f"DM to {task_to_remove.user_name}"
+                if task_to_remove.user_name
+                else "unknown user"
+            )
+        print(colored(f"  Message: {task_to_remove.message}", "white"))
+        print(colored(f"  Location: {location}", "cyan"))
+        schedule_desc = f"{task_to_remove.schedule_type}"
+        if task_to_remove.schedule_value:
+            schedule_desc += f" ({task_to_remove.schedule_value})"
+        print(colored(f"  Schedule: {schedule_desc}", "yellow"))
+        print()
+
+        # User confirmation
+        await task.channel.send(
+            f"✓ Removed scheduled task (ID: {task_id}): '{task_to_remove.message[:100]}'"
+        )
+
+    async def _handle_edit_schedule_action(
+        self, task: Task, content: str, attributes: dict
+    ):
+        """Handle the 'edit_schedule' action - edit an existing scheduled task.
+
+        Args:
+            task: The task containing channel and context information.
+            content: New message content (optional).
+            attributes: Dictionary containing:
+                - task_id: The ID of the scheduled task to edit (required)
+                - message: New message (optional, can also be in content)
+                - type: New schedule type (optional: "daily", "hourly", "weekly", "interval")
+                - value: New schedule value (optional: e.g., "14:30", "5 minutes", "")
+                - channel: New channel name (optional, WITHOUT # prefix)
+        """
+        task_id = attributes.get("task_id")
+
+        if not task_id:
+            # Try to parse from content
+            content_stripped = content.strip() if content else ""
+            id_match = re.search(
+                r"(?:task\s*)?(?:id\s*:?\s*)?(\d+)", content_stripped, re.IGNORECASE
+            )
+            if id_match:
+                task_id = id_match.group(1)
+
+        if not task_id:
+            # Show all tasks so user can see IDs
+            all_tasks = self.scheduler.get_all_tasks()
+            if not all_tasks:
+                await task.channel.send("*No scheduled tasks found to edit.*")
+                return
+
+            task_list = []
+            for t in all_tasks:
+                if t.task_type == "post":
+                    location = (
+                        f"#{t.channel_name}" if t.channel_name else "unknown channel"
+                    )
+                else:
+                    location = f"DM to {t.user_name}" if t.user_name else "unknown user"
+
+                schedule_desc = f"{t.schedule_type}"
+                if t.schedule_value:
+                    schedule_desc += f" ({t.schedule_value})"
+
+                task_list.append(
+                    f"ID {t.task_id}: {t.message[:50]}... in {location} ({schedule_desc})"
+                )
+
+            await task.channel.send(
+                "*Please specify a task ID to edit. Available tasks:*\n"
+                + "\n".join(task_list[:10])
+            )
+            return
+
+        # Find the task
+        all_tasks = self.scheduler.get_all_tasks()
+        task_to_edit = None
+        for t in all_tasks:
+            if t.task_id == str(task_id):
+                task_to_edit = t
+                break
+
+        if not task_to_edit:
+            await task.channel.send(
+                f"*Task ID '{task_id}' not found. Use <show_schedule> to see all scheduled tasks.*"
+            )
+            return
+
+        # Parse new values
+        new_message = attributes.get("message") or content.strip() if content else None
+        new_schedule_type = attributes.get("type")
+        new_schedule_value = attributes.get("value")
+        new_channel_name = attributes.get("channel")
+
+        # Strip # prefix from channel name if present
+        if new_channel_name and new_channel_name.startswith("#"):
+            new_channel_name = new_channel_name[1:]
+
+        new_channel_id = None
+        if new_channel_name:
+            # Find channel by name
+            for ch in self.client.get_all_channels():
+                if ch.name == new_channel_name:
+                    new_channel_id = ch.id
+                    break
+            if not new_channel_id:
+                await task.channel.send(
+                    f"*Could not find channel '{new_channel_name}'.*"
+                )
+                return
+
+        # Update task
+        updated = self.scheduler.update_task(
+            str(task_id),
+            message=new_message,
+            schedule_type=new_schedule_type,
+            schedule_value=new_schedule_value,
+            channel_id=new_channel_id,
+            channel_name=new_channel_name,
+        )
+
+        if not updated:
+            await task.channel.send(f"*Failed to update task ID '{task_id}'.*")
+            return
+
+        # Terminal output
+        print()
+        print(
+            colored(
+                f"✏️  EDITED SCHEDULED TASK: ID={task_id}",
+                "yellow",
+                attrs=["bold"],
+            )
+        )
+        if new_message:
+            print(colored(f"  New message: {new_message}", "white"))
+        if new_schedule_type:
+            print(colored(f"  New schedule type: {new_schedule_type}", "cyan"))
+        if new_schedule_value is not None:
+            print(colored(f"  New schedule value: {new_schedule_value}", "cyan"))
+        if new_channel_name:
+            print(colored(f"  New channel: #{new_channel_name}", "cyan"))
+        print()
+
+        # User confirmation
+        confirm_msg = f"✓ Updated scheduled task (ID: {task_id})"
+        if new_message:
+            confirm_msg += f": '{new_message[:100]}'"
+        if new_schedule_type or new_schedule_value is not None:
+            schedule_desc = new_schedule_type or task_to_edit.schedule_type
+            if new_schedule_value is not None:
+                schedule_desc += f" ({new_schedule_value})"
+            elif task_to_edit.schedule_value:
+                schedule_desc += f" ({task_to_edit.schedule_value})"
+            confirm_msg += f" - Schedule: {schedule_desc}"
+        await task.channel.send(confirm_msg)
+
     async def _handle_help_action(self, task: Task, content: str):
         """Handle the 'help' action - retrieve documentation.
 
@@ -1325,6 +2151,636 @@ class Friend(DiscordBot):
         #    print(" ->     Text:", text)
         #    print(" -> Response:", response)
 
+    async def _extract_auto_memories(
+        self, task: Task, user_message: str, assistant_response: str
+    ):
+        """
+        Automatically extract and store important information from conversations.
+
+        Uses LLM to identify facts, preferences, and important information that should be remembered.
+
+        Args:
+            task: The task containing channel and context information.
+            user_message: The user's message.
+            assistant_response: The assistant's response.
+        """
+        if not self.auto_memory:
+            print(
+                colored(
+                    "⚠️  Auto-memory is disabled, skipping extraction",
+                    "yellow",
+                )
+            )
+            return
+
+        # Skip if this is an explicit task or very short messages
+        if task.explicit:
+            print(
+                colored(
+                    "⚠️  Skipping memory extraction: explicit task",
+                    "yellow",
+                )
+            )
+            return
+        if len(user_message) < 10:
+            print(
+                colored(
+                    f"⚠️  Skipping memory extraction: message too short ({len(user_message)} chars)",
+                    "yellow",
+                )
+            )
+            return
+
+        # Create prompt for memory extraction - LLM-driven approach
+        # This is a dedicated extraction query that runs AFTER responses are sent
+        # Note: assistant_response may include <think> tags - extract facts from both thinking and final output
+
+        # Get recent conversation history for context (last few exchanges)
+        conversation_context = ""
+        try:
+            # Get recent history from chat wrapper (last 4-6 messages for context)
+            if (
+                hasattr(self.chat, "conversation_history")
+                and len(self.chat.conversation_history) > 0
+            ):
+                # Get last few exchanges (user + assistant pairs)
+                # Exclude the current exchange since we already have it above
+                recent_history = (
+                    self.chat.conversation_history[:-2]
+                    if len(self.chat.conversation_history) > 2
+                    else []
+                )
+                recent_history = recent_history[-6:]  # Last 6 messages = ~3 exchanges
+                history_lines = []
+                for msg in recent_history:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content", "")
+                    # Skip system messages and very long content
+                    if role != "system" and len(content) < 500:
+                        role_label = "User" if role == "user" else "Assistant"
+                        # Truncate long messages and remove action tags for cleaner context
+                        clean_content = (
+                            content[:300].replace("<think>", "").replace("</think>", "")
+                        )
+                        history_lines.append(f"{role_label}: {clean_content}")
+
+                if history_lines:
+                    conversation_context = (
+                        "\n\nRecent conversation context:\n"
+                        + "\n".join(history_lines)
+                        + "\n"
+                    )
+        except Exception as e:
+            # If history access fails, just continue without it
+            if self.auto_memory:
+                print(
+                    colored(
+                        f"Note: Could not access conversation history: {e}", "yellow"
+                    )
+                )
+
+        extraction_prompt = f"""You are a memory extraction system. Extract persistent, important facts that would be useful to remember across multiple conversations.
+
+IMPORTANT: Extract facts about BOTH what the USER said AND what the ASSISTANT said/created/committed to.
+The assistant response may include <think>...</think> tags with reasoning - extract facts from both the thinking process and the final output.
+
+Current exchange:
+User: {user_message}
+Assistant: {assistant_response}
+{conversation_context}
+
+Extract facts in these categories (PRIORITIZE ASSISTANT CONTENT):
+
+ABOUT CONTENT THE ASSISTANT CREATED, SAID, OR COMMITTED TO (HIGH PRIORITY):
+- Decisions: choices, decisions, or commitments the assistant made (e.g., "I'll post hourly", "I'll continue this story", "I decided to...")
+- Creative content: stories, characters, settings, plot points, world-building details the assistant created
+- Memes, jokes, or recurring themes the assistant created
+- Projects, narratives, or creative works the assistant is developing
+- Commitments: things the assistant committed to doing (e.g., "I'll post hourly content", "I'll continue this series", "I'll remember that")
+- Scheduled activities or recurring content the assistant is creating
+- Ongoing narratives, series, or creative works in progress
+- Technical information: code snippets, solutions, or technical details the assistant shared
+- Educational content: explanations, tutorials, or knowledge the assistant provided
+- Facts the assistant stated about itself, its capabilities, or its plans
+- Story elements: characters, settings, plot developments the assistant introduced
+- World-building: locations, rules, systems the assistant created
+- Any ongoing creative work or series the assistant is developing
+
+ABOUT THE USER:
+- Names, nicknames, preferred names
+- Personal information (job, location, interests, hobbies) - ONLY if explicitly stated
+- Preferences (colors, foods, styles, technologies, tools) - ONLY if explicitly stated
+- Relationships (family, friends, colleagues) - ONLY if names/details are given
+- Skills, expertise, or areas of knowledge - ONLY if clearly stated
+- Personal history or experiences shared - ONLY if significant
+- Projects or work - ONLY if named or described in detail
+- Opinions, viewpoints, or beliefs expressed
+- Goals, plans, or intentions mentioned
+
+ABOUT CONVERSATION CONTEXT (if significant):
+- Important decisions made or agreements reached
+- Problems solved or solutions provided
+- Topics of ongoing discussion that should be remembered
+- Context that would help in future conversations
+
+DO NOT EXTRACT:
+- Ephemeral conversation state (channel names, message types, incomplete inputs)
+- Obvious context (what channel we're on, that a message was sent)
+- Transient interactions (testing, typos, single questions without substance)
+- Things that are obvious from the current conversation
+- Meta-information about the conversation itself
+- Speculation or inference (only extract explicit facts)
+- Things the user might be doing (testing, asking) - only what they ARE or HAVE
+- Generic pleasantries or acknowledgments without substance
+
+Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
+Examples of GOOD output (especially assistant content):
+Story character: Lira is an inventor exploring the Clockwork Forest
+Story character: Bolt is Lira's robot companion
+Story setting: The Chrono Core is a destination in the story
+Assistant is posting hourly story segments in #ask-a-robot
+Assistant created a meme series called "Tech Tuesday"
+Assistant committed to continuing the story about the space station
+Assistant explained that Python async/await uses event loops
+Assistant created a character named Zara who is a time traveler
+Story plot: The heroes are searching for the lost artifact
+Assistant is developing a quiz series about programming
+User's name is Alice
+User works at TechCorp as a software engineer
+User loves pizza and Italian food
+User is learning Python programming
+User prefers dark mode interfaces
+User mentioned they're working on a project called "ProjectX"
+User prefers to be called "Al" instead of "Alice"
+
+Examples of BAD output (DO NOT EXTRACT THESE):
+Interaction occurred on channel #ask-a-robot
+Current message contains incomplete input
+User may be testing minimal input handling
+User has engaged in meme-suggestion interactions
+Channel context implies user expects interactive responses
+No explicit new information provided
+User sent a message
+User said hello
+Assistant responded with a greeting
+
+CRITICAL RULES: 
+- EXTRACT facts about what the ASSISTANT said, created, committed to, or DECIDED - this is CRITICAL
+- Extract facts about BOTH the user AND content/commitments/decisions the assistant made
+- Pay special attention to DECISIONS and COMMITMENTS the assistant made (e.g., "I'll do X", "I decided to Y", "I'm creating Z")
+- Pay special attention to story elements, characters, settings, and creative content the assistant introduced
+- Remember commitments the assistant made (e.g., "I'll do X", "I'm creating Y", "I decided to...")
+- Be selective - only extract facts that are explicitly stated and will persist
+- Include creative content, technical information, ongoing commitments, and decisions
+- If unsure whether something should be remembered, DON'T extract it
+- Output ONLY facts, no reasoning, no analysis, no explanations
+- Use clear, concise statements
+- If no facts exist, output ONLY: NONE
+- Do NOT number items or use bullet points
+- Do NOT use phrases like "The user said" or "The assistant mentioned"
+- Do NOT include your thought process - just the facts
+
+Output now (facts only, one per line, PRIORITIZE assistant-created content/commitments, then user facts):"""
+
+        # Dedicated memory extraction query - runs in background after response is sent
+        # This is completely non-blocking - runs AFTER Discord response is sent
+        # Terminal output is verbose for debugging, but doesn't slow down Discord chat
+        async def extract_memories():
+            try:
+                # IMPORTANT: Wait a moment to ensure Discord messages are fully sent
+                # This ensures extraction happens AFTER the user sees the response
+                await asyncio.sleep(1.0)  # Increased delay to ensure messages are sent
+
+                if self.auto_memory:
+                    print()
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored("🔍 STARTING MEMORY EXTRACTION", "cyan", attrs=["bold"])
+                    )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(colored(f"   User message: {user_message[:100]}...", "cyan"))
+                    print(
+                        colored(
+                            f"   Response length: {len(assistant_response)} chars",
+                            "cyan",
+                        )
+                    )
+                    print()
+
+                if self.auto_memory:
+                    print(colored("   ⏳ Calling extraction LLM...", "cyan"))
+
+                def _prompt_with_lock():
+                    # CRITICAL: Use _chat_lock to ensure backend resource is not used concurrently
+                    # This prevents GPU memory conflicts - only one LLM call at a time
+                    if self.auto_memory:
+                        print(
+                            colored(
+                                "   🔒 Acquiring chat lock for extraction...", "cyan"
+                            )
+                        )
+                    with self._chat_lock:
+                        if self.auto_memory:
+                            print(
+                                colored(
+                                    "   ✓ Chat lock acquired, calling backend...",
+                                    "cyan",
+                                )
+                            )
+                        # Use backend directly for memory extraction to avoid polluting conversation history
+                        # This is a dedicated extraction query with a specialized prompt
+                        messages = [{"role": "user", "content": extraction_prompt}]
+                        if self.auto_memory:
+                            print(
+                                colored(
+                                    f"   📤 Sending extraction prompt ({len(extraction_prompt)} chars)...",
+                                    "cyan",
+                                )
+                            )
+                        result = self.backend(
+                            messages, max_new_tokens=512
+                        )  # Increased for better extraction
+                        if self.auto_memory:
+                            print(colored("   ✓ Backend returned result", "green"))
+
+                        # Extract text from backend result (same format as ChatWrapper)
+                        if isinstance(result, str):
+                            response = result.strip()
+                        elif isinstance(result, list) and len(result) > 0:
+                            if isinstance(result[0], dict):
+                                generated_text = result[0].get("generated_text", [])
+                                if (
+                                    isinstance(generated_text, list)
+                                    and len(generated_text) > 0
+                                ):
+                                    last_msg = generated_text[-1]
+                                    if isinstance(last_msg, dict):
+                                        response = last_msg.get(
+                                            "content", str(last_msg)
+                                        ).strip()
+                                    else:
+                                        response = str(last_msg).strip()
+                                elif isinstance(generated_text, str):
+                                    response = generated_text.strip()
+                                else:
+                                    response = str(generated_text).strip()
+                            else:
+                                response = str(result[0]).strip()
+                        else:
+                            response = str(result).strip()
+
+                        # Note: We keep <think> tags in the extraction result since we want to extract
+                        # facts from the assistant's thinking process. The extraction LLM should
+                        # focus on facts, not reasoning, but we don't strip thinking tags here.
+                        response = response.strip()
+                        if self.auto_memory:
+                            print(
+                                colored(
+                                    f"   🔍 Processed extraction response ({len(response)} chars)",
+                                    "cyan",
+                                )
+                            )
+                        return response
+
+                loop = asyncio.get_event_loop()
+                if self.auto_memory:
+                    print(colored("   ⏳ Running extraction in executor...", "cyan"))
+                extraction_result = await loop.run_in_executor(None, _prompt_with_lock)
+                if self.auto_memory:
+                    print(
+                        colored(
+                            f"   ✓ Extraction LLM returned ({len(extraction_result)} chars)",
+                            "green",
+                        )
+                    )
+
+                # Parse extracted memories - LLM-driven, minimal filtering
+                # Trust the extraction LLM and consolidation to handle quality
+                memories = []
+
+                if self.auto_memory:
+                    print()
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored(
+                            f"📝 PARSING EXTRACTION RESULT ({len(extraction_result)} chars)",
+                            "cyan",
+                            attrs=["bold"],
+                        )
+                    )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+
+                # Extract lines from response
+                for line in extraction_result.strip().split("\n"):
+                    line = line.strip()
+
+                    # Skip empty lines and action tags
+                    if not line or line.startswith("<"):
+                        continue
+
+                    # Skip "NONE" response
+                    if line.upper() == "NONE":
+                        continue
+
+                    # Skip lines that are clearly meta-commentary from the prompt itself
+                    # (Let consolidation handle quality - trust the extraction LLM)
+                    line_lower = line.lower()
+                    skip_patterns = (
+                        "output format",
+                        "examples of",
+                        "critical",
+                        "conversation:",
+                        "user:",
+                        "assistant:",
+                        "extract",
+                        "output now",
+                        "facts about",
+                    )
+                    if any(line_lower.startswith(pattern) for pattern in skip_patterns):
+                        continue
+
+                    # Check if this memory already exists (avoid duplicates)
+                    # Consolidation will handle merging similar memories later
+                    existing_memories = self.memory_manager.get_all_memories()
+                    if line not in existing_memories:
+                        memories.append(line)
+
+                # Add extracted memories
+                if self.auto_memory:
+                    print(
+                        colored(
+                            f"📊 Parsed {len(memories)} potential memory/memories from extraction",
+                            "cyan",
+                            attrs=["bold"],
+                        )
+                    )
+                    print()
+
+                if memories:
+                    print()
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored(
+                            f"💾 AUTO-EXTRACTED {len(memories)} NEW MEMORY/MEMORIES",
+                            "blue",
+                            attrs=["bold", "underline"],
+                        )
+                    )
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    saved_count = 0
+                    skipped_count = 0
+                    for idx, memory_content in enumerate(memories, 1):
+                        print(
+                            colored(f"  [{idx}] ", "cyan", attrs=["bold"])
+                            + colored(memory_content, "green", attrs=["bold"])
+                        )
+                        # Get guild info if available
+                        guild_id = (
+                            task.channel.guild.id
+                            if hasattr(task.channel, "guild") and task.channel.guild
+                            else None
+                        )
+                        guild_name = (
+                            task.channel.guild.name
+                            if hasattr(task.channel, "guild") and task.channel.guild
+                            else None
+                        )
+
+                        metadata = {
+                            "channel": task.channel.name,
+                            "channel_id": task.channel.id,
+                            "guild": guild_name,
+                            "guild_id": guild_id,
+                            "user": task.user_name,
+                            "created_via": "auto_extraction",
+                            "source_message": user_message[
+                                :100
+                            ],  # Store snippet for context
+                        }
+
+                        # Check if memory already exists before adding
+                        existing_memories = self.memory_manager.get_all_memories()
+                        if memory_content not in existing_memories:
+                            self.memory_manager.add_memory(
+                                memory_content, metadata=metadata
+                            )
+                            # Track new memories for consolidation
+                            self._memories_since_consolidation += 1
+                            saved_count += 1
+                            print(colored("    ✓ Saved to memory", "green"))
+                        else:
+                            skipped_count += 1
+                            print(colored("    ⊘ Skipped (duplicate)", "yellow"))
+
+                    print(colored("=" * 60, "cyan", attrs=["bold"]))
+                    print(
+                        colored(
+                            f"✅ Successfully saved {saved_count} new memory/memories",
+                            "green",
+                            attrs=["bold"],
+                        )
+                    )
+                    if skipped_count > 0:
+                        print(
+                            colored(
+                                f"   ({skipped_count} skipped as duplicates)",
+                                "yellow",
+                            )
+                        )
+                    print()
+                else:
+                    # No memories extracted
+                    if self.auto_memory:
+                        print()
+                        print(
+                            colored(
+                                "ℹ️  No new memories extracted from this conversation",
+                                "cyan",
+                                attrs=["bold"],
+                            )
+                        )
+                        if extraction_result:
+                            # Show what the LLM returned for debugging
+                            result_preview = extraction_result[:300].replace(
+                                "\n", " | "
+                            )
+                            print(
+                                colored(
+                                    f"   LLM extraction result: {result_preview}...",
+                                    "cyan",
+                                )
+                            )
+                        print()
+
+                # Update backward-compatible list (regardless of whether memories were extracted)
+                self.memory = self.memory_manager.get_all_memories()
+
+                # Check if we should consolidate based on new memory count
+                if (
+                    self.memory_consolidation_interval_hours > 0
+                    and self._memories_since_consolidation
+                    >= self._consolidation_threshold
+                ):
+                    if self.auto_memory:
+                        print(
+                            colored(
+                                f"🔄 Triggering consolidation: {self._memories_since_consolidation} new memories since last consolidation",
+                                "cyan",
+                            )
+                        )
+                    # Queue consolidation request (non-blocking)
+                    asyncio.create_task(
+                        self._queue_consolidation(force=True, reason="memory_threshold")
+                    )
+            except Exception as e:
+                # Log errors but don't fail - auto-memory is best-effort
+                if self.auto_memory:
+                    print(
+                        colored(
+                            f"❌ Memory extraction failed: {e}",
+                            "red",
+                            attrs=["bold"],
+                        )
+                    )
+                    import traceback
+
+                    traceback.print_exc()
+
+        # Actually run the extraction function
+        if self.auto_memory:
+            print(
+                colored(
+                    "🚀 About to call extract_memories()...", "cyan", attrs=["bold"]
+                )
+            )
+        await extract_memories()
+        if self.auto_memory:
+            print()
+            print(
+                colored(
+                    "✅ Memory extraction task completed successfully",
+                    "green",
+                    attrs=["bold"],
+                )
+            )
+            print()
+
+    async def _queue_consolidation(self, force: bool = False, reason: str = "time"):
+        """Queue a consolidation request.
+
+        Args:
+            force: If True, run consolidation immediately regardless of time threshold.
+            reason: Reason for consolidation ("time", "memory_threshold", etc.)
+        """
+        await self._consolidation_queue.put({"force": force, "reason": reason})
+
+    async def _check_and_consolidate_memories(self, force: bool = False):
+        """Check if it's time to consolidate memories and queue consolidation if needed.
+
+        Args:
+            force: If True, queue consolidation immediately regardless of time threshold.
+        """
+        if self.memory_consolidation_interval_hours <= 0 and not force:
+            return
+
+        from datetime import datetime
+
+        now = datetime.now()
+
+        # Check if we need to consolidate
+        if not force:
+            if self._last_consolidation_time is None:
+                # First time - set initial time
+                self._last_consolidation_time = now
+                return
+
+            hours_since_consolidation = (
+                now - self._last_consolidation_time
+            ).total_seconds() / 3600
+
+            if hours_since_consolidation < self.memory_consolidation_interval_hours:
+                return
+
+        # Queue consolidation request
+        await self._queue_consolidation(
+            force=force, reason="time" if not force else "manual"
+        )
+
+    async def _process_consolidation_queue(self):
+        """Background task to process consolidation queue.
+
+        Runs consolidation requests from the queue, ensuring only one consolidation
+        runs at a time and doesn't block the main event loop.
+        """
+        while True:
+            try:
+                # Wait for consolidation request
+                request = await self._consolidation_queue.get()
+                reason = request.get("reason", "unknown")
+
+                # Run consolidation in executor to avoid blocking
+                def run_consolidation():
+                    return self.memory_manager.consolidate_memories(
+                        similarity_threshold=0.85, use_llm=False
+                    )
+
+                # Show consolidation message
+                if reason == "memory_threshold":
+                    print(
+                        colored(
+                            f"🔄 Running memory consolidation (triggered by {self._memories_since_consolidation} new memories)",
+                            "cyan",
+                        )
+                    )
+                elif reason == "time":
+                    now = datetime.now()
+                    if self._last_consolidation_time:
+                        hours_since = (
+                            now - self._last_consolidation_time
+                        ).total_seconds() / 3600
+                        print(
+                            colored(
+                                f"🔄 Running memory consolidation (last run: {hours_since:.1f} hours ago)",
+                                "cyan",
+                            )
+                        )
+                    else:
+                        print(colored("🔄 Running memory consolidation", "cyan"))
+
+                # Run consolidation in executor (non-blocking)
+                loop = asyncio.get_event_loop()
+                stats = await loop.run_in_executor(None, run_consolidation)
+
+                if stats["merged"] > 0 or stats["removed"] > 0:
+                    print(
+                        colored(
+                            f"✓ Consolidated memories: {stats['merged']} merged, {stats['removed']} removed, {stats['kept']} kept",
+                            "green",
+                        )
+                    )
+                else:
+                    print(
+                        colored("✓ No similar memories found to consolidate", "green")
+                    )
+
+                # Update state
+                self._last_consolidation_time = datetime.now()
+                self._memories_since_consolidation = (
+                    0  # Reset counter after consolidation
+                )
+
+                # Mark task as done
+                self._consolidation_queue.task_done()
+
+            except Exception as e:
+                print(colored(f"Warning: Memory consolidation failed: {e}", "yellow"))
+                # Mark task as done even on error
+                if not self._consolidation_queue.empty():
+                    try:
+                        self._consolidation_queue.task_done()
+                    except ValueError:
+                        pass
+
     async def _execute_action_plan(self, task: Task, response: str):
         """Execute an action plan parsed from an LLM response.
 
@@ -1361,8 +2817,13 @@ class Friend(DiscordBot):
                 "weather": "cyan",
                 "edit_image": "magenta",
                 "remind": "yellow",
+                "show_remind": "cyan",
+                "edit_remind": "yellow",
+                "delete_remind": "red",
                 "schedule": "yellow",
                 "show_schedule": "cyan",
+                "unschedule": "red",
+                "edit_schedule": "yellow",
                 "help": "blue",
             }
             action_color = action_colors.get(action, "white")
@@ -1377,11 +2838,15 @@ class Friend(DiscordBot):
                 print(colored(f"      Attributes: {attributes}", "grey"))
 
             # Route to appropriate action handler
+            # Messages are sent immediately here - extraction runs in background after
             try:
                 if action == "say":
                     await self._handle_say_action(task, content)
+                    # Message sent to Discord immediately - extraction will run in background
                 elif action == "imagine":
                     await self._handle_imagine_action(task, content)
+                elif action == "meme":
+                    await self._handle_meme_action(task, content)
                 elif action == "remember":
                     await self._handle_remember_action(task, content)
                 elif action == "forget":
@@ -1392,10 +2857,20 @@ class Friend(DiscordBot):
                     await self._handle_edit_image_action(task, content)
                 elif action == "remind":
                     await self._handle_remind_action(task, content, attributes)
+                elif action == "show_remind":
+                    await self._handle_show_remind_action(task, content)
+                elif action == "edit_remind":
+                    await self._handle_edit_remind_action(task, content, attributes)
+                elif action == "delete_remind":
+                    await self._handle_delete_remind_action(task, content, attributes)
                 elif action == "schedule":
                     await self._handle_schedule_action(task, content, attributes)
                 elif action == "show_schedule":
                     await self._handle_show_schedule_action(task, content)
+                elif action == "unschedule":
+                    await self._handle_unschedule_action(task, content, attributes)
+                elif action == "edit_schedule":
+                    await self._handle_edit_schedule_action(task, content, attributes)
                 elif action == "help":
                     await self._handle_help_action(task, content)
             except Exception as e:
@@ -1564,6 +3039,50 @@ Your response:"""
                                 )
                                 with self._chat_lock:
                                     image = self.image_service.generate_image(content)
+                            elif action == "meme":
+                                # Generate meme and send via DM
+                                if self.meme_generator:
+                                    try:
+                                        meme_image, meme_text = (
+                                            self.meme_generator.generate_meme(content)
+                                        )
+                                        # Use generated image if available, otherwise fallback
+                                        if meme_image:
+                                            image = meme_image
+                                        else:
+                                            with self._chat_lock:
+                                                image = (
+                                                    self.image_service.generate_image(
+                                                        content
+                                                    )
+                                                )
+
+                                        if self.message_service:
+                                            await self.message_service.send_image(
+                                                image,
+                                                channel_id=None,
+                                                user_id=reminder.user_id,
+                                                caption=f"🔔 Reminder meme: {meme_text[:200]}",
+                                            )
+                                        else:
+                                            byte_arr = io.BytesIO()
+                                            image.save(byte_arr, format="PNG")
+                                            byte_arr.seek(0)
+                                            file = discord.File(
+                                                byte_arr, filename="reminder_meme.png"
+                                            )
+                                            await user.send(
+                                                f"🔔 Reminder meme: {meme_text[:200]}",
+                                                file=file,
+                                            )
+                                    except Exception as e:
+                                        await user.send(
+                                            f"🔔 Reminder: {reminder.message}\n(Meme generation failed: {e})"
+                                        )
+                                else:
+                                    await user.send(
+                                        f"🔔 Reminder: {reminder.message}\n(Meme generator not available)"
+                                    )
 
                                 if self.message_service:
                                     await self.message_service.send_image(
@@ -1901,8 +3420,8 @@ Your response:"""
             # Hint to AI that user mentioned a reminder, but don't auto-parse
             text += " [User mentioned a reminder - use <remind> action if you want to create one]"
         if has_schedule_keywords:
-            # Hint to AI that user mentioned scheduling, but don't auto-parse
-            text += " [User mentioned scheduling - use <schedule> action with type and value attributes if you want to create one]"
+            # Don't add hints - let the LLM decide based on the prompt instructions
+            pass
 
         self.push_task(
             channel=message.channel,
@@ -2001,6 +3520,28 @@ Your response:"""
     default=False,
     help="Run as MCP server only (no Discord bot). Exposes Friend capabilities via MCP protocol.",
 )
+@click.option(
+    "--memory-mode",
+    type=click.Choice(["static", "rag", "hybrid"]),
+    default="rag",
+    help="Memory retrieval mode: rag (semantic search, default), static (all memories), hybrid (rag with static fallback).",
+)
+@click.option(
+    "--memory-max-results",
+    default=10,
+    help="Maximum number of memories to retrieve in RAG mode. Defaults to 10.",
+)
+@click.option(
+    "--memory-similarity-threshold",
+    default=0.3,
+    type=float,
+    help="Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.",
+)
+@click.option(
+    "--auto-memory/--no-auto-memory",
+    default=True,
+    help="Automatically extract and store important information from conversations. Defaults to enabled.",
+)
 def main(
     token,
     backend,
@@ -2010,6 +3551,10 @@ def main(
     weather_api_key,
     enable_mcp,
     mcp_only,
+    memory_mode,
+    memory_max_results,
+    memory_similarity_threshold,
+    auto_memory,
 ):
     if mcp_only:
         # Run as MCP server only
@@ -2065,6 +3610,10 @@ def main(
             image_generator=image_generator,
             weather_api_key=weather_api_key,
             enable_mcp=enable_mcp,
+            memory_mode=memory_mode,
+            memory_max_results=memory_max_results,
+            memory_similarity_threshold=memory_similarity_threshold,
+            auto_memory=auto_memory,
         )
 
         @bot.client.command(name="summon", help="Summon the bot to a channel.")

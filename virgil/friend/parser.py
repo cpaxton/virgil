@@ -48,6 +48,10 @@ def extract_tags(
     if prune_thoughts:
         # Remove all content before the first </think> tag
         text = re.sub(r".*?</think>", "", text, flags=re.DOTALL)
+        # Also remove any unclosed <think> tags at the start
+        text = re.sub(r"^.*?<think>", "", text, flags=re.DOTALL)
+        # Remove any remaining unclosed <think> tags
+        text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL)
 
     # Find all matches
     matches = re.finditer(pattern, text, re.DOTALL)
@@ -133,12 +137,18 @@ class ChatbotActionParser(Parser):
             "say",
             "remember",
             "imagine",
+            "meme",
             "think",
             "weather",
             "edit_image",
             "remind",
+            "show_remind",
+            "edit_remind",
+            "delete_remind",
             "schedule",
             "show_schedule",
+            "unschedule",
+            "edit_schedule",
             "help",
         ]
         extracted_tags = extract_tags(text, tags_to_extract, prune_thoughts=True)
