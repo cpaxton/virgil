@@ -124,8 +124,9 @@ class Friend(DiscordBot):
         enable_mcp: bool = False,
         restrict_to_allowed_channels: bool = True,
         memory_mode: str = "rag",
-        memory_max_results: int = 10,
-        memory_similarity_threshold: float = 0.3,
+        memory_max_results: int = 5,
+        memory_similarity_threshold: float = 0.5,
+        memory_use_llm_embeddings: bool = False,
         auto_memory: bool = True,
         memory_consolidation_interval_hours: int = 12,
     ) -> None:
@@ -146,6 +147,7 @@ class Friend(DiscordBot):
             memory_mode (str): Memory retrieval mode: "static" (all memories), "rag" (semantic search), or "hybrid" (rag with static fallback). Defaults to "rag".
             memory_max_results (int): Maximum number of memories to retrieve in RAG mode. Defaults to 10.
             memory_similarity_threshold (float): Minimum similarity score for memory retrieval (0.0-1.0). Defaults to 0.3.
+            memory_use_llm_embeddings (bool): Use LLM backend for embeddings instead of sentence-transformers. Defaults to False.
             auto_memory (bool): Automatically extract and store important information from conversations. Defaults to True.
             memory_consolidation_interval_hours (int): Hours between memory consolidation runs. Set to 0 to disable. Defaults to 12.
         """
@@ -192,6 +194,8 @@ class Friend(DiscordBot):
             mode=memory_mode,
             max_memories=memory_max_results,
             similarity_threshold=memory_similarity_threshold,
+            use_llm_embeddings=memory_use_llm_embeddings,
+            llm_backend=self.backend,  # Pass backend for optional LLM embeddings
         )
 
         # Auto-memory extraction enabled
@@ -908,7 +912,23 @@ class Friend(DiscordBot):
         # For RAG/hybrid modes, prepend memories as context to the user message
         # For static mode, memories are already in the system prompt
         if self.memory_manager.mode in ("rag", "hybrid"):
-            relevant_memories = self.memory_manager.get_memories_for_query(text)
+            # Refine query: extract key terms from user message for more focused retrieval
+            # Use the original message without memory context for query refinement
+            query_text = task.message if hasattr(task, "message") else text
+            # Remove common stop words and focus on meaningful content
+            # For now, use the full query but we could add query refinement here
+            refined_query = self._refine_memory_query(query_text)
+
+            # Get Memory objects with similarity scores for debugging
+            memory_with_scores = self.memory_manager.get_relevant_memories(
+                refined_query, return_scores=True
+            )
+
+            # Also get formatted string for prompt (using refined query)
+            relevant_memories = self.memory_manager.get_memories_for_query(
+                refined_query
+            )
+
             if relevant_memories:
                 # Count memories (split by newline, filter empty)
                 memory_count = len(
@@ -917,7 +937,40 @@ class Friend(DiscordBot):
                 # Prepend memories as context to the user message
                 memories_context = f"[Relevant memories:\n{relevant_memories}\n]\n\n"
                 text = memories_context + text
-                print(colored(f"📚 Retrieved {memory_count} relevant memories", "cyan"))
+
+                # Display which memories were recalled with similarity scores
+                print()
+                print(
+                    colored(
+                        f"📚 Retrieved {memory_count} relevant memories:",
+                        "cyan",
+                        attrs=["bold"],
+                    )
+                )
+                # Display each memory with its similarity score
+                for idx, (similarity, memory) in enumerate(memory_with_scores, 1):
+                    similarity_pct = f"{similarity * 100:.1f}%"
+
+                    # Truncate long memories for display
+                    content_preview = (
+                        memory.content[:100] + "..."
+                        if len(memory.content) > 100
+                        else memory.content
+                    )
+                    print(
+                        colored(f"  [{idx}] ", "cyan", attrs=["bold"]),
+                        colored(f"({similarity_pct}) ", "yellow"),
+                        colored(content_preview, "white"),
+                    )
+                    # Show access count if > 0
+                    if memory.access_count > 0:
+                        print(
+                            colored(
+                                f"      (accessed {memory.access_count}x)",
+                                "grey",
+                            )
+                        )
+                print()
 
         response = None
         # try:
@@ -1068,6 +1121,39 @@ class Friend(DiscordBot):
                     print()
 
             extraction_task.add_done_callback(task_done_callback)
+
+    def _refine_memory_query(self, query: str) -> str:
+        """
+        Refine a query for memory retrieval by extracting key terms.
+
+        This helps focus memory retrieval on the most important aspects
+        of the user's message rather than using the entire message.
+
+        Args:
+            query: Original user query/message
+
+        Returns:
+            Refined query string with key terms
+        """
+        if not query or len(query.strip()) < 10:
+            return query
+
+        # Simple heuristic: if query is very long (>200 chars), extract key parts
+        # For shorter queries, use as-is
+        if len(query) > 200:
+            # Try to extract the most important sentence or phrase
+            # Split by sentences and take the first substantial one
+            import re
+
+            sentences = re.split(r"[.!?]\s+", query)
+            # Find the longest sentence (likely contains the main point)
+            if sentences:
+                longest = max(sentences, key=len)
+                if len(longest) > 50:  # Only use if substantial
+                    return longest.strip()
+
+        # For shorter queries, return as-is
+        return query.strip()
 
     def _parse_reminder_time(self, time_str: str, content: str) -> Optional[dict]:
         """
@@ -3542,6 +3628,12 @@ Your response:"""
     default=True,
     help="Automatically extract and store important information from conversations. Defaults to enabled.",
 )
+@click.option(
+    "--memory-use-llm-embeddings",
+    is_flag=True,
+    default=False,
+    help="Use LLM backend for embeddings instead of sentence-transformers. Can provide better semantic understanding but may be slower.",
+)
 def main(
     token,
     backend,
@@ -3555,6 +3647,7 @@ def main(
     memory_max_results,
     memory_similarity_threshold,
     auto_memory,
+    memory_use_llm_embeddings,
 ):
     if mcp_only:
         # Run as MCP server only
@@ -3613,6 +3706,7 @@ def main(
             memory_mode=memory_mode,
             memory_max_results=memory_max_results,
             memory_similarity_threshold=memory_similarity_threshold,
+            memory_use_llm_embeddings=memory_use_llm_embeddings,
             auto_memory=auto_memory,
         )
 

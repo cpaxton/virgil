@@ -28,8 +28,9 @@ import json
 import uuid
 from dataclasses import dataclass, asdict
 from datetime import datetime
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union
 import numpy as np
+import torch
 
 
 @dataclass
@@ -88,11 +89,13 @@ class MemoryManager:
         mode: str = "static",
         storage_file: str = "memories.json",
         legacy_file: str = "memory.txt",
-        embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2",
-        max_memories: int = 10,
-        similarity_threshold: float = 0.3,
+        embedding_model: str = "BAAI/bge-small-en-v1.5",  # Better than MiniLM, still small
+        max_memories: int = 5,
+        similarity_threshold: float = 0.5,
         use_gpu: bool = True,
         hybrid_threshold: int = 20,  # Use static mode if fewer than this many memories
+        use_llm_embeddings: bool = False,  # Use LLM backend for embeddings instead of sentence-transformers
+        llm_backend=None,  # Optional LLM backend instance for embeddings
     ):
         """
         Initialize the memory manager.
@@ -101,11 +104,13 @@ class MemoryManager:
             mode: "static", "rag", or "hybrid"
             storage_file: Path to JSON file for storing memories
             legacy_file: Path to legacy memory.txt file (for migration)
-            embedding_model: Model name for sentence transformers
+            embedding_model: Model name for sentence transformers (used if use_llm_embeddings=False)
             max_memories: Maximum memories to retrieve in RAG mode
             similarity_threshold: Minimum similarity score (0.0-1.0)
             use_gpu: Whether to use GPU for embeddings
             hybrid_threshold: Memory count threshold for hybrid mode
+            use_llm_embeddings: If True, use LLM backend for embeddings instead of sentence-transformers
+            llm_backend: Optional LLM backend instance (required if use_llm_embeddings=True)
         """
         self.mode = mode
         self.storage_file = storage_file
@@ -115,6 +120,8 @@ class MemoryManager:
         self.similarity_threshold = similarity_threshold
         self.use_gpu = use_gpu
         self.hybrid_threshold = hybrid_threshold
+        self.use_llm_embeddings = use_llm_embeddings
+        self.llm_backend = llm_backend
 
         self.memories: Dict[str, Memory] = {}
         self._embedding_model = None
@@ -244,6 +251,16 @@ class MemoryManager:
         if text in self._embedding_cache:
             return self._embedding_cache[text]
 
+        # Try LLM embeddings first if enabled
+        if self.use_llm_embeddings and self.llm_backend is not None:
+            embedding = self._get_llm_embedding(text)
+            if embedding is not None:
+                # Normalize for cosine similarity
+                embedding = embedding / np.linalg.norm(embedding)
+                self._embedding_cache[text] = embedding
+                return embedding
+
+        # Fall back to sentence-transformers
         model = self._get_embedding_model()
         if model is None:
             return None
@@ -256,6 +273,73 @@ class MemoryManager:
             return embedding
         except Exception as e:
             print(f"Error generating embedding: {e}")
+            return None
+
+    def _get_llm_embedding(self, text: str) -> Optional[np.ndarray]:
+        """
+        Extract embedding from LLM backend using hidden states.
+
+        This uses the same model that's generating responses, which can provide
+        better semantic understanding since it's contextually aware.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            Normalized embedding vector or None if extraction fails
+        """
+        try:
+            # Check if backend has model and tokenizer
+            if not hasattr(self.llm_backend, "model") or not hasattr(
+                self.llm_backend, "tokenizer"
+            ):
+                return None
+
+            model = self.llm_backend.model
+            tokenizer = self.llm_backend.tokenizer
+
+            # Tokenize input
+            inputs = tokenizer(
+                text, return_tensors="pt", padding=True, truncation=True, max_length=512
+            )
+
+            # Move to same device as model
+            device = next(model.parameters()).device
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+
+            # Get hidden states (disable gradient computation for efficiency)
+            with torch.no_grad():
+                outputs = model(**inputs, output_hidden_states=True)
+
+                # Extract embeddings from last hidden state
+                # Shape: (batch_size, sequence_length, hidden_size)
+                hidden_states = outputs.hidden_states[-1]
+
+                # Mean pooling: average across sequence length (excluding padding)
+                # Use attention mask if available
+                if "attention_mask" in inputs:
+                    attention_mask = inputs["attention_mask"]
+                    # Expand mask to match hidden states dimensions
+                    mask_expanded = (
+                        attention_mask.unsqueeze(-1)
+                        .expand(hidden_states.size())
+                        .float()
+                    )
+                    # Sum hidden states, then divide by number of non-padding tokens
+                    sum_embeddings = torch.sum(hidden_states * mask_expanded, dim=1)
+                    sum_mask = torch.clamp(mask_expanded.sum(dim=1), min=1e-9)
+                    embedding = sum_embeddings / sum_mask
+                else:
+                    # No mask: simple mean pooling
+                    embedding = torch.mean(hidden_states, dim=1)
+
+                # Convert to numpy and squeeze batch dimension
+                embedding = embedding.cpu().numpy().squeeze(0)
+
+                return embedding.astype(np.float32)
+
+        except Exception as e:
+            print(f"Error extracting LLM embedding: {e}")
             return None
 
     def add_memory(self, content: str, metadata: Optional[Dict] = None) -> Memory:
@@ -306,17 +390,18 @@ class MemoryManager:
         return False
 
     def get_relevant_memories(
-        self, query: str, max_results: Optional[int] = None
-    ) -> List[Memory]:
+        self, query: str, max_results: Optional[int] = None, return_scores: bool = False
+    ) -> Union[List[Memory], List[tuple[float, Memory]]]:
         """
-        Retrieve relevant memories for a query using semantic similarity.
+        Retrieve relevant memories for a query using semantic similarity with improved filtering.
 
         Args:
             query: Query text to find relevant memories for
             max_results: Maximum number of results (defaults to self.max_memories)
+            return_scores: If True, return tuples of (similarity_score, Memory). If False, return just Memory objects.
 
         Returns:
-            List of Memory objects sorted by relevance
+            List of Memory objects sorted by relevance, or list of (similarity, Memory) tuples if return_scores=True
         """
         if not self.memories:
             return []
@@ -327,7 +412,10 @@ class MemoryManager:
         query_embedding = self._get_embedding(query)
         if query_embedding is None:
             # Fallback to all memories if embedding fails
-            return list(self.memories.values())[:max_results]
+            results = list(self.memories.values())[:max_results]
+            if return_scores:
+                return [(0.0, mem) for mem in results]
+            return results
 
         # Generate embeddings lazily - only as we need them for similarity computation
         # Embeddings are cached in _embedding_cache, so regenerating is fast if already computed
@@ -353,12 +441,57 @@ class MemoryManager:
         # Sort by similarity (descending)
         similarities.sort(key=lambda x: x[0], reverse=True)
 
+        # Apply adaptive thresholding: if we have too many results, use percentile-based cutoff
+        # This ensures we get the most relevant memories even if threshold is low
+        if len(similarities) > max_results * 2:
+            # If we have more than 2x the desired results, use top percentile
+            # Take top 75th percentile or max_results, whichever is smaller
+            cutoff_idx = min(max_results, int(len(similarities) * 0.75))
+            if cutoff_idx > 0:
+                # Use the similarity score at cutoff as new threshold
+                adaptive_threshold = similarities[cutoff_idx - 1][0]
+                similarities = [
+                    (s, m) for s, m in similarities if s >= adaptive_threshold
+                ]
+                # Re-sort after filtering
+                similarities.sort(key=lambda x: x[0], reverse=True)
+
+        # Deduplicate very similar memories in results
+        # If two memories have similarity > 0.95 to each other, keep only the one with higher query similarity
+        deduplicated = []
+        for similarity, memory in similarities:
+            is_duplicate = False
+            mem_embedding = np.array(memory.embedding)
+
+            for existing_sim, existing_mem in deduplicated:
+                existing_embedding = np.array(existing_mem.embedding)
+                # Check similarity between memories
+                mem_similarity = np.dot(mem_embedding, existing_embedding)
+                if mem_similarity > 0.95:  # Very similar memories
+                    # Keep the one with higher similarity to the query
+                    if similarity <= existing_sim:
+                        is_duplicate = True
+                        break
+                    else:
+                        # Remove the existing one and add this one
+                        deduplicated.remove((existing_sim, existing_mem))
+                        break
+
+            if not is_duplicate:
+                deduplicated.append((similarity, memory))
+                if len(deduplicated) >= max_results:
+                    break
+
+        similarities = deduplicated
+
         # Update access tracking
         for _, memory in similarities[:max_results]:
             memory.access_count += 1
             memory.accessed_at = datetime.now().isoformat()
 
         # Return top results
+        if return_scores:
+            return similarities[:max_results]
         return [memory for _, memory in similarities[:max_results]]
 
     def get_all_memories(self) -> List[str]:
