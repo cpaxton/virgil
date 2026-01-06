@@ -218,6 +218,10 @@ class MemoryManager:
 
     def _get_embedding_model(self):
         """Lazy load embedding model."""
+        # Don't load sentence-transformers if we're using LLM embeddings
+        if self.use_llm_embeddings and self.llm_backend is not None:
+            return None  # Skip loading sentence-transformers
+
         if self._embedding_model is None and self.mode in ("rag", "hybrid"):
             try:
                 from sentence_transformers import SentenceTransformer
@@ -251,7 +255,7 @@ class MemoryManager:
         if text in self._embedding_cache:
             return self._embedding_cache[text]
 
-        # Try LLM embeddings first if enabled
+        # Use LLM embeddings if enabled (this disables sentence-transformers)
         if self.use_llm_embeddings and self.llm_backend is not None:
             embedding = self._get_llm_embedding(text)
             if embedding is not None:
@@ -259,8 +263,14 @@ class MemoryManager:
                 embedding = embedding / np.linalg.norm(embedding)
                 self._embedding_cache[text] = embedding
                 return embedding
+            else:
+                # If LLM embedding fails, we can't fall back since we didn't load sentence-transformers
+                print(
+                    "Warning: LLM embedding failed and sentence-transformers not loaded"
+                )
+                return None
 
-        # Fall back to sentence-transformers
+        # Use sentence-transformers (only if LLM embeddings are disabled)
         model = self._get_embedding_model()
         if model is None:
             return None
