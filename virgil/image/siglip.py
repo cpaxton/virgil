@@ -15,7 +15,7 @@
 # (c) 2024 by Chris Paxton
 
 import torch
-from typing import Optional
+from typing import Optional, List
 from PIL import Image
 from transformers import AutoProcessor, AutoModel
 
@@ -72,6 +72,36 @@ class SigLIPAligner:
         similarity = (image_embeds @ text_embeds.T).item()
 
         return similarity
+
+    def get_text_embeddings(self, texts: List[str]) -> torch.Tensor:
+        """
+        Get text embeddings for a list of texts.
+
+        Args:
+            texts (list[str]): List of text strings to embed.
+
+        Returns:
+            torch.Tensor: Normalized text embeddings of shape (len(texts), embedding_dim).
+        """
+        # Prepare inputs (text only, no images)
+        inputs = self.processor(
+            text=texts,
+            return_tensors="pt",
+            padding=True,
+            max_length=self.max_length,
+            truncation=True,
+        ).to(self.device)
+
+        # Generate embeddings
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+
+        # Normalize embeddings
+        text_embeds = outputs.text_embeds / outputs.text_embeds.norm(
+            dim=-1, keepdim=True
+        )
+
+        return text_embeds
 
     def search(
         self,

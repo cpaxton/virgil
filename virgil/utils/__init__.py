@@ -15,5 +15,19 @@
 from .config import load_config
 from .prompt import load_prompt
 from .yaml_utils import yaml_dump
+from .embeddings import (
+    cosine_distance,
+    compute_pairwise_distances,
+    compute_pca,
+    compute_distances_to_reference,
+)
 
-__all__ = [load_config, load_prompt, yaml_dump]
+__all__ = [
+    load_config,
+    load_prompt,
+    yaml_dump,
+    cosine_distance,
+    compute_pairwise_distances,
+    compute_pca,
+    compute_distances_to_reference,
+]

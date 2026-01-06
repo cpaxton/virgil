@@ -21,6 +21,8 @@ dependencies = [
     "numpy",
     "click",
     "matplotlib",
+    "seaborn",
+    "scikit-learn",
     "discord.py",
     "python-dotenv",
     "termcolor",
