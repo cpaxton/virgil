@@ -1,0 +1,8 @@
+---
+title: Pre-commit Checks
+description: Run pre-commit checks after making code changes
+---
+
+After making any code changes, always run `source .venv/bin/activate && pre-commit run --all-files` to check for issues.
+
+If pre-commit finds issues, fix them and re-run the check until all checks pass before considering the task complete.
