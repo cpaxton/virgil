@@ -78,13 +78,13 @@ class SigLIPAligner:
         Get text embeddings for a list of texts.
 
         Args:
-            texts (list[str]): List of text strings to embed.
+            texts (List[str]): List of text strings to embed.
 
         Returns:
             torch.Tensor: Normalized text embeddings of shape (len(texts), embedding_dim).
         """
-        # Prepare inputs (text only, no images)
-        inputs = self.processor(
+        # Prepare text inputs only (no images)
+        text_inputs = self.processor(
             text=texts,
             return_tensors="pt",
             padding=True,
@@ -92,14 +92,15 @@ class SigLIPAligner:
             truncation=True,
         ).to(self.device)
 
-        # Generate embeddings
+        # Use get_text_features method which handles text-only inputs
         with torch.no_grad():
-            outputs = self.model(**inputs)
+            text_embeds = self.model.get_text_features(
+                input_ids=text_inputs["input_ids"],
+                attention_mask=text_inputs.get("attention_mask", None),
+            )
 
         # Normalize embeddings
-        text_embeds = outputs.text_embeds / outputs.text_embeds.norm(
-            dim=-1, keepdim=True
-        )
+        text_embeds = text_embeds / text_embeds.norm(dim=-1, keepdim=True)
 
         return text_embeds
 

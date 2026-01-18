@@ -16,22 +16,20 @@
 import torch
 
 # Set recommended torch settings for TF32
+# IMPORTANT: Only use NEW API to avoid PyTorch conflicts about mixing old/new APIs
 if torch.cuda.is_available():
     # For Ampere and later GPUs, this allows PyTorch to use the TensorFloat32 (TF32) tensor cores.
-    # Use new API to avoid deprecation warnings (prioritize new API, fallback to old)
+    # Use ONLY the new API if available - don't mix with old API
     if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
         torch.backends.cuda.matmul.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cuda.matmul.allow_tf32 = True
+    # Don't use old API as fallback - let PyTorch use defaults for older versions
+    # This prevents the "mixed API" error
 
     if hasattr(torch.backends.cudnn, "conv") and hasattr(
         torch.backends.cudnn.conv, "fp32_precision"
     ):
         torch.backends.cudnn.conv.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cudnn.allow_tf32 = True
+    # Don't use old API as fallback - let PyTorch use defaults for older versions
 
 
 from .base import Backend

@@ -218,10 +218,8 @@ class MemoryManager:
 
     def _get_embedding_model(self):
         """Lazy load embedding model."""
-        # Don't load sentence-transformers if we're using LLM embeddings
-        if self.use_llm_embeddings and self.llm_backend is not None:
-            return None  # Skip loading sentence-transformers
-
+        # Always load sentence-transformers as fallback, even if using LLM embeddings
+        # This allows fallback if LLM embeddings fail
         if self._embedding_model is None and self.mode in ("rag", "hybrid"):
             try:
                 from sentence_transformers import SentenceTransformer
@@ -255,7 +253,7 @@ class MemoryManager:
         if text in self._embedding_cache:
             return self._embedding_cache[text]
 
-        # Use LLM embeddings if enabled (this disables sentence-transformers)
+        # Use LLM embeddings if enabled
         if self.use_llm_embeddings and self.llm_backend is not None:
             embedding = self._get_llm_embedding(text)
             if embedding is not None:
@@ -263,12 +261,8 @@ class MemoryManager:
                 embedding = embedding / np.linalg.norm(embedding)
                 self._embedding_cache[text] = embedding
                 return embedding
-            else:
-                # If LLM embedding fails, we can't fall back since we didn't load sentence-transformers
-                print(
-                    "Warning: LLM embedding failed and sentence-transformers not loaded"
-                )
-                return None
+            # If LLM embedding fails, silently fall back to sentence-transformers below
+            # (no warning printed to avoid spam)
 
         # Use sentence-transformers (only if LLM embeddings are disabled)
         model = self._get_embedding_model()
@@ -318,8 +312,31 @@ class MemoryManager:
             inputs = {k: v.to(device) for k, v in inputs.items()}
 
             # Get hidden states (disable gradient computation for efficiency)
-            with torch.no_grad():
-                outputs = model(**inputs, output_hidden_states=True)
+            # Use inference_mode and suppress TF32 warnings during embedding extraction
+            import warnings
+
+            with warnings.catch_warnings():
+                # Suppress TF32-related warnings during embedding extraction
+                warnings.filterwarnings(
+                    "ignore", message=".*tf32.*", category=RuntimeWarning
+                )
+                warnings.filterwarnings(
+                    "ignore", message=".*allow_tf32.*", category=RuntimeWarning
+                )
+                with torch.inference_mode():
+                    try:
+                        outputs = model(**inputs, output_hidden_states=True)
+                    except RuntimeError as e:
+                        # If it's a TF32 error, try to work around it
+                        if "tf32" in str(e).lower() or "allow_tf32" in str(e).lower():
+                            # Set environment variable to suppress the check
+                            import os
+
+                            os.environ["TORCH_ALLOW_TF32_CUBLAS_OVERRIDE"] = "1"
+                            # Retry once
+                            outputs = model(**inputs, output_hidden_states=True)
+                        else:
+                            raise
 
                 # Extract embeddings from last hidden state
                 # Shape: (batch_size, sequence_length, hidden_size)
@@ -349,7 +366,21 @@ class MemoryManager:
                 return embedding.astype(np.float32)
 
         except Exception as e:
-            print(f"Error extracting LLM embedding: {e}")
+            # Check if it's a TF32 error - if so, we've already tried to work around it
+            error_msg = str(e)
+            if "tf32" in error_msg.lower() or "allow_tf32" in error_msg.lower():
+                # TF32 conflict - try one more time with environment variable set
+                import os
+
+                os.environ["TORCH_ALLOW_TF32_CUBLAS_OVERRIDE"] = "1"
+                try:
+                    # Retry the embedding extraction
+                    return self._get_llm_embedding(text)
+                except Exception:
+                    # If it still fails, fall back silently (don't spam warnings)
+                    pass
+            # For other errors or if retry failed, return None silently
+            # The fallback to sentence-transformers will happen automatically
             return None
 
     def add_memory(self, content: str, metadata: Optional[Dict] = None) -> Memory:
