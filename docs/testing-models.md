@@ -156,9 +156,19 @@ Qwen 2.5 models (sizes: 0.5B, 1.5B, 3B, 7B, 14B, 32B, 72B):
 Qwen 3 models (sizes: 0.6B, 1.7B, 4B, 8B, 14B, 32B):
 - `qwen3-{size}`
 
+Qwen 3.5 models (sizes: 0.8B, 2B, 4B, 9B, 27B; MoE: 35B-A3B, 122B-A10B, 397B-A17B):
+- `qwen3.5-{size}` (e.g. `qwen3.5-4b`, `qwen3.5-0.8b`)
+- `qwen3.5-{total}-{active}` for MoE (e.g. `qwen3.5-35b-a3b` - 3B active params)
+
 ### Testing Command
 
 ```bash
+# Test a small Qwen 3.5 model
+python -m virgil.chat --backend qwen3.5-4b --verbose
+
+# Test Qwen 3.5 MoE (35B total, 3B active - efficient)
+python -m virgil.chat --backend qwen3.5-35b-a3b --verbose
+
 # Test a small Qwen 3 model
 python -m virgil.chat --backend qwen3-1.7b --verbose
 

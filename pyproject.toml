@@ -13,7 +13,7 @@ authors = [
 ]
 license = { text = "MIT" }
 dependencies = [
-    "transformers>=4.57.1",
+    "transformers>=5.2.0", # Qwen 3.5 requires 5.x for qwen3_5 architecture
     "diffusers>=0.35.2",
     "sentencepiece",
     "Pillow",
@@ -35,7 +35,6 @@ dependencies = [
     "librosa",
     "decord>=0.6.0",
     "moviepy>=2.0.0",
-
     # AI dependencies
     "torch>=2.9.0",
     "torchvision",
@@ -46,6 +45,7 @@ dependencies = [
     "triton",
     "mcp>=1.0.0",
     "sentence-transformers>=2.2.0",
+    "setuptools>=75.6.0",
 ]
 
 [project.urls]

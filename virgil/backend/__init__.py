@@ -13,26 +13,10 @@
 # limitations under the License.
 
 # (c) 2024 by Chris Paxton
+
+import logging
+
 import torch
-
-# Set recommended torch settings for TF32
-if torch.cuda.is_available():
-    # For Ampere and later GPUs, this allows PyTorch to use the TensorFloat32 (TF32) tensor cores.
-    # Use new API to avoid deprecation warnings (prioritize new API, fallback to old)
-    if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
-        torch.backends.cuda.matmul.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cuda.matmul.allow_tf32 = True
-
-    if hasattr(torch.backends.cudnn, "conv") and hasattr(
-        torch.backends.cudnn.conv, "fp32_precision"
-    ):
-        torch.backends.cudnn.conv.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cudnn.allow_tf32 = True
-
 
 from .base import Backend
 from .ernie import Ernie, get_ernie_model_names
@@ -42,6 +26,16 @@ from .phi import Phi, get_phi_model_names
 from .qwen import Qwen, get_qwen_model_names
 from .smollm import SmolLM, get_smollm_model_names
 from .tinyllama import TinyLlama, get_tinyllama_model_names
+
+# Suppress noisy torch.fx symbolic_shapes warnings (internal PyTorch)
+logging.getLogger("torch.fx.experimental.symbolic_shapes").setLevel(logging.ERROR)
+
+# Enable TF32 via legacy API for compatibility with torch.compile (inductor).
+# Inductor reads allow_tf32; using fp32_precision (new API) causes RuntimeError:
+# "mix of the legacy and new APIs to set the TF32 status"
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
 backend_list = (
     get_llama_model_names()

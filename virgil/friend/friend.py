@@ -32,33 +32,11 @@ import click
 import discord
 from PIL import Image
 from termcolor import colored
-import torch  # This only works on Ampere+ GPUs
 
 # Local imports
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
-
-# Enable TensorFloat-32 (TF32) on Ampere GPUs for faster matrix multiplications
-# Need to let Ruff know this is okay
-# ruff: noqa: F401
-# ruff: noqa: E402
-# Use new API to avoid deprecation warnings (prioritize new API, fallback to old)
-if torch.cuda.is_available():
-    # New API for controlling TF32 precision (PyTorch 2.9+)
-    if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
-        torch.backends.cuda.matmul.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cuda.matmul.allow_tf32 = True
-
-    if hasattr(torch.backends.cudnn, "conv") and hasattr(
-        torch.backends.cudnn.conv, "fp32_precision"
-    ):
-        torch.backends.cudnn.conv.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cudnn.allow_tf32 = True
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder
@@ -911,6 +889,7 @@ class Friend(DiscordBot):
         # Get relevant memories for this query (dynamic in RAG/hybrid mode)
         # For RAG/hybrid modes, prepend memories as context to the user message
         # For static mode, memories are already in the system prompt
+        t_mem_start = time.perf_counter()
         if self.memory_manager.mode in ("rag", "hybrid"):
             # Refine query: extract key terms from user message for more focused retrieval
             # Use the original message without memory context for query refinement
@@ -972,24 +951,50 @@ class Friend(DiscordBot):
                         )
                 print()
 
+        t_mem = time.perf_counter() - t_mem_start
+        if t_mem > 0.05:
+            print(colored(f"⏱️  Memory retrieval: {t_mem:.2f}s", "cyan"))
+
         response = None
-        # try:
+        # Download image attachments for vision models
+        images = []
+        if getattr(task, "attachments", None) and task.attachments:
+            for attachment in task.attachments:
+                try:
+                    data = await attachment.read()
+                    img = Image.open(io.BytesIO(data)).convert("RGB")
+                    images.append(img)
+                    print(colored(f"📷 Loaded image: {attachment.filename}", "cyan"))
+                except Exception as e:
+                    print(
+                        colored(
+                            f"Failed to load attachment {attachment.filename}: {e}",
+                            "red",
+                        )
+                    )
+
         # Now actually prompt the AI
+        t_llm_start = time.perf_counter()
         with self._chat_lock:
             response = self.chat.prompt(
-                text, verbose=True, assistant_history_prefix=""
-            )  # f"{self._user_name} on #{channel_name}: ")
+                text,
+                images=images if images else None,
+                verbose=True,
+                assistant_history_prefix="",
+            )
+        t_llm = time.perf_counter() - t_llm_start
+        print(colored(f"⏱️  LLM generation: {t_llm:.2f}s", "cyan"))
 
-            # Store original response for memory extraction (includes thinking)
-            original_response = response
+        # Store original response for memory extraction (includes thinking)
+        original_response = response
 
-            # For action parsing, strip unclosed <think> tags to avoid breaking action parsing
-            # But keep the original response for memory extraction so facts from thinking can be captured
-            if "<think>" in response and "</think>" not in response:
-                # Remove unclosed think tag and everything after it for action parsing
-                response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
+        # For action parsing, strip unclosed <think> tags to avoid breaking action parsing
+        # But keep the original response for memory extraction so facts from thinking can be captured
+        if "<think>" in response and "</think>" not in response:
+            # Remove unclosed think tag and everything after it for action parsing
+            response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
 
-            action_plan = self.parser.parse(response)
+        action_plan = self.parser.parse(response)
 
         print()
         print(

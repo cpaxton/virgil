@@ -23,6 +23,15 @@ class Backend:
     def __init__(self):
         self._supports_kv_cache = False
         self._kv_cache_enabled = False
+        self._supports_vision = False
+
+    def supports_vision(self) -> bool:
+        """Check if this backend supports vision (image input).
+
+        Returns:
+            bool: True if vision is supported, False otherwise.
+        """
+        return getattr(self, "_supports_vision", False)
 
     def supports_kv_cache(self) -> bool:
         """Check if this backend supports KV caching.

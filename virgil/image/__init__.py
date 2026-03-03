@@ -15,14 +15,13 @@
 # (c) 2024 by Chris Paxton
 
 from .base import ImageGenerator
-from .diffuser import DiffuserImageGenerator
 from .flux import FluxImageGenerator
 from .qwen_layered import QwenLayeredImageGenerator
 
-# Lazy imports to avoid RuntimeWarning when running modules as __main__
-# Import these only when needed, not at module level
+# Lazy import for DiffuserImageGenerator: loading it triggers diffusers to load
+# HunyuanDiT pipeline, which requires MT5Tokenizer (removed in transformers 5.x).
+# Only load when actually using the diffuser image generator.
 _diffuser = None
-_flux = None
 
 
 def _get_diffuser():
@@ -34,21 +33,10 @@ def _get_diffuser():
     return _diffuser
 
 
-def _get_flux():
-    global _flux
-    if _flux is None:
-        from .flux import FluxImageGenerator
-
-        _flux = FluxImageGenerator
-    return _flux
-
-
 def __getattr__(name):
     """Lazy import for module-level attributes."""
     if name == "DiffuserImageGenerator":
         return _get_diffuser()
-    elif name == "FluxImageGenerator":
-        return _get_flux()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -64,7 +52,7 @@ def create_image_generator(generator: str, **kwargs) -> ImageGenerator:
         ImageGenerator: The created image generator.
     """
     if generator == "diffuser":
-        return DiffuserImageGenerator(**kwargs)
+        return _get_diffuser()(**kwargs)
     elif generator == "flux":
         return FluxImageGenerator(**kwargs)
     elif generator == "qwen-layered" or generator == "qwen_layered":

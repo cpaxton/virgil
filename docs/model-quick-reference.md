@@ -73,6 +73,20 @@ This document provides a quick reference of all available models in Virgil, orga
 
 **Quick Test**: `python -m virgil.chat --backend qwen3-1.7b`
 
+### Qwen 3.5 Models
+**Format**: `qwen3.5-{size}` or `qwen3.5-{total}-{active}` (MoE)
+
+**Standard sizes**: `0.8b`, `2b`, `4b`, `9b`, `27b`
+
+**MoE** (total params - active params): `35b-a3b`, `122b-a10b`, `397b-a17b`
+
+**Examples**:
+- `qwen3.5-0.8b` - Smallest
+- `qwen3.5-4b` - Good balance
+- `qwen3.5-35b-a3b` - MoE with 3B active (efficient)
+
+**Quick Test**: `python -m virgil.chat --backend qwen3.5-4b`
+
 ## Llama Models (4 models)
 
 - `llama` - Defaults to 3.2-1B
