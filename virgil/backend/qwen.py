@@ -19,6 +19,7 @@ from typing import Optional, Tuple, Any
 import torch
 from transformers import (
     AutoModelForCausalLM,
+    AutoProcessor,
     AutoTokenizer,
     BitsAndBytesConfig,
     pipeline,
@@ -98,7 +99,18 @@ class Qwen(Backend):
             model_kwargs["device_map"] = "mps"
 
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **model_kwargs)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
+        self._model_id = model_id
+        self._is_qwen35 = "Qwen3.5" in model_id or "qwen3.5" in model_id.lower()
+
+        if self._is_qwen35:
+            self.processor = AutoProcessor.from_pretrained(
+                model_id, trust_remote_code=True
+            )
+            self.tokenizer = self.processor.tokenizer
+            self._supports_vision = True
+        else:
+            self.processor = None
+            self.tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
 
         self.pipe = pipeline(
             "text-generation",
@@ -214,8 +226,53 @@ class Qwen(Backend):
         else:
             raise ValueError(f"Unknown Qwen release from name: {name}")
 
+    def _has_images(self, messages) -> bool:
+        """Check if messages contain image content (for vision models)."""
+        if not self._is_qwen35 or not self.processor:
+            return False
+        for msg in messages:
+            content = msg.get("content")
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "image":
+                        return True
+        return False
+
+    def _generate_vision(self, messages, max_new_tokens: int, **gen_kwargs) -> list:
+        """Generate using vision path (processor + model.generate)."""
+        device = next(self.model.parameters()).device
+        inputs = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=True,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        ).to(device)
+
+        with torch.inference_mode():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=self.do_sample,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                repetition_penalty=self.repetition_penalty,
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+                **gen_kwargs,
+            )
+
+        # Decode only the new tokens
+        input_len = inputs["input_ids"].shape[1]
+        new_ids = output_ids[:, input_len:]
+        text = self.tokenizer.decode(new_ids[0], skip_special_tokens=True)
+
+        return [{"generated_text": [{"role": "assistant", "content": text}]}]
+
     def __call__(self, messages, max_new_tokens: int = 512, *args, **kwargs) -> list:
         """Generate a response to a list of messages."""
+        if self._has_images(messages):
+            return self._generate_vision(messages, max_new_tokens)
+
         with torch.inference_mode():  # More efficient than no_grad() for inference
             return self.pipe(
                 messages,
@@ -244,6 +301,10 @@ class Qwen(Backend):
         Returns:
             Tuple of (output, new_past_key_values).
         """
+        if self._has_images(messages):
+            output = self._generate_vision(messages, max_new_tokens)
+            return output, None
+
         # Use pipeline with use_cache=True (default) for efficient generation
         with torch.inference_mode():  # More efficient than no_grad() for inference
             output = self.pipe(

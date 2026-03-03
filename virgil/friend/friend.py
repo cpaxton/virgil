@@ -958,12 +958,31 @@ class Friend(DiscordBot):
                 print()
 
         response = None
-        # try:
+        # Download image attachments for vision models
+        images = []
+        if getattr(task, "attachments", None) and task.attachments:
+            for attachment in task.attachments:
+                try:
+                    data = await attachment.read()
+                    img = Image.open(io.BytesIO(data)).convert("RGB")
+                    images.append(img)
+                    print(colored(f"📷 Loaded image: {attachment.filename}", "cyan"))
+                except Exception as e:
+                    print(
+                        colored(
+                            f"Failed to load attachment {attachment.filename}: {e}",
+                            "red",
+                        )
+                    )
+
         # Now actually prompt the AI
         with self._chat_lock:
             response = self.chat.prompt(
-                text, verbose=True, assistant_history_prefix=""
-            )  # f"{self._user_name} on #{channel_name}: ")
+                text,
+                images=images if images else None,
+                verbose=True,
+                assistant_history_prefix="",
+            )
 
             # Store original response for memory extraction (includes thinking)
             original_response = response

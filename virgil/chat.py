@@ -60,12 +60,18 @@ class ChatWrapper:
             self._past_key_values = None
             self._processed_message_count = 0
 
-    def add_conversation_history(self, role: str, content: str, verbose: bool = False):
+    def add_conversation_history(
+        self,
+        role: str,
+        content: str | list,
+        verbose: bool = False,
+    ):
         """Add a message to the conversation history.
 
         Args:
             role (str): The role of the speaker.
-            content (str): The content of the message.
+            content (str | list): The content of the message. For vision models,
+                can be a list of content parts, e.g. [{"type": "image", "image": PIL.Image}, {"type": "text", "text": "..."}].
         """
 
         # Roles must alternate
@@ -74,9 +80,11 @@ class ChatWrapper:
             # Get previous role
             prev_role = self.conversation_history[-1]["role"]
             if prev_role == role:
-                # Just concatenate it
-                self.conversation_history[-1]["content"] += "\n" + content
-                added = True
+                # Only merge if both are plain text (no multimodal)
+                prev_content = self.conversation_history[-1]["content"]
+                if isinstance(prev_content, str) and isinstance(content, str):
+                    self.conversation_history[-1]["content"] += "\n" + content
+                    added = True
 
         if not added:
             self.conversation_history.append({"role": role, "content": content})
@@ -94,7 +102,9 @@ class ChatWrapper:
         if verbose:
             print("Conversation history:")
             for i, message in enumerate(self.conversation_history):
-                print(f"{i} {message['role']}: {message['content']}")
+                c = message["content"]
+                preview = c[:80] + "..." if isinstance(c, str) and len(c) > 80 else c
+                print(f"{i} {message['role']}: {preview}")
 
     def clear(self):
         """Clear the conversation history."""
@@ -108,6 +118,7 @@ class ChatWrapper:
     def prompt(
         self,
         msg: str,
+        images: list | None = None,
         verbose: bool = False,
         max_new_tokens: int = 2000,
         assistant_history_prefix: str = "",
@@ -116,12 +127,23 @@ class ChatWrapper:
 
         Args:
             msg (str): The message to prompt the LLM with.
+            images (list | None): Optional list of PIL Images for vision models.
         """
 
         if verbose:
             print()
 
-        self.add_conversation_history("user", msg)
+        if images and self.backend.supports_vision():
+            # Build multimodal content: images first, then text
+            content_parts = []
+            for img in images:
+                content_parts.append({"type": "image", "image": img})
+            content_parts.append({"type": "text", "text": msg})
+            self.add_conversation_history("user", content_parts)
+        else:
+            if images and verbose:
+                print("Backend does not support vision; ignoring image(s)")
+            self.add_conversation_history("user", msg)
 
         messages = self.conversation_history.copy()
         t0 = timeit.default_timer()
