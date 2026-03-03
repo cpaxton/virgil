@@ -18,13 +18,15 @@
 
 from PIL import Image
 import torch
-from diffusers import AutoPipelineForText2Image
 from .base import ImageGenerator
 from .siglip import SigLIPAligner
 import virgil.utils.log as log
 import click
 from diffusers import BitsAndBytesConfig
 from diffusers.models import FluxTransformer2DModel
+
+# Deferred import: AutoPipelineForText2Image loads HunyuanDiT which requires MT5Tokenizer.
+# MT5Tokenizer was removed in transformers 5.x. Only import when actually using diffuser.
 
 
 class DiffuserImageGenerator(ImageGenerator):
@@ -137,6 +139,8 @@ class DiffuserImageGenerator(ImageGenerator):
             )
 
         print(f"[Diffuser] Loading model: {model_name}")
+        from diffusers import AutoPipelineForText2Image
+
         try:
             # Load pipeline with quantization config
             self.pipeline = AutoPipelineForText2Image.from_pretrained(
