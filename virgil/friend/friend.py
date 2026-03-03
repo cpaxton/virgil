@@ -43,22 +43,7 @@ from virgil.chat import ChatWrapper
 # Need to let Ruff know this is okay
 # ruff: noqa: F401
 # ruff: noqa: E402
-# Use new API to avoid deprecation warnings (prioritize new API, fallback to old)
-if torch.cuda.is_available():
-    # New API for controlling TF32 precision (PyTorch 2.9+)
-    if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
-        torch.backends.cuda.matmul.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cuda.matmul.allow_tf32 = True
-
-    if hasattr(torch.backends.cudnn, "conv") and hasattr(
-        torch.backends.cudnn.conv, "fp32_precision"
-    ):
-        torch.backends.cudnn.conv.fp32_precision = "tf32"
-    else:
-        # Fallback for older PyTorch versions
-        torch.backends.cudnn.allow_tf32 = True
+# TF32 is set in virgil.backend - avoid duplicate/mixed API usage (causes RuntimeError)
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder
