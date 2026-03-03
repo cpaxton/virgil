@@ -29,6 +29,9 @@ from virgil.backend.base import Backend
 qwen25_sizes = ["0.5B", "1.5B", "3B", "7B", "14B", "32B", "72B"]
 qwen_specializations = ["Instruct", "Coder", "Math", "Deepseek"]
 qwen30_sizes = ["0.6B", "1.7B", "4B", "8B", "14B", "32B"]
+# Qwen 3.5: standard sizes + MoE (totalB-activeB)
+qwen35_sizes = ["0.8B", "2B", "4B", "9B", "27B"]
+qwen35_moe = [("35B", "A3B"), ("122B", "A10B"), ("397B", "A17B")]
 
 
 def get_qwen_model_names() -> list[str]:
@@ -41,6 +44,11 @@ def get_qwen_model_names() -> list[str]:
     # Qwen 3
     for size in qwen30_sizes:
         names.append(f"qwen3-{size}".lower())
+    # Qwen 3.5
+    for size in qwen35_sizes:
+        names.append(f"qwen3.5-{size}".lower())
+    for total, active in qwen35_moe:
+        names.append(f"qwen3.5-{total.lower()}-{active.lower()}".lower())
     return names
 
 
@@ -157,12 +165,33 @@ class Qwen(Backend):
 
         parts = name.lower().split("-")
         if len(parts) == 1 and parts[0] == "qwen":  # Default model
-            return "Qwen/Qwen3-8B"
+            return "Qwen/Qwen3.5-4B"
 
         release_part = parts[0]
         size_part = parts[1].upper()
 
-        if release_part == "qwen3":
+        if release_part == "qwen3.5":
+            if len(parts) == 2:
+                # Standard sizes: qwen3.5-0.8b, qwen3.5-4b, etc.
+                if size_part not in qwen35_sizes:
+                    raise ValueError(
+                        f"Unknown size: {size_part}. "
+                        f"Available for Qwen 3.5: {qwen35_sizes}"
+                    )
+                return f"Qwen/Qwen3.5-{size_part}"
+            elif len(parts) >= 3:
+                # MoE: qwen3.5-35b-a3b, qwen3.5-122b-a10b, etc.
+                active_part = parts[2].upper()
+                for total, active in qwen35_moe:
+                    if size_part == total and active_part == active:
+                        return f"Qwen/Qwen3.5-{total}-{active}"
+                raise ValueError(
+                    f"Unknown Qwen 3.5 MoE: {size_part}-{active_part}. "
+                    f"Available: {qwen35_moe}"
+                )
+            else:
+                raise ValueError(f"Invalid Qwen 3.5 name: {name}")
+        elif release_part == "qwen3":
             if size_part not in qwen30_sizes:
                 raise ValueError(
                     f"Unknown size: {size_part}. Available for Qwen 3: {qwen30_sizes}"

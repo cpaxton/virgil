@@ -13,7 +13,7 @@ authors = [
 ]
 license = { text = "MIT" }
 dependencies = [
-    "transformers>=4.57.1",
+    "transformers>=5.2.0",  # Qwen 3.5 requires 5.x for qwen3_5 architecture
     "diffusers>=0.35.2",
     "sentencepiece",
     "Pillow",
