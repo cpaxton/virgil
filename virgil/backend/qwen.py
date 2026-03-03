@@ -72,7 +72,7 @@ class Qwen(Backend):
         if model_path:
             model_id = model_path
 
-        print(f"Loading model: {model_id}")
+        print(f"[Qwen] Loading model: {model_id} (compile_model={compile_model})")
 
         model_kwargs = {"dtype": "auto"}
         if quantization:
@@ -103,11 +103,13 @@ class Qwen(Backend):
         self._is_qwen35 = "Qwen3.5" in model_id or "qwen3.5" in model_id.lower()
 
         if self._is_qwen35:
+            print("[Qwen] Loading processor for vision support...")
             self.processor = AutoProcessor.from_pretrained(
                 model_id, trust_remote_code=True
             )
             self.tokenizer = self.processor.tokenizer
             self._supports_vision = True
+            print("[Qwen] Vision support enabled")
         else:
             self.processor = None
             self.tokenizer = AutoTokenizer.from_pretrained(model_id, use_fast=True)
@@ -123,10 +125,9 @@ class Qwen(Backend):
         self.do_sample = do_sample
         self.repetition_penalty = repetition_penalty
 
-        # Compile model for faster inference (PyTorch 2.0+)
         if compile_model and hasattr(torch, "compile"):
             try:
-                print("[Qwen] Compiling model for faster inference...")
+                print("[Qwen] Compiling model (mode=reduce-overhead)...")
                 self.model = torch.compile(
                     self.model, mode="reduce-overhead", fullgraph=False
                 )
@@ -135,6 +136,8 @@ class Qwen(Backend):
                 print(f"[Qwen] Model compilation failed (continuing without): {e}")
         elif compile_model:
             print("[Qwen] torch.compile not available (requires PyTorch 2.0+)")
+        else:
+            print("[Qwen] Compile disabled, using eager mode")
 
         # Enable KV cache support
         self._supports_kv_cache = True
@@ -240,6 +243,7 @@ class Qwen(Backend):
 
     def _generate_vision(self, messages, max_new_tokens: int, **gen_kwargs) -> list:
         """Generate using vision path (processor + model.generate)."""
+        print("[Qwen] Using vision path (images in input)")
         device = next(self.model.parameters()).device
         inputs = self.processor.apply_chat_template(
             messages,
@@ -273,6 +277,7 @@ class Qwen(Backend):
         if self._has_images(messages):
             return self._generate_vision(messages, max_new_tokens)
 
+        # Text-only path (pipeline)
         with torch.inference_mode():  # More efficient than no_grad() for inference
             return self.pipe(
                 messages,

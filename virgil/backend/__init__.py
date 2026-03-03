@@ -14,17 +14,9 @@
 
 # (c) 2024 by Chris Paxton
 
-import warnings
+import logging
 
 import torch
-
-# Enable TF32 for matmul (inductor recommends; PyTorch 2.9 warns internally)
-if torch.cuda.is_available() and hasattr(torch, "set_float32_matmul_precision"):
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message=".*new API settings to control TF32.*"
-        )
-        torch.set_float32_matmul_precision("high")
 
 from .base import Backend
 from .ernie import Ernie, get_ernie_model_names
@@ -34,6 +26,16 @@ from .phi import Phi, get_phi_model_names
 from .qwen import Qwen, get_qwen_model_names
 from .smollm import SmolLM, get_smollm_model_names
 from .tinyllama import TinyLlama, get_tinyllama_model_names
+
+# Suppress noisy torch.fx symbolic_shapes warnings (internal PyTorch)
+logging.getLogger("torch.fx.experimental.symbolic_shapes").setLevel(logging.ERROR)
+
+# Enable TF32 via legacy API for compatibility with torch.compile (inductor).
+# Inductor reads allow_tf32; using fp32_precision (new API) causes RuntimeError:
+# "mix of the legacy and new APIs to set the TF32 status"
+if torch.cuda.is_available():
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
 
 backend_list = (
     get_llama_model_names()

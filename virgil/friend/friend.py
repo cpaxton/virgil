@@ -32,17 +32,6 @@ import click
 import discord
 from PIL import Image
 from termcolor import colored
-import torch  # ruff: noqa: F401
-import warnings
-
-# Enable TF32 for matmul before any model loads (inductor recommends this)
-# PyTorch 2.9 emits deprecation warning from internal call; suppress until they fix
-if torch.cuda.is_available() and hasattr(torch, "set_float32_matmul_precision"):
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore", message=".*new API settings to control TF32.*"
-        )
-        torch.set_float32_matmul_precision("high")
 
 # Local imports
 from virgil.io.discord_bot import DiscordBot, Task
@@ -900,6 +889,7 @@ class Friend(DiscordBot):
         # Get relevant memories for this query (dynamic in RAG/hybrid mode)
         # For RAG/hybrid modes, prepend memories as context to the user message
         # For static mode, memories are already in the system prompt
+        t_mem_start = time.perf_counter()
         if self.memory_manager.mode in ("rag", "hybrid"):
             # Refine query: extract key terms from user message for more focused retrieval
             # Use the original message without memory context for query refinement
@@ -961,6 +951,10 @@ class Friend(DiscordBot):
                         )
                 print()
 
+        t_mem = time.perf_counter() - t_mem_start
+        if t_mem > 0.05:
+            print(colored(f"⏱️  Memory retrieval: {t_mem:.2f}s", "cyan"))
+
         response = None
         # Download image attachments for vision models
         images = []
@@ -980,6 +974,7 @@ class Friend(DiscordBot):
                     )
 
         # Now actually prompt the AI
+        t_llm_start = time.perf_counter()
         with self._chat_lock:
             response = self.chat.prompt(
                 text,
@@ -987,17 +982,19 @@ class Friend(DiscordBot):
                 verbose=True,
                 assistant_history_prefix="",
             )
+        t_llm = time.perf_counter() - t_llm_start
+        print(colored(f"⏱️  LLM generation: {t_llm:.2f}s", "cyan"))
 
-            # Store original response for memory extraction (includes thinking)
-            original_response = response
+        # Store original response for memory extraction (includes thinking)
+        original_response = response
 
-            # For action parsing, strip unclosed <think> tags to avoid breaking action parsing
-            # But keep the original response for memory extraction so facts from thinking can be captured
-            if "<think>" in response and "</think>" not in response:
-                # Remove unclosed think tag and everything after it for action parsing
-                response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
+        # For action parsing, strip unclosed <think> tags to avoid breaking action parsing
+        # But keep the original response for memory extraction so facts from thinking can be captured
+        if "<think>" in response and "</think>" not in response:
+            # Remove unclosed think tag and everything after it for action parsing
+            response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
 
-            action_plan = self.parser.parse(response)
+        action_plan = self.parser.parse(response)
 
         print()
         print(
