@@ -13,18 +13,6 @@
 # limitations under the License.
 
 # (c) 2024 by Chris Paxton
-import torch
-
-# Set recommended torch settings for TF32 (PyTorch 2.9+)
-# Use ONLY the new API - mixing with old allow_tf32 causes RuntimeError.
-if torch.cuda.is_available():
-    if hasattr(torch.backends.cuda.matmul, "fp32_precision"):
-        torch.backends.cuda.matmul.fp32_precision = "tf32"
-    if hasattr(torch.backends.cudnn, "conv") and hasattr(
-        torch.backends.cudnn.conv, "fp32_precision"
-    ):
-        torch.backends.cudnn.conv.fp32_precision = "tf32"
-
 
 from .base import Backend
 from .ernie import Ernie, get_ernie_model_names
