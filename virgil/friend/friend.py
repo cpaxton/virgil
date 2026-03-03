@@ -32,18 +32,22 @@ import click
 import discord
 from PIL import Image
 from termcolor import colored
-import torch  # This only works on Ampere+ GPUs
+import torch  # ruff: noqa: F401
+import warnings
+
+# Enable TF32 for matmul before any model loads (inductor recommends this)
+# PyTorch 2.9 emits deprecation warning from internal call; suppress until they fix
+if torch.cuda.is_available() and hasattr(torch, "set_float32_matmul_precision"):
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*new API settings to control TF32.*"
+        )
+        torch.set_float32_matmul_precision("high")
 
 # Local imports
 from virgil.io.discord_bot import DiscordBot, Task
 from virgil.backend import get_backend
 from virgil.chat import ChatWrapper
-
-# Enable TensorFloat-32 (TF32) on Ampere GPUs for faster matrix multiplications
-# Need to let Ruff know this is okay
-# ruff: noqa: F401
-# ruff: noqa: E402
-# TF32 is set in virgil.backend - avoid duplicate/mixed API usage (causes RuntimeError)
 
 from virgil.friend.parser import ChatbotActionParser
 from virgil.friend.reminder import ReminderManager, Reminder

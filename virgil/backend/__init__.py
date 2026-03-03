@@ -14,6 +14,18 @@
 
 # (c) 2024 by Chris Paxton
 
+import warnings
+
+import torch
+
+# Enable TF32 for matmul (inductor recommends; PyTorch 2.9 warns internally)
+if torch.cuda.is_available() and hasattr(torch, "set_float32_matmul_precision"):
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*new API settings to control TF32.*"
+        )
+        torch.set_float32_matmul_precision("high")
+
 from .base import Backend
 from .ernie import Ernie, get_ernie_model_names
 from .gemma import Gemma, get_gemma_model_names
