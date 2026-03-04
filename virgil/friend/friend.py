@@ -639,6 +639,7 @@ class Friend(DiscordBot):
             "guild": guild_name,
             "guild_id": guild_id,
             "user": task.user_name,
+            "user_id": task.user_id,
             "created_via": "remember_action",
         }
 
@@ -894,18 +895,35 @@ class Friend(DiscordBot):
             # Refine query: extract key terms from user message for more focused retrieval
             # Use the original message without memory context for query refinement
             query_text = task.message if hasattr(task, "message") else text
-            # Remove common stop words and focus on meaningful content
-            # For now, use the full query but we could add query refinement here
             refined_query = self._refine_memory_query(query_text)
+
+            # When "about me", add user's name to query for better retrieval
+            if task.user_name and re.search(
+                r"\b(about|know|remember|tell me).{0,30}\b(me|myself)\b",
+                (query_text or "").lower(),
+            ):
+                refined_query = f"{refined_query} {task.user_name}"
+
+            # When user asks "what do you know about me", filter to only their memories
+            about_user = None
+            if task.user_name:
+                msg_lower = (query_text or "").lower()
+                if re.search(
+                    r"\b(about|know|remember|tell me).{0,20}\b(me|myself)\b",
+                    msg_lower,
+                ) or re.search(
+                    r"\b(me|myself)\b.{0,20}\b(about|know|remember)\b", msg_lower
+                ):
+                    about_user = task.user_name
 
             # Get Memory objects with similarity scores for debugging
             memory_with_scores = self.memory_manager.get_relevant_memories(
-                refined_query, return_scores=True
+                refined_query, return_scores=True, about_user=about_user
             )
 
             # Also get formatted string for prompt (using refined query)
             relevant_memories = self.memory_manager.get_memories_for_query(
-                refined_query
+                refined_query, about_user=about_user
             )
 
             if relevant_memories:
@@ -995,6 +1013,16 @@ class Friend(DiscordBot):
             response = re.sub(r"<think>.*$", "", response, flags=re.DOTALL)
 
         action_plan = self.parser.parse(response)
+
+        # When model outputs multiple <say> tags, keep only the last one (safety net)
+        say_indices = [i for i, item in enumerate(action_plan) if item[0] == "say"]
+        if len(say_indices) > 1:
+            last_say_idx = say_indices[-1]
+            action_plan = [
+                item
+                for i, item in enumerate(action_plan)
+                if item[0] != "say" or i == last_say_idx
+            ]
 
         print()
         print(
@@ -2643,6 +2671,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                             "guild": guild_name,
                             "guild_id": guild_id,
                             "user": task.user_name,
+                            "user_id": task.user_id,
                             "created_via": "auto_extraction",
                             "source_message": user_message[
                                 :100

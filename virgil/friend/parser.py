@@ -19,6 +19,27 @@ from termcolor import colored
 
 import re
 
+# Content that looks like instruction repetition (list of action names)
+_GARBAGE_SAY_PATTERNS = (
+    r"^,\s*<",  # Starts with ", <" (e.g. ", <imagine>, <meme>")
+    r"^<imagine>\s*,\s*<meme>",  # List of action tags
+    r"^<say>\s*,\s*<imagine>",  # Repeated from instructions
+)
+
+
+def _is_garbage_say_content(content: str) -> bool:
+    """Return True if say content looks like instruction repetition, not a real message."""
+    if not content or len(content.strip()) < 3:
+        return True
+    content_stripped = content.strip()
+    for pattern in _GARBAGE_SAY_PATTERNS:
+        if re.search(pattern, content_stripped):
+            return True
+    # Content that's mostly action tag names
+    if re.search(r"^[<\s,\w>]+$", content_stripped) and "<" in content_stripped:
+        return True
+    return False
+
 
 def extract_tags(
     text: str,
@@ -52,6 +73,18 @@ def extract_tags(
         text = re.sub(r"^.*?<think>", "", text, flags=re.DOTALL)
         # Remove any remaining unclosed <think> tags
         text = re.sub(r"<think>.*$", "", text, flags=re.DOTALL)
+        # Strip <thought>...</thought> (model sometimes uses this instead of <think>)
+        text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL)
+        # Remove any content before the first real action tag (handles models that
+        # output instruction repetition like "actions: <say>, <imagine>, ...")
+        # Require content to start with a letter (skip ", <imagine>", "<meme>." etc.)
+        first_action = re.search(
+            r"<(say|imagine|meme|remember|forget|weather|remind|schedule|help)>\s*[A-Za-z]",
+            text,
+            re.DOTALL,
+        )
+        if first_action:
+            text = text[first_action.start() :]
 
     # Find all matches
     matches = re.finditer(pattern, text, re.DOTALL)
@@ -70,6 +103,11 @@ def extract_tags(
             attr_matches = re.findall(attr_pattern, attr_string)
             for attr_name, attr_value in attr_matches:
                 attributes[attr_name] = attr_value
+
+        # Filter garbage: "say" content that looks like instruction repetition
+        # (e.g. ", <imagine>, <meme>, ..." from "actions: <say>, <imagine>, ...")
+        if tag == "say" and _is_garbage_say_content(content):
+            continue
 
         result.append((tag, content, attributes))
 
@@ -108,14 +146,35 @@ def extract_tags(
                     for attr_name, attr_value in attr_matches:
                         attributes[attr_name] = attr_value
 
+                # Filter garbage say content from unmatched tags too
+                if tag == "say" and _is_garbage_say_content(content):
+                    continue
+
                 result.append((tag, content, attributes))
 
-    # if nothing at all was parsed, just say whatever was in the text
+    # if nothing at all was parsed, try to extract <say> content or use fallback
     if len(result) == 0:
-        # remove any dangling tags
-        text = re.sub(r"<[^>]+>", "", text)
-
-        result.append(("say", text.strip(), {}))
+        # Last resort: extract <say>...</say> even from malformed output
+        say_match = re.search(r"<say>(.*?)</say>", text, re.DOTALL)
+        if say_match:
+            content = say_match.group(1).strip()
+            if not _is_garbage_say_content(content):
+                result.append(("say", content, {}))
+        if len(result) == 0:
+            # remove any dangling tags and try fallback
+            text = re.sub(r"<[^>]+>", "", text)
+            clean = text.strip()
+            # Don't send structured reasoning or instruction repetition as a message
+            if (
+                clean
+                and not _is_garbage_say_content(clean)
+                and not re.search(
+                    r"^(Analyze|Determine|Draft|Final|Action|Required|1\.|2\.)",
+                    clean,
+                    re.IGNORECASE,
+                )
+            ):
+                result.append(("say", clean, {}))
 
     return result
 

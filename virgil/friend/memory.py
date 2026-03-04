@@ -126,6 +126,9 @@ class MemoryManager:
         self.memories: Dict[str, Memory] = {}
         self._embedding_model = None
         self._embedding_cache = {}  # Cache embeddings in memory
+        self._llm_fallback_warned = (
+            False  # Only warn once when falling back to sentence-transformers
+        )
 
         # Load existing memories
         self._load_memories()
@@ -264,11 +267,14 @@ class MemoryManager:
                 self._embedding_cache[text] = embedding
                 return embedding
             else:
-                # If LLM embedding fails, we can't fall back since we didn't load sentence-transformers
-                print(
-                    "Warning: LLM embedding failed and sentence-transformers not loaded"
-                )
-                return None
+                # LLM embedding failed - fall back to sentence-transformers if available
+                if not self._llm_fallback_warned:
+                    print(
+                        "Warning: LLM embedding failed, falling back to sentence-transformers"
+                    )
+                    self._llm_fallback_warned = True
+                self.use_llm_embeddings = False  # Disable to use sentence-transformers
+                # Fall through to sentence-transformers path below
 
         # Use sentence-transformers (only if LLM embeddings are disabled)
         model = self._get_embedding_model()
@@ -400,7 +406,11 @@ class MemoryManager:
         return False
 
     def get_relevant_memories(
-        self, query: str, max_results: Optional[int] = None, return_scores: bool = False
+        self,
+        query: str,
+        max_results: Optional[int] = None,
+        return_scores: bool = False,
+        about_user: Optional[str] = None,
     ) -> Union[List[Memory], List[tuple[float, Memory]]]:
         """
         Retrieve relevant memories for a query using semantic similarity with improved filtering.
@@ -409,6 +419,7 @@ class MemoryManager:
             query: Query text to find relevant memories for
             max_results: Maximum number of results (defaults to self.max_memories)
             return_scores: If True, return tuples of (similarity_score, Memory). If False, return just Memory objects.
+            about_user: If set, only return memories where metadata["user"] matches (for "what do you know about me")
 
         Returns:
             List of Memory objects sorted by relevance, or list of (similarity, Memory) tuples if return_scores=True
@@ -418,11 +429,28 @@ class MemoryManager:
 
         max_results = max_results or self.max_memories
 
+        # Filter memories by user when asking about self
+        memories_to_search = list(self.memories.values())
+        if about_user:
+            about_user_lower = (
+                about_user.lower().strip()
+                if isinstance(about_user, str)
+                else str(about_user).lower().strip()
+            )
+            memories_to_search = [
+                m
+                for m in memories_to_search
+                if (m.metadata or {}).get("user", "").lower().strip()
+                == about_user_lower
+            ]
+            if not memories_to_search:
+                return []
+
         # Generate query embedding first
         query_embedding = self._get_embedding(query)
         if query_embedding is None:
             # Fallback to all memories if embedding fails
-            results = list(self.memories.values())[:max_results]
+            results = memories_to_search[:max_results]
             if return_scores:
                 return [(0.0, mem) for mem in results]
             return results
@@ -430,7 +458,7 @@ class MemoryManager:
         # Generate embeddings lazily - only as we need them for similarity computation
         # Embeddings are cached in _embedding_cache, so regenerating is fast if already computed
         similarities = []
-        for memory in self.memories.values():
+        for memory in memories_to_search:
             # Generate embedding lazily if not already cached
             if memory.embedding is None and self.mode in ("rag", "hybrid"):
                 # Check cache first (fast), then generate if needed
@@ -513,26 +541,51 @@ class MemoryManager:
         """
         return [memory.content for memory in self.memories.values()]
 
-    def get_memories_for_query(self, query: str) -> str:
+    def get_memories_for_query(
+        self, query: str, about_user: Optional[str] = None
+    ) -> str:
         """
         Get formatted memories for a query based on current mode.
 
         Args:
             query: Query text
+            about_user: If set, only return memories about this user (for "what do you know about me")
 
         Returns:
             Formatted string of memories (one per line)
         """
         if self.mode == "static":
             memories = self.get_all_memories()
+            if about_user:
+                about_user_lower = about_user.lower().strip()
+                memories = [
+                    m.content
+                    for m in self.memories.values()
+                    if (m.metadata or {}).get("user", "").lower().strip()
+                    == about_user_lower
+                ]
         elif self.mode == "hybrid":
             # Use static if small set, otherwise RAG
             if len(self.memories) < self.hybrid_threshold:
                 memories = self.get_all_memories()
+                if about_user:
+                    about_user_lower = about_user.lower().strip()
+                    memories = [
+                        m.content
+                        for m in self.memories.values()
+                        if (m.metadata or {}).get("user", "").lower().strip()
+                        == about_user_lower
+                    ]
             else:
-                memories = [m.content for m in self.get_relevant_memories(query)]
+                memories = [
+                    m.content
+                    for m in self.get_relevant_memories(query, about_user=about_user)
+                ]
         else:  # rag mode
-            memories = [m.content for m in self.get_relevant_memories(query)]
+            memories = [
+                m.content
+                for m in self.get_relevant_memories(query, about_user=about_user)
+            ]
 
         # Filter out empty strings and join with newlines
         memories = [m for m in memories if m.strip()]
