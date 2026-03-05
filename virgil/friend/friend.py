@@ -152,9 +152,12 @@ class Friend(DiscordBot):
 
         self.backend = get_backend(backend)
         self.backend_name = backend  # Store backend name for meme generator
+        self._max_history_length = max_history_length
         self.chat = ChatWrapper(
             self.backend, max_history_length=max_history_length, preserve=2
         )
+        # Per-channel conversation history (each channel gets its own context)
+        self._channel_chats = {}  # channel_id -> ChatWrapper
         self.attention_window_seconds = attention_window_seconds
         self.raw_prompt = load_prompt_helper(prompt_filename)
         self.prompt = None
@@ -272,6 +275,14 @@ class Friend(DiscordBot):
         # Shutdown handling
         self._shutdown_handler_setup = False
 
+        # Per-channel cache: display_name -> user_id for resolving @mentions in bot output
+        self._mention_cache = {}  # channel_id -> {display_name: user_id}
+
+        # Mid-term memory: compressed summary of recent conversation (per-channel)
+        self._mid_term_summaries = {}  # channel_id -> str (summary text)
+        self._last_activity = {}  # channel_id -> timestamp
+        self._idle_summarize_minutes = 5  # Summarize when idle this long
+
         # Note: Goodbye messages are handled in the run() method's KeyboardInterrupt handler
         # The monkey-patch approach was unreliable, so we handle it explicitly in shutdown
 
@@ -384,6 +395,9 @@ class Friend(DiscordBot):
             )
             # Check if it's time to consolidate memories (queue initial check)
             asyncio.create_task(self._check_and_consolidate_memories())
+
+        # Start idle summarization for mid-term memory (compress recent history when idle)
+        asyncio.create_task(self._idle_summarization_loop())
 
         # Format prompt with memories
         # For static mode: include all memories in system prompt
@@ -579,6 +593,22 @@ class Friend(DiscordBot):
 
         return formatted_message
 
+    def _resolve_mentions(self, content: str, channel_id: int) -> str:
+        """Replace @DisplayName in content with Discord <@userId> for proper mentions.
+
+        Uses the per-channel mention cache built from recent messages.
+        """
+        cache = self._mention_cache.get(channel_id, {})
+        if not cache:
+            return content
+        # Sort by name length descending so "The Onion King" matches before "The"
+        for name in sorted(cache.keys(), key=len, reverse=True):
+            user_id = cache[name]
+            # Replace @Name or @ Name (with optional space)
+            pattern = r"@" + re.escape(name) + r"\b"
+            content = re.sub(pattern, f"<@{user_id}>", content)
+        return content
+
     async def _handle_say_action(self, task: Task, content: str):
         """Handle the 'say' action - send message to channel.
 
@@ -586,6 +616,8 @@ class Friend(DiscordBot):
             task: The task containing channel and context information.
             content: The message content to send.
         """
+        # Resolve @DisplayName to <@userId> for proper Discord mentions
+        content = self._resolve_mentions(content, task.channel.id)
         # Split content into <2000 character chunks
         while len(content) > 0:
             await task.channel.send(content[:2000])
@@ -993,6 +1025,12 @@ class Friend(DiscordBot):
         if t_mem > 0.05:
             print(colored(f"⏱️  Memory retrieval: {t_mem:.2f}s", "cyan"))
 
+        # Prepend mid-term summary (compressed recent history) if available
+        channel_id = task.channel.id if hasattr(task.channel, "id") else None
+        if channel_id and channel_id in self._mid_term_summaries:
+            summary = self._mid_term_summaries[channel_id]
+            text = f"[Recent conversation summary: {summary}]\n\n" + text
+
         response = None
         # Download image attachments for vision models (parallel for speed)
         images = []
@@ -1029,11 +1067,15 @@ class Friend(DiscordBot):
                     )
 
         # Now actually prompt the AI (run in executor to avoid blocking event loop)
+        # Use per-channel chat so each channel has its own conversation history
+        chat = self._get_chat_for_channel(task.channel)
+        self._last_activity[task.channel.id] = time.time()
+
         t_llm_start = time.perf_counter()
 
         def _prompt_with_lock():
             with self._chat_lock:
-                return self.chat.prompt(
+                return chat.prompt(
                     text,
                     images=images if images else None,
                     verbose=True,
@@ -1179,6 +1221,24 @@ class Friend(DiscordBot):
                     print()
 
             extraction_task.add_done_callback(task_done_callback)
+
+    def _get_chat_for_channel(self, channel) -> ChatWrapper:
+        """Get or create ChatWrapper for a channel. Each channel has its own conversation history."""
+        channel_id = channel.id if hasattr(channel, "id") else id(channel)
+        if channel_id not in self._channel_chats:
+            chat = ChatWrapper(
+                self.backend,
+                max_history_length=self._max_history_length,
+                preserve=2,
+                use_kv_cache=getattr(self.chat, "use_kv_cache", True),
+            )
+            # Seed with system prompt (no LLM call - just add to history)
+            prompt = self.prompt
+            if prompt:
+                chat.add_conversation_history("user", prompt)
+                chat.add_conversation_history("assistant", "acknowledge")
+            self._channel_chats[channel_id] = chat
+        return self._channel_chats[channel_id]
 
     def _refine_memory_query(self, query: str) -> str:
         """
@@ -2340,18 +2400,20 @@ class Friend(DiscordBot):
         # Note: assistant_response may include <think> tags - extract facts from both thinking and final output
 
         # Get recent conversation history for context (last few exchanges)
+        # Use the channel's chat for per-channel history
+        chat = self._get_chat_for_channel(task.channel)
         conversation_context = ""
         try:
             # Get recent history from chat wrapper (last 4-6 messages for context)
             if (
-                hasattr(self.chat, "conversation_history")
-                and len(self.chat.conversation_history) > 0
+                hasattr(chat, "conversation_history")
+                and len(chat.conversation_history) > 0
             ):
                 # Get last few exchanges (user + assistant pairs)
                 # Exclude the current exchange since we already have it above
                 recent_history = (
-                    self.chat.conversation_history[:-2]
-                    if len(self.chat.conversation_history) > 2
+                    chat.conversation_history[:-2]
+                    if len(chat.conversation_history) > 2
                     else []
                 )
                 recent_history = recent_history[-6:]  # Last 6 messages = ~3 exchanges
@@ -2820,6 +2882,68 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
             reason: Reason for consolidation ("time", "memory_threshold", etc.)
         """
         await self._consolidation_queue.put({"force": force, "reason": reason})
+
+    async def _idle_summarization_loop(self):
+        """Background task: when a channel is idle, summarize recent history for mid-term memory."""
+        while True:
+            try:
+                await asyncio.sleep(60)  # Check every minute
+                now = time.time()
+                idle_threshold = self._idle_summarize_minutes * 60
+                for channel_id, last_ts in list(self._last_activity.items()):
+                    if now - last_ts < idle_threshold:
+                        continue
+                    chat = self._channel_chats.get(channel_id)
+                    if not chat or len(chat.conversation_history) < 8:
+                        continue
+                    # Summarize all but last 4 messages (keep recent context in raw form)
+                    to_summarize = chat.conversation_history[:-4]
+                    if len(to_summarize) < 4:
+                        continue
+                    history_text = "\n".join(
+                        f"{m.get('role', '?')}: {(m.get('content', '') or '')[:200]}"
+                        for m in to_summarize
+                        if isinstance(m.get("content"), str)
+                    )
+                    if len(history_text) < 100:
+                        continue
+
+                    def _summarize():
+                        with self._chat_lock:
+                            return self.backend(
+                                [
+                                    {
+                                        "role": "user",
+                                        "content": f"Summarize this conversation in 3-5 concise sentences. Focus on key topics, decisions, and who said what:\n\n{history_text}",
+                                    },
+                                ],
+                                max_new_tokens=150,
+                            )
+
+                    try:
+                        loop = asyncio.get_event_loop()
+                        result = await loop.run_in_executor(None, _summarize)
+                        if isinstance(result, list) and len(result) > 0:
+                            gt = result[0].get("generated_text", [])
+                            summary = gt[-1].get("content", "").strip() if gt else ""
+                        else:
+                            summary = str(result).strip() if result else ""
+                        if summary:
+                            self._mid_term_summaries[channel_id] = summary
+                            print(
+                                colored(
+                                    f"📝 Mid-term summary for channel {channel_id}: {summary[:80]}...",
+                                    "cyan",
+                                )
+                            )
+                    except Exception as e:
+                        print(colored(f"Idle summarization failed: {e}", "yellow"))
+                    # Don't summarize again for a while
+                    self._last_activity[channel_id] = now
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                print(colored(f"Idle summarization loop error: {e}", "yellow"))
 
     async def _check_and_consolidate_memories(self, force: bool = False):
         """Check if it's time to consolidate memories and queue consolidation if needed.
@@ -3514,9 +3638,39 @@ Your response:"""
                         )
                     )
 
+        # Process Discord mentions: replace <@userId> with @DisplayName for LLM readability
+        message_content = message.content or ""
+        mentioned_names = []
+        if message.mentions:
+            for user in message.mentions:
+                display = getattr(user, "display_name", None) or user.name
+                if user.id != self._user_id:  # Don't include bot in "mentioned"
+                    mentioned_names.append(display)
+                # Replace <@userId> with @DisplayName so LLM sees readable names
+                mention_pattern = f"<@{user.id}>"
+                message_content = message_content.replace(
+                    mention_pattern, f"@{display}"
+                )
+
+        # Update mention cache for this channel (so bot can resolve @Name -> <@userId> in its replies)
+        channel_id = message.channel.id
+        if channel_id not in self._mention_cache:
+            self._mention_cache[channel_id] = {}
+        cache = self._mention_cache[channel_id]
+        sender_display = (
+            getattr(message.author, "display_name", None) or message.author.name
+        )
+        cache[sender_display] = message.author.id
+        for user in message.mentions or []:
+            if user.id != self._user_id:
+                display = getattr(user, "display_name", None) or user.name
+                cache[display] = user.id
+        # Cap cache size per channel (keep most recent)
+        if len(cache) > 50:
+            self._mention_cache[channel_id] = dict(list(cache.items())[-50:])
+
         # Check for reminder/schedule keywords in the message (for context only, not auto-parsing)
         # Reminders and schedules should only be created when Friend explicitly uses <remind> or <schedule> actions
-        message_content = message.content
         has_reminder_keywords = False
         has_schedule_keywords = False
         if message_content:
@@ -3540,9 +3694,29 @@ Your response:"""
                 keyword in message_content.lower() for keyword in schedule_keywords
             )
 
+        # Detect "person left/gone" phrases - add context so bot stops addressing them
+        msg_lower = message_content.lower().strip()
+        left_gone_patterns = (
+            r"\b(he|she|they|someone)\s*(has\s+)?(left|gone)\b",
+            r"\bsorry\s+(he|she|they|someone)\s*(has\s+)?(left|gone)\b",
+            r"\b(he|she|they)['\u2019]?s\s+gone\b",  # he's gone, she's gone
+            r"\b(he|she|they)\s+left\b",
+            r"\b(they)['\u2019]?re\s+gone\b",  # they're gone
+        )
+        person_left_hint = ""
+        if any(re.search(p, msg_lower) for p in left_gone_patterns):
+            person_left_hint = (
+                " [IMPORTANT: Someone has left the conversation. "
+                "Stop addressing them. Respond only to the person who sent this message.]"
+            )
+
         # Construct the text to prompt the AI
         # Include note about images if present
         text = f"{sender_name} on #{channel_name}: " + message_content
+        if mentioned_names:
+            text += f" [Message directed at: {', '.join(mentioned_names)}]"
+        if person_left_hint:
+            text += person_left_hint
         if image_attachments:
             text += f" [User sent {len(image_attachments)} image(s) that can be edited]"
         if has_reminder_keywords:
@@ -3562,7 +3736,7 @@ Your response:"""
         )
 
         print("Current task queue: ", self.task_queue.qsize())
-        print("Current history length:", len(self.chat))
+        print("Active channels with history:", len(self._channel_chats))
         # print(" -> Response:", response)
         return None
 
