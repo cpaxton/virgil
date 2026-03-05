@@ -95,6 +95,7 @@ class Llama(Backend):
             return self.pipe(
                 messages,
                 max_new_tokens=max_new_tokens,
+                max_length=None,  # Avoid conflict with model default max_length
                 temperature=self.temperature,
                 top_p=self.top_p,
                 do_sample=self.do_sample,

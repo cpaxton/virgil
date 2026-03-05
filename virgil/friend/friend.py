@@ -64,6 +64,26 @@ from virgil.utils.docs import (
 )
 
 
+# Action type to terminal color mapping (used in handle_task and _execute_action_plan)
+ACTION_COLORS = {
+    "say": "green",
+    "imagine": "magenta",
+    "remember": "blue",
+    "forget": "red",
+    "weather": "cyan",
+    "edit_image": "magenta",
+    "remind": "yellow",
+    "show_remind": "cyan",
+    "edit_remind": "yellow",
+    "delete_remind": "red",
+    "schedule": "yellow",
+    "show_schedule": "cyan",
+    "unschedule": "red",
+    "edit_schedule": "yellow",
+    "help": "blue",
+}
+
+
 def load_prompt_helper(prompt_filename: str = "prompt.txt") -> str:
     """Load the prompt from the given filename.
 
@@ -974,32 +994,55 @@ class Friend(DiscordBot):
             print(colored(f"⏱️  Memory retrieval: {t_mem:.2f}s", "cyan"))
 
         response = None
-        # Download image attachments for vision models
+        # Download image attachments for vision models (parallel for speed)
         images = []
         if getattr(task, "attachments", None) and task.attachments:
-            for attachment in task.attachments:
+
+            async def _load_attachment(attachment):
                 try:
                     data = await attachment.read()
-                    img = Image.open(io.BytesIO(data)).convert("RGB")
-                    images.append(img)
-                    print(colored(f"📷 Loaded image: {attachment.filename}", "cyan"))
+                    return (
+                        Image.open(io.BytesIO(data)).convert("RGB"),
+                        attachment.filename,
+                        None,
+                    )
                 except Exception as e:
+                    return None, attachment.filename, e
+
+            results = await asyncio.gather(
+                *[_load_attachment(a) for a in task.attachments],
+                return_exceptions=True,
+            )
+            for result in results:
+                if isinstance(result, Exception):
+                    print(colored(f"Failed to load attachment: {result}", "red"))
+                elif result[0] is not None:
+                    img, filename, err = result
+                    images.append(img)
+                    print(colored(f"📷 Loaded image: {filename}", "cyan"))
+                else:
                     print(
                         colored(
-                            f"Failed to load attachment {attachment.filename}: {e}",
+                            f"Failed to load attachment {result[1]}: {result[2]}",
                             "red",
                         )
                     )
 
-        # Now actually prompt the AI
+        # Now actually prompt the AI (run in executor to avoid blocking event loop)
         t_llm_start = time.perf_counter()
-        with self._chat_lock:
-            response = self.chat.prompt(
-                text,
-                images=images if images else None,
-                verbose=True,
-                assistant_history_prefix="",
-            )
+
+        def _prompt_with_lock():
+            with self._chat_lock:
+                return self.chat.prompt(
+                    text,
+                    images=images if images else None,
+                    verbose=True,
+                    assistant_history_prefix="",
+                )
+
+        response = await asyncio.get_event_loop().run_in_executor(
+            None, _prompt_with_lock
+        )
         t_llm = time.perf_counter() - t_llm_start
         print(colored(f"⏱️  LLM generation: {t_llm:.2f}s", "cyan"))
 
@@ -1039,25 +1082,7 @@ class Friend(DiscordBot):
             else:
                 action, content = item
                 attributes = {}
-            # Color code different action types
-            action_colors = {
-                "say": "green",
-                "imagine": "magenta",
-                "remember": "blue",
-                "forget": "red",
-                "weather": "cyan",
-                "edit_image": "magenta",
-                "remind": "yellow",
-                "show_remind": "cyan",
-                "edit_remind": "yellow",
-                "delete_remind": "red",
-                "schedule": "yellow",
-                "show_schedule": "cyan",
-                "unschedule": "red",
-                "edit_schedule": "yellow",
-                "help": "blue",
-            }
-            action_color = action_colors.get(action, "white")
+            action_color = ACTION_COLORS.get(action, "white")
             print(colored(f"  [{idx}] Action: {action}", action_color, attrs=["bold"]))
             if content:
                 # Truncate long content for display
@@ -2590,6 +2615,9 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
 
                 # Extract lines from response
+                existing_memories_set = set(
+                    self.memory_manager.get_all_memories()
+                )  # Single call, O(1) lookup
                 for line in extraction_result.strip().split("\n"):
                     line = line.strip()
 
@@ -2619,10 +2647,9 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                         continue
 
                     # Check if this memory already exists (avoid duplicates)
-                    # Consolidation will handle merging similar memories later
-                    existing_memories = self.memory_manager.get_all_memories()
-                    if line not in existing_memories:
+                    if line not in existing_memories_set:
                         memories.append(line)
+                        existing_memories_set.add(line)  # Avoid duplicates within batch
 
                 # Add extracted memories
                 if self.auto_memory:
@@ -2648,6 +2675,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                     print(colored("=" * 60, "cyan", attrs=["bold"]))
                     saved_count = 0
                     skipped_count = 0
+                    # Reuse set from parsing loop; update as we add to avoid duplicates
                     for idx, memory_content in enumerate(memories, 1):
                         print(
                             colored(f"  [{idx}] ", "cyan", attrs=["bold"])
@@ -2678,12 +2706,11 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                             ],  # Store snippet for context
                         }
 
-                        # Check if memory already exists before adding
-                        existing_memories = self.memory_manager.get_all_memories()
-                        if memory_content not in existing_memories:
+                        if memory_content not in existing_memories_set:
                             self.memory_manager.add_memory(
                                 memory_content, metadata=metadata
                             )
+                            existing_memories_set.add(memory_content)
                             # Track new memories for consolidation
                             self._memories_since_consolidation += 1
                             saved_count += 1
@@ -2928,25 +2955,7 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                 action, content = item
                 attributes = {}
 
-            # Color code different action types
-            action_colors = {
-                "say": "green",
-                "imagine": "magenta",
-                "remember": "blue",
-                "forget": "red",
-                "weather": "cyan",
-                "edit_image": "magenta",
-                "remind": "yellow",
-                "show_remind": "cyan",
-                "edit_remind": "yellow",
-                "delete_remind": "red",
-                "schedule": "yellow",
-                "show_schedule": "cyan",
-                "unschedule": "red",
-                "edit_schedule": "yellow",
-                "help": "blue",
-            }
-            action_color = action_colors.get(action, "white")
+            action_color = ACTION_COLORS.get(action, "white")
             print(colored(f"  [{idx}] Action: {action}", action_color, attrs=["bold"]))
             if content:
                 # Truncate long content for display

@@ -173,6 +173,7 @@ class Gemma(Backend):
             return self.pipe(
                 messages,
                 max_new_tokens=max_new_tokens,
+                max_length=None,  # Avoid conflict with model's default max_length=20
                 temperature=self.temperature,
                 top_p=self.top_p,
                 do_sample=self.do_sample,
@@ -255,6 +256,7 @@ class Gemma(Backend):
             # Prepare generation kwargs with optimizations
             generation_kwargs = {
                 "max_new_tokens": max_new_tokens,
+                "max_length": None,  # Avoid conflict with model's default max_length=20
                 "temperature": self.temperature,
                 "top_p": self.top_p,
                 "do_sample": self.do_sample,
