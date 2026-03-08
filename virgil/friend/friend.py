@@ -115,7 +115,7 @@ class Friend(DiscordBot):
         attention_window_seconds: float = 600.0,
         image_generator: str = "diffuser",
         join_at_random: bool = False,
-        max_history_length: int = 25,
+        max_history_length: int = 50,
         prompt_filename: str = "prompt.txt",
         home_channel: str = "ask-a-robot",
         weather_api_key: Optional[str] = None,
@@ -127,6 +127,7 @@ class Friend(DiscordBot):
         memory_use_llm_embeddings: bool = False,
         auto_memory: bool = True,
         memory_consolidation_interval_hours: int = 12,
+        memory_extraction_mode: str = "mid_term_only",
     ) -> None:
         """Initialize the bot with the given token and backend.
 
@@ -136,7 +137,7 @@ class Friend(DiscordBot):
             attention_window_seconds (float): The number of seconds to pay attention to a channel. Defaults to 600.0.
             image_generator (str): The image generator to use ("diffuser", "flux", or "qwen-layered"). Defaults to "diffuser".
             join_at_random (bool): Whether to join channels at random. Defaults to False.
-            max_history_length (int): The maximum length of the chat history. Defaults to 25.
+            max_history_length (int): The maximum length of the chat history. Defaults to 50.
             prompt_filename (str): The filename for the prompt. Defaults to "prompt.txt".
             home_channel (str): The name of the home channel to join. Defaults to "ask-a-robot".
             weather_api_key (Optional[str]): OpenWeatherMap API key for weather functionality. Defaults to None.
@@ -148,6 +149,7 @@ class Friend(DiscordBot):
             memory_use_llm_embeddings (bool): Use LLM backend for embeddings instead of sentence-transformers. Defaults to False.
             auto_memory (bool): Automatically extract and store important information from conversations. Defaults to True.
             memory_consolidation_interval_hours (int): Hours between memory consolidation runs. Set to 0 to disable. Defaults to 12.
+            memory_extraction_mode (str): "per_exchange" (extract from every message), "mid_term_only" (extract only from idle summaries - fewer spurious facts), or "both". Defaults to "mid_term_only".
         """
 
         self.backend = get_backend(backend)
@@ -262,6 +264,9 @@ class Friend(DiscordBot):
 
         # Memory consolidation
         self.memory_consolidation_interval_hours = memory_consolidation_interval_hours
+        self.memory_extraction_mode = (
+            memory_extraction_mode  # per_exchange | mid_term_only | both
+        )
         self._last_consolidation_time = None
         self._memories_since_consolidation = 0
         self._consolidation_threshold = 15  # Consolidate after 15 new memories
@@ -1170,8 +1175,8 @@ class Friend(DiscordBot):
 
         # Auto-extract memories from conversation if enabled
         # Run this AFTER all actions are executed and messages are sent
-        # This runs in background, so it doesn't slow down the Discord user experience
-        if self.auto_memory:
+        # With memory_extraction_mode="mid_term_only", skip per-exchange (use mid-term→RAG pipeline instead)
+        if self.auto_memory and self.memory_extraction_mode in ("per_exchange", "both"):
             # Use the original user message (before memory context was prepended) for extraction
             user_message_for_extraction = (
                 task.message
@@ -2489,7 +2494,7 @@ ABOUT CONVERSATION CONTEXT (if significant):
 - Topics of ongoing discussion that should be remembered
 - Context that would help in future conversations
 
-DO NOT EXTRACT:
+DO NOT EXTRACT (CRITICAL - when in doubt, skip):
 - Ephemeral conversation state (channel names, message types, incomplete inputs)
 - Obvious context (what channel we're on, that a message was sent)
 - Transient interactions (testing, typos, single questions without substance)
@@ -2497,7 +2502,10 @@ DO NOT EXTRACT:
 - Meta-information about the conversation itself
 - Speculation or inference (only extract explicit facts)
 - Things the user might be doing (testing, asking) - only what they ARE or HAVE
-- Generic pleasantries or acknowledgments without substance
+- Generic pleasantries, greetings, thanks, or acknowledgments
+- Vague topics ("discussed X") without concrete details
+- Facts that would be obvious to anyone in the conversation
+- One-off questions or temporary interests
 
 Output format: Write ONLY facts, one per line. Each line should be a clear, standalone fact.
 Examples of GOOD output (especially assistant content):
@@ -2531,14 +2539,13 @@ User said hello
 Assistant responded with a greeting
 
 CRITICAL RULES: 
+- Be VERY selective. Fewer, higher-quality facts are better than many spurious ones.
 - EXTRACT facts about what the ASSISTANT said, created, committed to, or DECIDED - this is CRITICAL
 - Extract facts about BOTH the user AND content/commitments/decisions the assistant made
-- Pay special attention to DECISIONS and COMMITMENTS the assistant made (e.g., "I'll do X", "I decided to Y", "I'm creating Z")
+- Pay special attention to DECISIONS and COMMITMENTS the assistant made (e.g., "I'll do X", "I decided to Y")
 - Pay special attention to story elements, characters, settings, and creative content the assistant introduced
-- Remember commitments the assistant made (e.g., "I'll do X", "I'm creating Y", "I decided to...")
-- Be selective - only extract facts that are explicitly stated and will persist
-- Include creative content, technical information, ongoing commitments, and decisions
-- If unsure whether something should be remembered, DON'T extract it
+- Only extract facts that are EXPLICITLY stated and will PERSIST across conversations
+- If unsure whether something should be remembered, DON'T extract it - err on the side of skipping
 - Output ONLY facts, no reasoning, no analysis, no explanations
 - Use clear, concise statements
 - If no facts exist, output ONLY: NONE
@@ -2874,6 +2881,92 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
             )
             print()
 
+    async def _extract_from_mid_term_summary(
+        self, channel_id: int, summary: str
+    ) -> None:
+        """Extract high-value facts from a mid-term summary into RAG. Stricter than per-exchange extraction."""
+        if not self.auto_memory:
+            return
+        prompt = f"""From this conversation summary, extract ONLY facts worth remembering long-term. Be VERY selective.
+
+Summary: {summary}
+
+EXTRACT ONLY:
+- Explicit names, nicknames, or preferred names people use
+- Concrete commitments (e.g. "X will post hourly", "Y decided to continue the story")
+- Named projects, characters, or creative works
+- Explicit preferences stated (job, location, interests) - NOT inferred
+- Important decisions or agreements
+
+DO NOT EXTRACT:
+- Generic greetings, thanks, or acknowledgments
+- Vague topics ("discussed programming")
+- Ephemeral state ("someone left", "channel was active")
+- Speculation or inference
+- Facts that are obvious or trivial
+- Meta-conversation ("they had a chat about X")
+
+Output format: One fact per line. If nothing worth remembering, output ONLY: NONE
+Output now:"""
+
+        try:
+
+            def _extract():
+                with self._chat_lock:
+                    return self.backend(
+                        [{"role": "user", "content": prompt}],
+                        max_new_tokens=100,
+                    )
+
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, _extract)
+            if isinstance(result, list) and len(result) > 0:
+                gt = result[0].get("generated_text", [])
+                text = gt[-1].get("content", "").strip() if gt else ""
+            else:
+                text = str(result).strip() if result else ""
+
+            if not text or text.upper() == "NONE":
+                return
+
+            channel = self.client.get_channel(channel_id) if self.client else None
+            channel_name = (
+                channel.name
+                if channel and hasattr(channel, "name")
+                else str(channel_id)
+            )
+            guild_name = (
+                channel.guild.name
+                if channel and hasattr(channel, "guild") and channel.guild
+                else None
+            )
+            guild_id = (
+                channel.guild.id
+                if channel and hasattr(channel, "guild") and channel.guild
+                else None
+            )
+
+            existing = set(self.memory_manager.get_all_memories())
+            for line in text.split("\n"):
+                line = line.strip()
+                if not line or line.upper() == "NONE" or len(line) < 10:
+                    continue
+                if line in existing:
+                    continue
+                metadata = {
+                    "channel": channel_name,
+                    "channel_id": channel_id,
+                    "guild": guild_name,
+                    "guild_id": guild_id,
+                    "created_via": "mid_term_extraction",
+                }
+                self.memory_manager.add_memory(line, metadata=metadata)
+                existing.add(line)
+                self._memories_since_consolidation += 1
+                print(colored(f"  💾 From mid-term: {line[:60]}...", "green"))
+        except Exception as e:
+            print(colored(f"Mid-term extraction failed: {e}", "yellow"))
+
     async def _queue_consolidation(self, force: bool = False, reason: str = "time"):
         """Queue a consolidation request.
 
@@ -2936,6 +3029,16 @@ Output now (facts only, one per line, PRIORITIZE assistant-created content/commi
                                     "cyan",
                                 )
                             )
+                            # Pipeline: extract from summary into RAG (stricter than per-exchange)
+                            if self.auto_memory and self.memory_extraction_mode in (
+                                "mid_term_only",
+                                "both",
+                            ):
+                                asyncio.create_task(
+                                    self._extract_from_mid_term_summary(
+                                        channel_id, summary
+                                    )
+                                )
                     except Exception as e:
                         print(colored(f"Idle summarization failed: {e}", "yellow"))
                     # Don't summarize again for a while
@@ -3796,7 +3899,9 @@ Your response:"""
 @click.option("--token", default=None, help="The token for the discord bot.")
 @click.option("--backend", default="gemma", help="The backend to use for the chat.")
 @click.option(
-    "--max-history-length", default=25, help="The maximum length of the chat history."
+    "--max-history-length",
+    default=50,
+    help="The maximum length of the chat history. Defaults to 50.",
 )
 @click.option("--prompt", default="prompt.txt", help="The filename for the prompt.")
 @click.option(
@@ -3851,6 +3956,12 @@ Your response:"""
     default=False,
     help="Use LLM backend for embeddings instead of sentence-transformers. Can provide better semantic understanding but may be slower.",
 )
+@click.option(
+    "--memory-extraction-mode",
+    type=click.Choice(["per_exchange", "mid_term_only", "both"]),
+    default="mid_term_only",
+    help="per_exchange: extract from every message; mid_term_only: extract only from idle summaries (fewer spurious facts); both: do both. Defaults to mid_term_only.",
+)
 def main(
     token,
     backend,
@@ -3865,6 +3976,7 @@ def main(
     memory_similarity_threshold,
     auto_memory,
     memory_use_llm_embeddings,
+    memory_extraction_mode,
 ):
     if mcp_only:
         # Run as MCP server only
@@ -3925,6 +4037,7 @@ def main(
             memory_similarity_threshold=memory_similarity_threshold,
             memory_use_llm_embeddings=memory_use_llm_embeddings,
             auto_memory=auto_memory,
+            memory_extraction_mode=memory_extraction_mode,
         )
 
         @bot.client.command(name="summon", help="Summon the bot to a channel.")
